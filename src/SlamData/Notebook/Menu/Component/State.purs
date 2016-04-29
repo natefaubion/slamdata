@@ -70,41 +70,37 @@ make shortcuts = HalogenMenu.makeMenu
     }
   , { label: "Help"
     , submenu:
-        [ { label: "Getting started"
+        [ { label: "Users Guide"
           , shortcutLabel: Nothing
-          , value: Just $ helpURIToValue $ HelpURI "http://slamdata.com/documentation/"
+          , value: Just $ helpURIToValue $ HelpURI "http://docs.slamdata.com/en/latest/users-guide/"
           }
-        , { label: "Manual"
+        , { label: "Tutorial"
           , shortcutLabel: Nothing
-          , value: Just $ helpURIToValue $ HelpURI "http://slamdata.com/documentation/front-end-manual/"
+          , value: Just $ helpURIToValue $ HelpURI "http://docs.slamdata.com/en/latest/tutorial/"
           }
-        , { label: "SlamSQL reference"
+        , { label: "SQL² Reference"
           , shortcutLabel: Nothing
-          , value: Just $ helpURIToValue $ HelpURI "http://slamdata.com/documentation/slamsql-reference/"
+          , value: Just $ helpURIToValue $ HelpURI "http://docs.slamdata.com/en/latest/sql-squared-reference/"
           }
         , { label: "SlamDown reference"
           , shortcutLabel: Nothing
-          , value: Just $ helpURIToValue $ HelpURI "http://slamdata.com/documentation/slamdown-reference/"
+          , value: Just $ helpURIToValue $ HelpURI "http://docs.slamdata.com/en/latest/slamdown-reference/"
           }
         , { label: "Cheatsheet"
           , shortcutLabel: Nothing
-          , value: Just $ helpURIToValue $ HelpURI "http://slamdata.com/support/cheatsheet.pdf"
-          }
-        , { label: "How to guides"
-          , shortcutLabel: Nothing
-          , value: Just $ helpURIToValue $ HelpURI "http://slamdata.com/documentation/how-tos/"
+          , value: Just $ helpURIToValue $ HelpURI "https://d1qmdf3vop2l07.cloudfront.net/buff-hare1.cloudvent.net/raw/images/slamdata-cheatsheet-20160322.pdf"
           }
         , { label: "Securing access to SlamData"
           , shortcutLabel: Nothing
-          , value: Just $ helpURIToValue $ HelpURI "http://slamdata.com/documentation/quick-guide-resources/"
+          , value: Just $ helpURIToValue $ HelpURI "http://docs.slamdata.com/en/latest/securing-slamdata/"
           }
         , { label: "Report a bug"
           , shortcutLabel: Nothing
-          , value: Just $ helpURIToValue $ HelpURI "mailto:support@slamdata.com?subject=Bug found"
+          , value: Just $ helpURIToValue $ HelpURI "https://slamdata.atlassian.net/secure/Dashboard.jspa"
           }
         , { label: "Request support"
           , shortcutLabel: Nothing
-          , value: Just $ helpURIToValue $ HelpURI "mailto:support@slamdata.com?subject=Request help"
+          , value: Just $ helpURIToValue $ HelpURI "http://slamdata.com/support-portal/submit-a-support-request/"
           }
         ]
     }
