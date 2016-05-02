@@ -31,7 +31,7 @@ import Control.UI.Browser (newTab, locationObject)
 import Data.Argonaut (Json)
 import Data.Array (catMaybes, nub)
 import Data.BrowserFeatures (BrowserFeatures)
-import Data.Lens (LensP(), view, (.~), (%~), (?~), (^?))
+import Data.Lens ((.~), (%~), (^?))
 import Data.Lens.Prism.Coproduct (_Right)
 import Data.List as List
 import Data.Map as Map
@@ -48,6 +48,7 @@ import DOM.HTML.Location as Location
 
 import Halogen as H
 import Halogen.Component.Utils (forceRerender')
+import Halogen.Component.Utils.Debounced (fireDebouncedQuery')
 import Halogen.HTML.Indexed as HH
 import Halogen.Component.ChildPath (injSlot, injState)
 import Halogen.HTML.Properties.Indexed as HP
@@ -69,14 +70,13 @@ import SlamData.Notebook.Card.Port (Port(..))
 import SlamData.Notebook.Deck.BackSide.Component as Back
 import SlamData.Notebook.Deck.Component.ChildSlot (cpBackSide, cpCard, ChildQuery, ChildState, ChildSlot, CardSlot(..))
 import SlamData.Notebook.Deck.Component.Query (QueryP, Query(..))
-import SlamData.Notebook.Deck.Component.State (CardConstructor, CardDef, DebounceTrigger, State, StateP, StateMode(..), _accessType, _activeCardId, _browserFeatures, _cards, _dependencies, _fresh, _globalVarMap, _name, _path, _pendingCards, _runTrigger, _saveTrigger, _stateMode, _viewingCard, _backsided, addCard, addCard', addPendingCard,  cardsOfType, findChildren, findDescendants, findParent, findRoot, fromModel, getCardType, initialDeck, notebookPath, removeCards, findLast, findLastCardType)
+import SlamData.Notebook.Deck.Component.State (CardConstructor, CardDef, State, StateP, StateMode(..), _accessType, _activeCardId, _browserFeatures, _cards, _dependencies, _fresh, _globalVarMap, _name, _path, _pendingCards, _runTrigger, _saveTrigger, _stateMode, _viewingCard, _backsided, addCard, addCard', addPendingCard,  cardsOfType, findChildren, findDescendants, findParent, findRoot, fromModel, getCardType, initialDeck, notebookPath, removeCards, findLast, findLastCardType)
 import SlamData.Notebook.Deck.Model as Model
 import SlamData.Notebook.Routing (mkNotebookHash, mkNotebookCardHash, mkNotebookURL)
 import SlamData.Quasar.Data (save, load) as Quasar
 import SlamData.Quasar.FS (move, getNewName) as Quasar
 import SlamData.Render.CSS as CSS
 
-import Utils.Debounced (debouncedEventSource)
 import Utils.Path (DirPath)
 
 type NotebookHTML = H.ParentHTML ChildState Query ChildQuery Slam ChildSlot
@@ -465,7 +465,7 @@ runPendingCards _ = do
 runCard ∷ CardId → NotebookDSL Unit
 runCard cardId = do
   H.modify (addPendingCard cardId)
-  _runTrigger `fireDebouncedQuery` RunPendingCards
+  fireDebouncedQuery' (Milliseconds 500.0) _runTrigger RunPendingCards
 
 -- | Updates the evaluated value for a card by running it with the specified
 -- | input and then runs any cards that depend on the card's output with the
@@ -492,23 +492,7 @@ updateCard inputPort cardId = do
 -- | H.action, but instead enqueues a debounced H.query to trigger the actual save.
 triggerSave ∷ Unit → NotebookDSL Unit
 triggerSave _ =
-  _saveTrigger `fireDebouncedQuery` SaveNotebook
-
--- | Fires the specified debouced H.query trigger with the passed H.query. This
--- | function also handles constructing the initial trigger if it has not yet
--- | been created.
-fireDebouncedQuery
-  ∷ LensP State (Maybe DebounceTrigger)
-  → H.Action Query
-  → NotebookDSL Unit
-fireDebouncedQuery lens act = do
-  t ← H.gets (view lens) >>= \mbt → case mbt of
-    Just t' → pure t'
-    Nothing → do
-      t' ← debouncedEventSource H.fromEff H.subscribe' (Milliseconds 500.0)
-      H.modify (lens ?~ t')
-      pure t'
-  H.liftH $ H.liftH $ t $ H.action $ act
+  fireDebouncedQuery' (Milliseconds 500.0) _saveTrigger SaveNotebook
 
 -- | Saves the notebook as JSON, using the current values present in the state.
 saveNotebook ∷ Unit → NotebookDSL Unit

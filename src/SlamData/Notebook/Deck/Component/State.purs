@@ -20,7 +20,6 @@ module SlamData.Notebook.Deck.Component.State
   , StateMode(..)
   , CardDef
   , CardConstructor
-  , DebounceTrigger
   , initialDeck
   , _fresh
   , _accessType
@@ -118,8 +117,8 @@ type State =
   , path ∷ Maybe DirPath
   , browserFeatures ∷ BrowserFeatures
   , viewingCard ∷ Maybe CardId
-  , saveTrigger ∷ Maybe DebounceTrigger
-  , runTrigger ∷ Maybe DebounceTrigger
+  , saveTrigger ∷ Maybe (Query Unit → Slam Unit)
+  , runTrigger ∷ Maybe (Query Unit → Slam Unit)
   , pendingCards ∷ S.Set CardId
   , globalVarMap ∷ Port.VarMap
   , stateMode ∷ StateMode
@@ -131,9 +130,6 @@ type CardDef = { id ∷ CardId, ty ∷ CardType, ctor ∷ CardConstructor }
 
 -- | The specific `SlotConstructor` type for cards in the notebook.
 type CardConstructor = H.SlotConstructor CardStateP CardQueryP Slam CardSlot
-
--- | The type of functions used to trigger a debounced query.
-type DebounceTrigger = Query Unit → Slam Unit
 
 -- | Constructs a default `State` value.
 initialDeck ∷ BrowserFeatures → State
@@ -198,11 +194,11 @@ _viewingCard ∷ LensP State (Maybe CardId)
 _viewingCard = lens _.viewingCard _{viewingCard = _}
 
 -- | The debounced trigger for notebook save actions.
-_saveTrigger ∷ LensP State (Maybe DebounceTrigger)
+_saveTrigger ∷ LensP State (Maybe (Query Unit → Slam Unit))
 _saveTrigger = lens _.saveTrigger _{saveTrigger = _}
 
 -- | The debounced trigger for running all cards that are pending.
-_runTrigger ∷ LensP State (Maybe DebounceTrigger)
+_runTrigger ∷ LensP State (Maybe (Query Unit → Slam Unit))
 _runTrigger = lens _.runTrigger _{runTrigger = _}
 
 -- | The global `VarMap`, passed through to the notebook via the URL.
