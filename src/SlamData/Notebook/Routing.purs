@@ -44,21 +44,22 @@ import SlamData.Notebook.AccessType as AT
 import SlamData.Notebook.Action as NA
 import SlamData.Notebook.Card.CardId as CID
 import SlamData.Notebook.Card.Port.VarMap as Port
+import SlamData.Notebook.Deck.DeckId as D
 
 import Text.Parsing.Parser (runParser)
 
 import Utils.Path as UP
 
 data Routes
-  = CardRoute UP.DirPath CID.CardId AccessType Port.VarMap
+  = CardRoute UP.DirPath (L.List D.DeckId) CID.CardId AccessType Port.VarMap
   | ExploreRoute UP.FilePath
-  | NotebookRoute UP.DirPath NA.Action Port.VarMap
+  | NotebookRoute UP.DirPath (L.List D.DeckId) NA.Action Port.VarMap
 
 routing :: Match Routes
 routing
   =   ExploreRoute <$> (oneSlash *> Match.lit "explore" *> explored)
-  <|> CardRoute <$> notebook <*> (Match.lit "cards" *> cardId) <*> accessType <*> optionalVarMap
-  <|> NotebookRoute <$> notebook <*> action <*> optionalVarMap
+  <|> CardRoute <$> notebook <*> deckIds <*> (Match.lit "cards" *> cardId) <*> accessType <*> optionalVarMap
+  <|> NotebookRoute <$> notebook <*> deckIds <*> action <*> optionalVarMap
 
   where
   optionalVarMap :: Match Port.VarMap
@@ -119,6 +120,9 @@ routing
 
   checkExtension :: String -> Boolean
   checkExtension = R.test extensionRegex
+
+  deckIds :: Match (L.List D.DeckId)
+  deckIds = Match.list $ Match.eitherMatch $ map D.stringToDeckId Match.str
 
   action :: Match NA.Action
   action

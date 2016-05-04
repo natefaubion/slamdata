@@ -28,8 +28,10 @@ import Control.UI.Browser (locationString)
 
 import Data.Functor.Coproduct.Nested (coproduct3)
 import Data.Lens ((^.), (.~), (?~))
+import Data.List as L
 import Data.StrMap as SM
-import Data.Path.Pathy (printPath)
+import Data.Path.Pathy ((</>))
+import Data.Path.Pathy as Pathy
 
 import Halogen as H
 import Halogen.Component.ChildPath (injSlot)
@@ -48,11 +50,13 @@ import SlamData.Notebook.Card.Component.Query as CQ
 import SlamData.Notebook.Card.Port.VarMap as VM
 import SlamData.Notebook.Component.ChildSlot (ChildQuery, ChildSlot, ChildState, cpDialog, cpDeck, cpHeader)
 import SlamData.Notebook.Component.Query (QueryP, Query(..), fromDraftboard, fromDeck, toDraftboard, toDeck)
-import SlamData.Notebook.Component.State (State, _accessType, _browserFeatures,  _loaded, _parentHref, _version, _viewingCard, initialState)
+import SlamData.Notebook.Component.State (State, _accessType, _browserFeatures,  _loaded, _parentHref, _path, _version, _viewingCard, initialState)
 import SlamData.Notebook.Deck.BackSide.Component as Back
 import SlamData.Notebook.Deck.Component as Deck
 import SlamData.Notebook.Deck.Component.ChildSlot (CardSlot(..))
+import SlamData.Notebook.Deck.DeckId (DeckId(..))
 import SlamData.Notebook.Dialog.Component as Dialog
+import SlamData.Notebook.Model as Model
 import SlamData.Notebook.FormBuilder.Component as FB
 import SlamData.Notebook.FormBuilder.Item.Model as FBI
 import SlamData.Notebook.Routing (mkNotebookCardURL)
@@ -141,6 +145,22 @@ eval (SetParentHref href next) = H.modify (_parentHref ?~ href) $> next
 eval (DismissAll next) = do
   querySignIn $ H.action SignIn.DismissSubmenu
   pure next
+eval (GetPath k) = k <$> H.gets _.path
+eval (Reset features path next) = do
+  H.modify (_path .~ Just path)
+  queryDeck $ H.action $ Deck.Reset features path Nothing
+  pure next
+eval (Load features path deckIds next) = do
+  H.modify (_path .~ Just path)
+  let load = void ∘ queryDeck ∘ H.action ∘ Deck.LoadNotebook features path
+  case L.head deckIds of
+    Just deckId → load deckId
+    Nothing → rootDeck path >>= either (const (pure unit)) load
+    -- Show load error somehow
+  pure next
+
+rootDeck ∷ UP.DirPath → DraftboardDSL (Either String DeckId)
+rootDeck path = map (map DeckId) $ Model.getRoot (path </> Pathy.file "index")
 
 
 peek ∷ ∀ a. ChildQuery a → DraftboardDSL Unit
@@ -187,7 +207,7 @@ deckPeek =
           ⊕ "/"
           ⊕ SlamData.Config.notebookUrl
           ⊕ "#"
-          ⊕ UP.encodeURIPath (printPath nPath)
+          ⊕ UP.encodeURIPath (Pathy.printPath nPath)
           ⊕ "view"
     Back.Embed →
       queryDeck (H.request Deck.GetActiveCardId)

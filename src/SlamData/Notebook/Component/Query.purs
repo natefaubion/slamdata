@@ -18,6 +18,9 @@ module SlamData.Notebook.Component.Query where
 
 import SlamData.Prelude
 
+import Data.BrowserFeatures as BF
+import Data.List as L
+
 import Halogen as H
 import Halogen.Component.ChildPath (injSlot, injQuery)
 
@@ -25,6 +28,9 @@ import SlamData.Notebook.AccessType (AccessType)
 import SlamData.Notebook.Card.CardId (CardId)
 import SlamData.Notebook.Component.ChildSlot (ChildQuery, ChildSlot, cpDeck)
 import SlamData.Notebook.Deck.Component.Query as Deck
+import SlamData.Notebook.Deck.DeckId (DeckId)
+
+import Utils.Path as UP
 
 data Query a
   = SetAccessType AccessType a
@@ -33,6 +39,9 @@ data Query a
   | GetViewingCard (Maybe CardId → a)
   | SetParentHref String a
   | DismissAll a
+  | Reset BF.BrowserFeatures UP.DirPath a
+  | Load BF.BrowserFeatures UP.DirPath (L.List DeckId) a
+  | GetPath (Maybe UP.DirPath → a)
 
 
 type QueryP = Coproduct Query (H.ChildF ChildSlot ChildQuery)

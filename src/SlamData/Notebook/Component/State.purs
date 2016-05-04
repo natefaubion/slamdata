@@ -24,6 +24,8 @@ import Data.Lens (LensP, lens)
 import SlamData.Notebook.AccessType (AccessType(..))
 import SlamData.Notebook.Card.CardId (CardId)
 
+import Utils.Path (DirPath)
+
 type State =
   { accessType ∷ AccessType
   , browserFeatures ∷ BrowserFeatures
@@ -31,6 +33,7 @@ type State =
   , viewingCard ∷ Maybe CardId
   , version ∷ Maybe String
   , parentHref ∷ Maybe String
+  , path ∷ Maybe DirPath
   }
 
 
@@ -42,6 +45,7 @@ initialState {browserFeatures, version} =
   , viewingCard: Nothing
   , version: version
   , parentHref: Nothing
+  , path: Nothing
   }
 
 _accessType ∷ ∀ a r. LensP {accessType ∷ a|r} a
@@ -61,3 +65,6 @@ _version = lens _.version _{version = _}
 
 _parentHref ∷ ∀ a r. LensP {parentHref ∷ a |r} a
 _parentHref = lens _.parentHref _{parentHref = _}
+
+_path ∷ ∀ a r. LensP {path ∷ a |r} a
+_path = lens _.path _{path = _}

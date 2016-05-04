@@ -30,11 +30,10 @@ import SlamData.Notebook.Card.CardId as CID
 import SlamData.Notebook.Card.CardType as CT
 import SlamData.Notebook.Card.Port.VarMap as Port
 import SlamData.Notebook.Deck.Component.ChildSlot (ChildSlot, ChildQuery)
+import SlamData.Notebook.Deck.DeckId (DeckId)
 
 import Utils.Path as UP
 
--- | `GetNotebookPath` returns the notebook's path, constructed using
--- | `notebookPath`.
 data Query a
   = AddCard CT.CardType a
   | RunActiveCard a
@@ -45,9 +44,9 @@ data Query a
   | SetAccessType AT.AccessType a
   | ExploreFile BF.BrowserFeatures UP.FilePath a
   | Publish a
-  | LoadNotebook BF.BrowserFeatures UP.DirPath a
+  | LoadNotebook BF.BrowserFeatures UP.DirPath DeckId a
   | SaveNotebook a
-  | Reset BF.BrowserFeatures UP.DirPath a
+  | Reset BF.BrowserFeatures UP.DirPath (Maybe DeckId) a
   | GetGlobalVarMap (Port.VarMap → a)
   | SetGlobalVarMap Port.VarMap a
   | FindCardParent CID.CardId (Maybe CID.CardId → a)

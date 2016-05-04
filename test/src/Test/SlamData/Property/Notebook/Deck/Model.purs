@@ -41,7 +41,8 @@ instance arbitraryArbNotebook ∷ Arbitrary ArbDeck where
   arbitrary = do
     cards ← map runArbCard <$> arbitrary
     dependencies ← M.fromList ∘ map (bimap runArbCardId runArbCardId) <$> arbitrary
-    pure $ ArbDeck { cards, dependencies }
+    name ← arbitrary
+    pure $ ArbDeck { name, cards, dependencies }
 
 check ∷ QC Unit
 check = quickCheck $ runArbDeck ⋙ \model →

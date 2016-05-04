@@ -18,6 +18,8 @@ module SlamData.Notebook (main) where
 
 import SlamData.Prelude
 
+import Data.List as L
+
 import Control.Monad.Aff (Aff, forkAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
@@ -36,6 +38,7 @@ import SlamData.Notebook.Card.CardId as CID
 import SlamData.Notebook.Card.Port as Port
 import SlamData.Notebook.Component as Draftboard
 import SlamData.Notebook.Deck.Component as Deck
+import SlamData.Notebook.Deck.DeckId (DeckId)
 import SlamData.Effects (SlamDataRawEffects, SlamDataEffects)
 import SlamData.Notebook.Routing (Routes(..), routing)
 import SlamData.Notebook.StyleLoader as StyleLoader
@@ -65,9 +68,9 @@ routeSignal
 routeSignal driver = do
   Tuple _ route ← Routing.matchesAff' UP.decodeURIPath routing
   case route of
-    CardRoute res cardId accessType varMap →
-      notebook res (Load accessType) (Just cardId) varMap
-    NotebookRoute res action varMap → notebook res action Nothing varMap
+    CardRoute res deckIds cardId accessType varMap →
+      notebook res deckIds (Load accessType) (Just cardId) varMap
+    NotebookRoute res deckIds action varMap → notebook res deckIds action Nothing varMap
     ExploreRoute res → explore res
 
   where
@@ -81,23 +84,23 @@ routeSignal driver = do
 
   notebook
     ∷ UP.DirPath
+    → L.List DeckId
     → Action
     → Maybe CID.CardId
     → Port.VarMap
     → Aff SlamDataEffects Unit
-  notebook path action viewing varMap = do
+  notebook path deckIds action viewing varMap = do
     let name = UP.getNameStr $ Left path
         accessType = toAccessType action
-    currentPath ← driver $ Draftboard.fromDeck Deck.GetNotebookPath
-    currentVarMap ← driver $ Draftboard.fromDeck Deck.GetGlobalVarMap
+    currentPath ← driver $ Draftboard.fromDraftboard Draftboard.GetPath
     currentViewing ← driver $ Draftboard.fromDraftboard Draftboard.GetViewingCard
     currentAccessType ← driver $ Draftboard.fromDraftboard Draftboard.GetAccessType
 
     when (currentPath ≠ pure path) do
       features ← liftEff detectBrowserFeatures
       if action ≡ New
-        then driver $ Draftboard.toDeck $ Deck.Reset features path
-        else driver $ Draftboard.toDeck $ Deck.LoadNotebook features path
+        then driver $ Draftboard.toDraftboard $ Draftboard.Reset features path
+        else driver $ Draftboard.toDraftboard $ Draftboard.Load features path deckIds
 
     driver $ Draftboard.toDraftboard $ Draftboard.SetViewingCard viewing
     driver $ Draftboard.toDraftboard $ Draftboard.SetAccessType accessType

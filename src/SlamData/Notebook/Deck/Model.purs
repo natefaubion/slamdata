@@ -27,16 +27,18 @@ import SlamData.Notebook.Card.CardId (CardId)
 import SlamData.Notebook.Card.Model as Card
 
 type Deck =
-  { cards :: Array Card.Model
+  { name :: Maybe String
+  , cards :: Array Card.Model
   , dependencies :: M.Map CardId CardId
   }
 
 emptyNotebook :: Deck
-emptyNotebook = { cards: [ ], dependencies: M.empty }
+emptyNotebook = { name: Nothing, cards: [ ], dependencies: M.empty }
 
 encode :: Deck -> Json
 encode r
-   = "version" := 2
+   = "version" := 3
+  ~> "name" := r.name
   ~> "cards" := map Card.encode r.cards
   ~> "dependencies" := r.dependencies
   ~> jsonEmptyObject
@@ -44,8 +46,11 @@ encode r
 decode :: Json -> Either String Deck
 decode = decodeJson >=> \obj -> do
   case obj .? "version" of
-    Right n | n /= 2 -> throwError "Expected notebook format v2"
+    Right n | n /= 3 -> throwError "Expected notebook format v3"
     l -> l
-  { cards: _, dependencies: _ }
-    <$> (traverse Card.decode =<< obj .? "cards")
+  { name: _
+  , cards: _
+  , dependencies: _
+  } <$> obj .? "name"
+    <*> (traverse Card.decode =<< obj .? "cards")
     <*> obj .? "dependencies"

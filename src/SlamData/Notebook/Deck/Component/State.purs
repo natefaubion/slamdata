@@ -21,6 +21,7 @@ module SlamData.Notebook.Deck.Component.State
   , CardDef
   , CardConstructor
   , initialDeck
+  , _id
   , _fresh
   , _accessType
   , _cards
@@ -49,7 +50,7 @@ module SlamData.Notebook.Deck.Component.State
   , getCardType
   , cardsOfType
   , fromModel
-  , notebookPath
+  , deckPath
   ) where
 
 import SlamData.Prelude
@@ -64,11 +65,9 @@ import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as P
 import Data.Set as S
 import Data.StrMap as SM
-import Data.These (These(..), theseLeft)
 
 import Halogen as H
 
-import SlamData.Config as Config
 import SlamData.Effects (Slam)
 import SlamData.Notebook.AccessType (AccessType(..))
 import SlamData.Notebook.Card.Ace.Component (AceEvaluator, AceSetup, aceComponent)
@@ -93,6 +92,7 @@ import SlamData.Notebook.Card.Viz.Component (vizComponent)
 import SlamData.Notebook.Card.OpenResource.Component (openResourceComponent)
 import SlamData.Notebook.Deck.Component.ChildSlot (CardSlot(..), ChildSlot, ChildState, ChildQuery)
 import SlamData.Notebook.Deck.Component.Query (Query)
+import SlamData.Notebook.Deck.DeckId (DeckId, deckIdToString)
 import SlamData.Notebook.Deck.Model as Model
 
 import Utils.Path (DirPath)
@@ -107,13 +107,14 @@ data StateMode
 -- | The notebook state. See the corresponding lenses for descriptions of
 -- | the fields.
 type State =
-  { fresh ∷ Int
+  { id ∷ Maybe DeckId
+  , fresh ∷ Int
   , accessType ∷ AccessType
   , cards ∷ List CardDef
   , dependencies ∷ M.Map CardId CardId
   , cardTypes ∷ M.Map CardId CardType
   , activeCardId ∷ Maybe CardId
-  , name ∷ These P.DirName String
+  , name ∷ Maybe String
   , path ∷ Maybe DirPath
   , browserFeatures ∷ BrowserFeatures
   , viewingCard ∷ Maybe CardId
@@ -134,13 +135,14 @@ type CardConstructor = H.SlotConstructor CardStateP CardQueryP Slam CardSlot
 -- | Constructs a default `State` value.
 initialDeck ∷ BrowserFeatures → State
 initialDeck browserFeatures =
-  { fresh: 0
+  { id: Nothing
+  , fresh: 0
   , accessType: Editable
   , cards: mempty
   , cardTypes: M.empty
   , dependencies: M.empty
   , activeCardId: Nothing
-  , name: That Config.newNotebookName
+  , name: Nothing
   , browserFeatures
   , viewingCard: Nothing
   , path: Nothing
@@ -151,6 +153,11 @@ initialDeck browserFeatures =
   , stateMode: Ready
   , backsided: false
   }
+
+-- | The unique identifier of the deck. If it's a fresh, unsaved deck, the id
+-- | will be Nothing.
+_id ∷ LensP State (Maybe DeckId)
+_id = lens _.id _{id = _}
 
 -- | A counter used to generate `CardId` values.
 _fresh ∷ LensP State Int
@@ -173,13 +180,11 @@ _dependencies = lens _.dependencies _{dependencies = _}
 _activeCardId ∷ LensP State (Maybe CardId)
 _activeCardId = lens _.activeCardId _{activeCardId = _}
 
--- | The current notebook name. When the value is `This` is has yet to be saved.
--- | When the value is `That` it has been saved. When the value is `Both` a new
--- | name has been entered but it has not yet been saved with the new name.
-_name ∷ LensP State (These P.DirName String)
+-- | The display name of the deck.
+_name ∷ LensP State (Maybe String)
 _name = lens _.name _{name = _}
 
--- | The path to the notebook in the filesystem
+-- | The path to the deck in the filesystem
 _path ∷ LensP State (Maybe DirPath)
 _path = lens _.path _{path = _}
 
@@ -384,30 +389,31 @@ addPendingCard cardId st@{ pendingCards } =
   removeDescendants ∷ S.Set CardId → S.Set CardId
   removeDescendants = flip S.difference (findDescendants cardId st)
 
--- | Finds the current notebook path, if the notebook has been saved.
-notebookPath ∷ State → Maybe DirPath
-notebookPath state = do
+-- | Finds the current deck path
+deckPath ∷ State → Maybe DirPath
+deckPath state = do
   path ← state.path
-  name ← theseLeft state.name
-  pure $ path </> P.dir' name
+  deckId ← deckIdToString <$> state.id
+  pure $ path </> P.dir deckId
 
 -- | Reconstructs a notebook state from a notebook model.
 fromModel
   ∷ BrowserFeatures
   → Maybe DirPath
-  → Maybe P.DirName
+  → Maybe DeckId
   → Model.Deck
   → Tuple (Array Card.Model) State
-fromModel browserFeatures path name { cards, dependencies } =
+fromModel browserFeatures path deckId { cards, dependencies, name } =
   Tuple
     cards
-    ({ fresh: maybe 0 (_ + 1) $ maximum $ map (runCardId ∘ _.cardId) cards
+    ({ id: deckId
+    , fresh: maybe 0 (_ + 1) $ maximum $ map (runCardId ∘ _.cardId) cards
     , accessType: ReadOnly
     , cards: foldMap cardDefFromModel cards
     , cardTypes: foldl addCardIdTypePair M.empty cards
     , dependencies
     , activeCardId: Nothing
-    , name: maybe (That Config.newNotebookName) This name
+    , name
     , browserFeatures
     , viewingCard: Nothing
     , path
