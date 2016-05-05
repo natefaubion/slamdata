@@ -230,7 +230,7 @@ eval (ExploreFile fs res next) = do
   forceRerender'
   runCard zero
   -- Flush the eval queue
-  saveNotebook unit
+  saveNotebook
   updateNextActionCard
   pure next
 eval (Publish next) = do
@@ -257,11 +257,12 @@ eval (SetAccessType aType next) = do
   pure next
 eval (GetNotebookPath k) = k <$> H.gets deckPath
 eval (SetViewingCard mbcid next) = H.modify (_viewingCard .~ mbcid) $> next
-eval (SaveNotebook next) = saveNotebook unit $> next
-eval (RunPendingCards next) =
+eval (SaveNotebook next) = saveNotebook $> next
+eval (RunPendingCards next) = do
   -- Only run pending cards if we have a deckPath. Some cards run with the
   -- assumption that the deck is saved to disk.
-  H.gets deckPath >>= maybe (pure next) \_ → runPendingCards unit $> next
+  H.gets deckPath >>= traverse_ \_ → runPendingCards
+  pure next
 eval (GetGlobalVarMap k) = k <$> H.gets _.globalVarMap
 eval (SetGlobalVarMap m next) = do
   st ← H.get
@@ -291,7 +292,7 @@ peekBackSide (Back.DoAction action _) = case action of
     for_ (activeId <|> lastId) \trashId → do
       descendants ← H.gets (findDescendants trashId)
       H.modify $ removeCards (S.insert trashId descendants)
-      triggerSave unit
+      triggerSave
       updateNextActionCard
       H.modify (_backsided .~ false)
   Back.Share → pure unit
@@ -316,15 +317,15 @@ peekCard cardId q = case q of
   TrashCard _ → do
     descendants ← H.gets (findDescendants cardId)
     H.modify $ removeCards (S.insert cardId descendants)
-    triggerSave unit
+    triggerSave
     updateNextActionCard
   ToggleCaching _ →
-    triggerSave unit
+    triggerSave
   ShareCard _ → pure unit
   StopCard _ → do
     H.modify $ _runTrigger .~ Nothing
     H.modify $ _pendingCards %~ S.delete cardId
-    runPendingCards unit
+    runPendingCards
   _ → pure unit
 
 
@@ -391,7 +392,7 @@ createCard cardType = do
           $ H.action (SetupCard setupInfo)
       runCard newCardId
   updateNextActionCard
-  triggerSave unit
+  triggerSave
 
 -- | Peek on the inner card components to observe `NotifyRunCard`, which is
 -- | raised by actions within a card that should cause the card to run.
@@ -408,7 +409,7 @@ peekAnyCard ∷ ∀ a. CardId → AnyCardQuery a → NotebookDSL Unit
 peekAnyCard cardId q = do
   for_ (q ^? _NextQuery ∘ _Right ∘ Next._AddCardType) createCard
   when (queryShouldRun q) $ runCard cardId
-  when (queryShouldSave q) $ triggerSave unit
+  when (queryShouldSave q) triggerSave
   pure unit
 
 queryShouldRun ∷ ∀ a. AnyCardQuery a → Boolean
@@ -432,8 +433,8 @@ aceQueryShouldSave (H.ChildF _ q) =
 
 
 -- | Runs all card that are present in the set of pending cards.
-runPendingCards ∷ Unit → NotebookDSL Unit
-runPendingCards _ = do
+runPendingCards ∷ NotebookDSL Unit
+runPendingCards = do
   cards ← H.gets _.pendingCards
   traverse_ runCard' cards
   updateNextActionCard
@@ -454,7 +455,7 @@ runPendingCards _ = do
           -- if there's a parent and an output, pass it on as this card's input
           Just p → updateCard (Just p) cardId
     H.modify $ _pendingCards %~ S.delete cardId
-    triggerSave unit
+    triggerSave
 
 -- | Enqueues the card with the specified ID in the set of cards that are
 -- | pending to run and enqueues a debounced H.query to trigger the cards to
@@ -487,16 +488,16 @@ updateCard inputPort cardId = do
 
 -- | Triggers the H.query for autosave. This does not immediate perform the save
 -- | H.action, but instead enqueues a debounced H.query to trigger the actual save.
-triggerSave ∷ Unit → NotebookDSL Unit
-triggerSave _ =
+triggerSave ∷ NotebookDSL Unit
+triggerSave =
   fireDebouncedQuery' (Milliseconds 500.0) _saveTrigger SaveNotebook
 
 -- | Saves the notebook as JSON, using the current values present in the state.
-saveNotebook ∷ Unit → NotebookDSL Unit
-saveNotebook _ = H.get >>= \st → do
+saveNotebook ∷ NotebookDSL Unit
+saveNotebook = H.get >>= \st → do
   if isUnsaved st ∧ isNewExploreNotebook st
     -- If its an unsaved Explore notebook, it is safe to go ahead and run it.
-    then runPendingCards unit
+    then runPendingCards
     else do
       cards ← catMaybes <$> for (List.fromList st.cards) \card →
         H.query' cpCard (CardSlot card.id)
@@ -520,8 +521,7 @@ saveNotebook _ = H.get >>= \st → do
 
             -- runPendingCards would be deffered if there had previously been
             -- no `deckPath`. We need to flush the queue.
-            when (isNothing $ deckPath st) $
-              runPendingCards unit
+            when (isNothing $ deckPath st) runPendingCards
 
             -- We need to get the modified version of the notebook state.
             H.gets deckPath >>= traverse_ \path' →

@@ -67,6 +67,7 @@ import Data.Set as S
 import Data.StrMap as SM
 
 import Halogen as H
+import Halogen.Component.Utils.Debounced (DebounceTrigger)
 
 import SlamData.Effects (Slam)
 import SlamData.Notebook.AccessType (AccessType(..))
@@ -118,8 +119,8 @@ type State =
   , path ∷ Maybe DirPath
   , browserFeatures ∷ BrowserFeatures
   , viewingCard ∷ Maybe CardId
-  , saveTrigger ∷ Maybe (Query Unit → Slam Unit)
-  , runTrigger ∷ Maybe (Query Unit → Slam Unit)
+  , saveTrigger ∷ Maybe (DebounceTrigger Query Slam)
+  , runTrigger ∷ Maybe (DebounceTrigger Query Slam)
   , pendingCards ∷ S.Set CardId
   , globalVarMap ∷ Port.VarMap
   , stateMode ∷ StateMode
@@ -199,11 +200,11 @@ _viewingCard ∷ LensP State (Maybe CardId)
 _viewingCard = lens _.viewingCard _{viewingCard = _}
 
 -- | The debounced trigger for notebook save actions.
-_saveTrigger ∷ LensP State (Maybe (Query Unit → Slam Unit))
+_saveTrigger ∷ LensP State (Maybe (DebounceTrigger Query Slam))
 _saveTrigger = lens _.saveTrigger _{saveTrigger = _}
 
 -- | The debounced trigger for running all cards that are pending.
-_runTrigger ∷ LensP State (Maybe (Query Unit → Slam Unit))
+_runTrigger ∷ LensP State (Maybe (DebounceTrigger Query Slam))
 _runTrigger = lens _.runTrigger _{runTrigger = _}
 
 -- | The global `VarMap`, passed through to the notebook via the URL.

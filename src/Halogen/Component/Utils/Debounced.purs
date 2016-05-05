@@ -12,7 +12,7 @@ import Data.Time (Milliseconds)
 import Halogen as H
 import Utils.Debounced (debouncedEventSource, DebounceEffects)
 
-type DebounceTrigger f eff = f Unit → Aff eff Unit
+type DebounceTrigger f g = f Unit → g Unit
 
 -- | Fires the specified debouced H.query trigger with the passed H.query. This
 -- | function also handles constructing the initial trigger if it has not yet
@@ -20,7 +20,7 @@ type DebounceTrigger f eff = f Unit → Aff eff Unit
 fireDebouncedQuery'
   ∷ ∀ s s' f f' p eff
   . Milliseconds
-  → LensP s (Maybe (DebounceTrigger f (DebounceEffects eff)))
+  → LensP s (Maybe (DebounceTrigger f (Aff (DebounceEffects eff))))
   → H.Action f
   → H.ParentDSL s s' f f' (Aff (DebounceEffects eff)) p Unit
 fireDebouncedQuery' ms lens act = do
