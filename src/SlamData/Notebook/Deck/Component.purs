@@ -182,7 +182,7 @@ render state =
 
 eval ∷ Natural Query NotebookDSL
 eval (AddCard cardType next) = createCard cardType $> next
-eval (RunActiveCard next) =
+eval (RunActiveCard next) = do
   (maybe (pure unit) runCard =<< H.gets (_.activeCardId)) $> next
 eval (LoadNotebook fs dir deckId next) = do
   state ← H.get
@@ -229,6 +229,8 @@ eval (ExploreFile fs res next) = do
     $ R.File res
   forceRerender'
   runCard zero
+  -- Flush the eval queue
+  saveNotebook unit
   updateNextActionCard
   pure next
 eval (Publish next) = do
@@ -256,7 +258,10 @@ eval (SetAccessType aType next) = do
 eval (GetNotebookPath k) = k <$> H.gets deckPath
 eval (SetViewingCard mbcid next) = H.modify (_viewingCard .~ mbcid) $> next
 eval (SaveNotebook next) = saveNotebook unit $> next
-eval (RunPendingCards next) = runPendingCards unit $> next
+eval (RunPendingCards next) =
+  -- Only run pending cards if we have a deckPath. Some cards run with the
+  -- assumption that the deck is saved to disk.
+  H.gets deckPath >>= maybe (pure next) \_ → runPendingCards unit $> next
 eval (GetGlobalVarMap k) = k <$> H.gets _.globalVarMap
 eval (SetGlobalVarMap m next) = do
   st ← H.get
@@ -489,35 +494,44 @@ triggerSave _ =
 -- | Saves the notebook as JSON, using the current values present in the state.
 saveNotebook ∷ Unit → NotebookDSL Unit
 saveNotebook _ = H.get >>= \st → do
-  unless (isUnsaved st ∧ isNewExploreNotebook st) do
-    cards ← catMaybes <$> for (List.fromList st.cards) \card →
-      H.query' cpCard (CardSlot card.id)
-        $ left
-        $ H.request (SaveCard card.id card.ty)
+  if isUnsaved st ∧ isNewExploreNotebook st
+    -- If its an unsaved Explore notebook, it is safe to go ahead and run it.
+    then runPendingCards unit
+    else do
+      cards ← catMaybes <$> for (List.fromList st.cards) \card →
+        H.query' cpCard (CardSlot card.id)
+          $ left
+          $ H.request (SaveCard card.id card.ty)
 
-    let json = Model.encode { name: st.name, cards, dependencies: st.dependencies }
+      let json = Model.encode { name: st.name, cards, dependencies: st.dependencies }
 
-    for_ st.path \path → do
-      deckId ← runExceptT do
-        i ← ExceptT $ genId path st.id
-        ExceptT $ save path i json
-        pure i
+      for_ st.path \path → do
+        deckId ← runExceptT do
+          i ← ExceptT $ genId path st.id
+          ExceptT $ save path i json
+          pure i
 
-      case deckId of
-        Left err →
-          -- TODO: do something to notify the user saving failed
-          pure unit
-        Right deckId' → do
-          H.modify (_id .~ Just deckId')
-          -- We need to get the modified version of the notebook state.
-          H.gets deckPath >>= traverse_ \path' →
-            let notebookHash =
-                  case st.viewingCard of
-                    Nothing →
-                      mkNotebookHash path' (NA.Load st.accessType) st.globalVarMap
-                    Just cid →
-                      mkNotebookCardHash path' cid st.accessType st.globalVarMap
-            in H.fromEff $ locationObject >>= Location.setHash notebookHash
+        case deckId of
+          Left err → do
+            -- TODO: do something to notify the user saving failed
+            pure unit
+          Right deckId' → do
+            H.modify (_id .~ Just deckId')
+
+            -- runPendingCards would be deffered if there had previously been
+            -- no `deckPath`. We need to flush the queue.
+            when (isNothing $ deckPath st) $
+              runPendingCards unit
+
+            -- We need to get the modified version of the notebook state.
+            H.gets deckPath >>= traverse_ \path' →
+              let notebookHash =
+                    case st.viewingCard of
+                      Nothing →
+                        mkNotebookHash path' (NA.Load st.accessType) st.globalVarMap
+                      Just cid →
+                        mkNotebookCardHash path' cid st.accessType st.globalVarMap
+              in H.fromEff $ locationObject >>= Location.setHash notebookHash
 
   where
 
