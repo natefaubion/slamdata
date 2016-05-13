@@ -34,6 +34,7 @@ module SlamData.Workspace.Card.Component.Query
   , _SaveQuery
   , _OpenResourceQuery
   , _DownloadOptionsQuery
+  , _DraftboardQuery
   , _ErrorQuery
   , module SlamData.Workspace.Card.Common.EvalQuery
   ) where
@@ -59,6 +60,7 @@ import SlamData.Workspace.Card.Chart.Component.Query as Chart
 import SlamData.Workspace.Card.Common.EvalQuery (CardEvalQuery(..), CardEvalInput)
 import SlamData.Workspace.Card.Download.Component.Query as Download
 import SlamData.Workspace.Card.DownloadOptions.Component.Query as DOpts
+import SlamData.Workspace.Card.Draftboard.Component.Query as Draftboard
 import SlamData.Workspace.Card.Error.Component.Query as Error
 import SlamData.Workspace.Card.JTable.Component.Query as JTable
 import SlamData.Workspace.Card.Markdown.Component.Query as Markdown
@@ -119,6 +121,7 @@ data AnyCardQuery a
   | SaveQuery (Save.QueryP a)
   | OpenResourceQuery (Open.QueryP a)
   | DownloadOptionsQuery (DOpts.QueryP a)
+  | DraftboardQuery (Draftboard.QueryP a)
   | ErrorQuery (Error.QueryP a)
 
 _AceQuery ∷ ∀ a. PrismP (AnyCardQuery a) (Ace.QueryP a)
@@ -184,6 +187,11 @@ _OpenResourceQuery = prism' OpenResourceQuery \q → case q of
 _DownloadOptionsQuery ∷ ∀ a. PrismP (AnyCardQuery a) (DOpts.QueryP a)
 _DownloadOptionsQuery = prism' DownloadOptionsQuery \q → case q of
   DownloadOptionsQuery q' → Just q'
+  _ → Nothing
+
+_DraftboardQuery ∷ ∀ a. PrismP (AnyCardQuery a) (Draftboard.QueryP a)
+_DraftboardQuery = prism' DraftboardQuery \q → case q of
+  DraftboardQuery q' → Just q'
   _ → Nothing
 
 _ErrorQuery ∷ ∀ a. PrismP (AnyCardQuery a) (Error.QueryP a)

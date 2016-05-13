@@ -60,6 +60,7 @@ data CardType
   | Save
   | OpenResource
   | DownloadOptions
+  | Draftboard
   | ErrorCard
 
 insertableCardTypes ∷ Array CardType
@@ -79,31 +80,15 @@ insertableCardTypes =
   , DownloadOptions
   ]
 
-instance eqCardType ∷ Eq CardType where
-  eq (Ace m1) (Ace m2) = m1 == m2
-  eq Search Search = true
-  eq Viz Viz = true
-  eq Chart Chart = true
-  eq Markdown Markdown = true
-  eq JTable JTable = true
-  eq Download Download = true
-  eq API API = true
-  eq APIResults APIResults = true
-  eq NextAction NextAction = true
-  eq Save Save = true
-  eq OpenResource OpenResource = true
-  eq DownloadOptions DownloadOptions = true
-  eq ErrorCard ErrorCard = true
-  eq _ _ = false
+derive instance eqCardType ∷ Eq CardType
+derive instance ordCardType ∷ Ord CardType
 
 data AceMode
   = MarkdownMode
   | SQLMode
 
-instance eqAceMode ∷ Eq AceMode where
-  eq MarkdownMode MarkdownMode = true
-  eq SQLMode SQLMode = true
-  eq _ _ = false
+derive instance eqAceMode ∷ Eq AceMode
+derive instance ordAceMode ∷ Ord AceMode
 
 instance encodeJsonCardType ∷ EncodeJson CardType where
   encodeJson (Ace MarkdownMode) = encodeJson "ace-markdown"
@@ -120,6 +105,7 @@ instance encodeJsonCardType ∷ EncodeJson CardType where
   encodeJson Save = encodeJson "save"
   encodeJson OpenResource = encodeJson "open-resource"
   encodeJson DownloadOptions = encodeJson "download-options"
+  encodeJson Draftboard = encodeJson "draftboard"
   encodeJson ErrorCard = encodeJson "error"
 
 instance decodeJsonCardType ∷ DecodeJson CardType where
@@ -140,6 +126,7 @@ instance decodeJsonCardType ∷ DecodeJson CardType where
       "save" → pure Save
       "open-resource" → pure OpenResource
       "download-options" → pure DownloadOptions
+      "draftboard" → pure Draftboard
       "error" → pure ErrorCard
       name → throwError $ "unknown card type '" ⊕ name ⊕ "'"
 
@@ -157,6 +144,7 @@ cardName NextAction = "Next Action"
 cardName Save = "Save"
 cardName OpenResource = "Explore"
 cardName DownloadOptions = "Download"
+cardName Draftboard = "Draftboard"
 cardName ErrorCard = "Error"
 
 cardGlyph ∷ ∀ s f. CardType → H.HTML s f
@@ -173,6 +161,7 @@ cardGlyph NextAction = glyph B.glyphiconStop
 cardGlyph Save = glyph B.glyphiconFloppyDisk
 cardGlyph OpenResource = glyph B.glyphiconFolderOpen
 cardGlyph DownloadOptions = glyph B.glyphiconDownload
+cardGlyph Draftboard = glyph B.glyphiconTh
 cardGlyph ErrorCard = glyph B.glyphiconAlert
 
 cardClasses ∷ CardType → Array H.ClassName
@@ -189,6 +178,7 @@ cardClasses APIResults = [ H.className "sd-card-api-results" ]
 cardClasses NextAction = [ H.className "sd-card-next-action" ]
 cardClasses Save = [ H.className "sd-card-save" ]
 cardClasses OpenResource = [ H.className "sd-card-open-resource" ]
+cardClasses Draftboard = [ H.className "sd-card-draftboard" ]
 cardClasses ErrorCard = [ H.className "sd-card-error" ]
 
 aceCardName ∷ AceMode → String
@@ -229,6 +219,7 @@ nextCardTypes (Just ct) = case ct of
   Save → dataSourceOutput `Arr.snoc` JTable
   OpenResource → dataSourceCards
   DownloadOptions → [ Download ]
+  Draftboard → [ ]
   ErrorCard → [ ]
   where
   dataSourceOutput =

@@ -26,6 +26,7 @@ import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.CardType (CardType(..), AceMode(..))
 import SlamData.Workspace.Card.Chart.Component (chartComponent)
 import SlamData.Workspace.Card.Component (CardComponent)
+import SlamData.Workspace.Card.Draftboard.Component (draftboardComponent)
 import SlamData.Workspace.Card.Download.Component (downloadComponent)
 import SlamData.Workspace.Card.DownloadOptions.Component as DOpts
 import SlamData.Workspace.Card.Error.Component as Error
@@ -57,6 +58,7 @@ cardTypeComponent NextAction _ _ = nextCardComponent
 cardTypeComponent Save _ _ = saveCardComponent
 cardTypeComponent OpenResource _ _ = openResourceComponent
 cardTypeComponent DownloadOptions _ _ = DOpts.comp
+cardTypeComponent Draftboard _ _ = draftboardComponent
 cardTypeComponent ErrorCard _ _ = Error.comp
 
 aceEvalMode ∷ AceMode → AceEvaluator

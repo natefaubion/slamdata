@@ -42,6 +42,7 @@ module SlamData.Workspace.Card.Component.State
   , _SaveState
   , _OpenResourceState
   , _DownloadOptionsState
+  , _DraftboardState
   , _ErrorState
   ) where
 
@@ -65,6 +66,7 @@ import SlamData.Workspace.Card.Chart.Component.State as Chart
 import SlamData.Workspace.Card.Component.Query (CardQuery, InnerCardQuery)
 import SlamData.Workspace.Card.Download.Component.State as Download
 import SlamData.Workspace.Card.DownloadOptions.Component.State as DOpts
+import SlamData.Workspace.Card.Draftboard.Component.State as Draftboard
 import SlamData.Workspace.Card.Error.Component.State as Error
 import SlamData.Workspace.Card.JTable.Component.State as JTable
 import SlamData.Workspace.Card.Markdown.Component.State as Markdown
@@ -75,7 +77,6 @@ import SlamData.Workspace.Card.RunState (RunState(..))
 import SlamData.Workspace.Card.Save.Component.State as Save
 import SlamData.Workspace.Card.Search.Component.State as Search
 import SlamData.Workspace.Card.Viz.Component.State as Viz
-
 
 -- | The common state value for deck cards.
 -- |
@@ -168,6 +169,7 @@ data AnyCardState
   | SaveState Save.State
   | OpenResourceState Open.State
   | DownloadOptionsState DOpts.State
+  | DraftboardState Draftboard.State
   | ErrorState Error.State
 
 _AceState ∷ PrismP AnyCardState Ace.StateP
@@ -233,6 +235,11 @@ _OpenResourceState = prism' OpenResourceState \s → case s of
 _DownloadOptionsState ∷ PrismP AnyCardState DOpts.State
 _DownloadOptionsState = prism' DownloadOptionsState \s → case s of
   DownloadOptionsState s' → Just s'
+  _ → Nothing
+
+_DraftboardState ∷ PrismP AnyCardState Draftboard.State
+_DraftboardState = prism' DraftboardState \s → case s of
+  DraftboardState s' → Just s'
   _ → Nothing
 
 _ErrorState ∷ PrismP AnyCardState Error.State
