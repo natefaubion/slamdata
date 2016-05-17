@@ -21,6 +21,8 @@ import SlamData.Prelude
 import Data.Lens (LensP, lens)
 
 import SlamData.Workspace.AccessType (AccessType(..))
+import SlamData.Workspace.Deck.DeckId (DeckId)
+import SlamData.Workspace.StateMode (StateMode(..))
 
 import Utils.Path (DirPath)
 
@@ -30,6 +32,8 @@ type State =
   , version ∷ Maybe String
   , parentHref ∷ Maybe String
   , path ∷ Maybe DirPath
+  , root ∷ Maybe DeckId
+  , stateMode ∷ StateMode
   }
 
 initialState ∷ Maybe String → State
@@ -39,6 +43,8 @@ initialState version =
   , version
   , parentHref: Nothing
   , path: Nothing
+  , root: Nothing
+  , stateMode: Loading
   }
 
 _accessType ∷ ∀ a r. LensP {accessType ∷ a|r} a
@@ -53,5 +59,11 @@ _version = lens _.version _{version = _}
 _parentHref ∷ ∀ a r. LensP {parentHref ∷ a |r} a
 _parentHref = lens _.parentHref _{parentHref = _}
 
-_path ∷ ∀ a r. LensP {path ∷ a |r} a
+_path ∷ ∀ a r. LensP {path ∷ a|r} a
 _path = lens _.path _{path = _}
+
+_root ∷ ∀ a r. LensP {root ∷ a|r} a
+_root = lens _.root _{root = _}
+
+_stateMode ∷ LensP State StateMode
+_stateMode = lens _.stateMode _{stateMode = _}

@@ -16,6 +16,7 @@ limitations under the License.
 
 module SlamData.Workspace.Deck.Component.Query
   ( Query(..)
+  , DeckAction(..)
   , QueryP
   ) where
 
@@ -29,19 +30,23 @@ import Halogen.HTML.Events.Types (Event, MouseEvent)
 import SlamData.Workspace.AccessType as AT
 import SlamData.Workspace.Card.Port.VarMap as Port
 import SlamData.Workspace.Deck.DeckId (DeckId)
+import SlamData.Workspace.Deck.Model (Deck)
 
 import Utils.Path as UP
 
 data Query a
   = RunActiveCard a
   | RunPendingCards a
+  | GetId (Maybe DeckId → a)
+  | GetPath (Maybe UP.DirPath → a)
   | SetName String a
   | SetAccessType AT.AccessType a
   | ExploreFile UP.FilePath a
   | Publish a
   | Load UP.DirPath DeckId a
+  | SetModel DeckId Deck a
   | Save a
-  | Reset UP.DirPath (Maybe DeckId) a
+  | Reset UP.DirPath a
   | GetGlobalVarMap (Port.VarMap → a)
   | SetGlobalVarMap Port.VarMap a
   | FlipDeck a
@@ -50,5 +55,10 @@ data Query a
   | UpdateSliderPosition (Event MouseEvent) a
   | SetCardElement (Maybe HTMLElement) a
   | StopSliderTransition a
+  | DoAction DeckAction a
+
+data DeckAction
+  = Mirror
+  | Wrap
 
 type QueryP = OpaqueQuery Query

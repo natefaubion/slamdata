@@ -29,8 +29,8 @@ type Deck =
   , cards ∷ Array Card.Model
   }
 
-emptyWorkspace ∷ Deck
-emptyWorkspace =
+emptyDeck :: Deck
+emptyDeck =
   { name: Nothing
   , cards: [ ]
   }

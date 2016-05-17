@@ -78,6 +78,18 @@ sendAfter'
 sendAfter' ms action =
   H.subscribe' $ oneTimeEventSource ms action
 
+raise
+  :: forall s f e
+   . f Unit
+  -> H.ComponentDSL s f (Aff (avar :: AVAR|e)) Unit
+raise = sendAfter (Milliseconds 0.0)
+
+raise'
+  :: forall s s' f f' p e
+   . f Unit
+  -> H.ParentDSL s s' f f' (Aff (avar :: AVAR|e)) p Unit
+raise' = sendAfter' (Milliseconds 0.0)
+
 oneTimeEventSource
   :: forall f e
    . Milliseconds

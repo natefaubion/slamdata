@@ -82,7 +82,7 @@ keywordsAction Share = ["share"]
 keywordsAction Embed = ["embed"]
 keywordsAction Publish = ["publish", "presentation", "view"]
 keywordsAction Mirror = [] --["mirror", "copy", "duplicate", "shallow"]
-keywordsAction Wrap = [] --["wrap", "pin", "card"]
+keywordsAction Wrap = ["wrap", "pin", "card"]
 
 actionEnabled ∷ State → BackAction → Boolean
 actionEnabled st a =

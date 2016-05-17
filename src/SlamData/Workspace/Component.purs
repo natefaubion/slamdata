@@ -24,28 +24,35 @@ import SlamData.Prelude
 
 import Data.Lens ((^.), (.~), (?~))
 import Data.List as L
+import Data.Map as Map
 import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as Pathy
 
 import Halogen as H
 import Halogen.Component.ChildPath (injSlot, injQuery)
-import Halogen.Component.Opaque.Unsafe (opaqueQuery)
+import Halogen.Component.Opaque.Unsafe (opaqueQuery, peekOpaqueQuery)
 import Halogen.HTML.Core (ClassName, className)
 import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as HH
 import Halogen.HTML.Properties.Indexed as HP
+import Halogen.Themes.Bootstrap3 as B
 
 import SlamData.Effects (Slam)
 import SlamData.Header.Component as Header
 import SlamData.Render.CSS as Rc
 import SlamData.SignIn.Component as SignIn
 import SlamData.Workspace.AccessType as AT
+import SlamData.Workspace.Card.CardId as CID
+import SlamData.Workspace.Card.CardType as CT
+import SlamData.Workspace.Card.Draftboard.Component.State as DBS
 import SlamData.Workspace.Component.ChildSlot (ChildQuery, ChildSlot, ChildState, cpDeck, cpHeader)
 import SlamData.Workspace.Component.Query (QueryP, Query(..), fromWorkspace, fromDeck, toWorkspace, toDeck)
-import SlamData.Workspace.Component.State (State, _accessType, _loaded, _parentHref, _path, _version, initialState)
+import SlamData.Workspace.Component.State (State, _accessType, _loaded, _parentHref, _path, _version, _stateMode,  initialState)
 import SlamData.Workspace.Deck.Component as Deck
 import SlamData.Workspace.Deck.DeckId (DeckId(..))
+import SlamData.Workspace.Deck.Model as DM
 import SlamData.Workspace.Model as Model
+import SlamData.Workspace.StateMode (StateMode(..))
 
 import Utils.Path as UP
 
@@ -58,7 +65,7 @@ comp =
   H.parentComponent
     { render
     , eval
-    , peek: Nothing
+    , peek: Just (peek ∘ H.runChildF)
     }
 
 render ∷ State → WorkspaceHTML
@@ -78,14 +85,25 @@ render state =
       }
 
   deck ∷ Array WorkspaceHTML
-  deck =
-    [ HH.div [ HP.classes [ workspaceClass ] ]
+  deck = pure case state.stateMode of
+    Loading →
+      HH.div [ HP.classes [ workspaceClass ] ]
+        []
+
+    Ready →
+      HH.div [ HP.classes [ workspaceClass ] ]
         [ HH.slot' cpDeck unit \_ →
            { component: Deck.comp
            , initialState: Deck.initialState
            }
         ]
-    ]
+
+    Error err →
+      HH.div [ HP.classes [ B.alert, B.alertDanger ] ]
+        [ HH.h1
+            [ HP.class_ B.textCenter ]
+            [ HH.text err ]
+        ]
 
   shouldHideTopMenu ∷ Boolean
   shouldHideTopMenu = AT.isReadOnly (state ^. _accessType)
@@ -116,20 +134,75 @@ eval (DismissAll next) = do
   pure next
 eval (GetPath k) = k <$> H.gets _.path
 eval (Reset path next) = do
-  H.modify (_path .~ Just path)
-  queryDeck $ H.action $ Deck.Reset path Nothing
+  H.modify _
+    { path = Just path
+    , stateMode = Ready
+    }
+  queryDeck $ H.action $ Deck.Reset path
   pure next
 eval (Load path deckIds next) = do
-  H.modify (_path .~ Just path)
-  let load = void ∘ queryDeck ∘ H.action ∘ Deck.Load path
+  H.modify _
+    { stateMode = Loading
+    , path = Just path
+    , root = Nothing
+    }
+  queryDeck $ H.action $ Deck.Reset path
   case L.head deckIds of
-    Just deckId → load deckId
-    Nothing → rootDeck path >>= either (const (pure unit)) load
-    -- Show load error somehow
+    Just deckId →
+      loadDeck deckId
+    Nothing →
+      rootDeck path >>=
+        either (\err → H.modify $ _stateMode .~ Error err) loadDeck
   pure next
+
+  where
+  loadDeck deckId = void do
+    H.modify _
+      { root = Just deckId
+      , stateMode = Ready
+      }
+    queryDeck $ H.action $ Deck.Load path deckId
 
 rootDeck ∷ UP.DirPath → WorkspaceDSL (Either String DeckId)
 rootDeck path = map (map DeckId) $ Model.getRoot (path </> Pathy.file "index")
+
+peek ∷ ∀ a. ChildQuery a → WorkspaceDSL Unit
+peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
+  where
+
+  peekDeck (Deck.DoAction Deck.Mirror _) = pure unit
+  peekDeck (Deck.DoAction Deck.Wrap _) = do
+    st ← H.get
+    for_ st.path \path → do
+      let index = path </> Pathy.file "index"
+      queryDeck (H.action Deck.Save)
+      queryDeck (H.request Deck.GetId) >>= join >>> traverse_ \oldId → do
+        Model.freshId index >>= traverse_ \newId → do
+          queryDeck $ H.action $ Deck.Reset  path
+          queryDeck $ H.action $ Deck.SetModel (DeckId newId) (wrappedDeck oldId)
+          queryDeck $ H.action $ Deck.Save
+          Model.setRoot newId index
+  peekDeck _ = pure unit
+
+  wrappedDeck ∷ DeckId → DM.Deck
+  wrappedDeck deckId =
+    DM.emptyDeck
+      { cards =
+          [ { cardId: CID.CardId 0
+            , cardType: CT.Draftboard
+            , state: DBS.encode
+                { decks: Map.singleton deckId
+                    { x: 0
+                    , y: 0
+                    , width: 20
+                    , height: 10
+                    }
+                , zoomed: Nothing
+                }
+            , hasRun: false
+            }
+          ]
+      }
 
 queryDeck ∷ ∀ a. Deck.Query a → WorkspaceDSL (Maybe a)
 queryDeck = H.query' cpDeck unit ∘ opaqueQuery

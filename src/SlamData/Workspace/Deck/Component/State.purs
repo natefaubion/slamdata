@@ -18,7 +18,6 @@ module SlamData.Workspace.Deck.Component.State
   ( StateP
   , State
   , DisplayMode(..)
-  , StateMode(..)
   , CardDef
   , initialDeck
   , _id
@@ -89,15 +88,11 @@ import SlamData.Workspace.Card.Port.VarMap as Port
 import SlamData.Workspace.Deck.Component.Query (Query)
 import SlamData.Workspace.Deck.DeckId (DeckId, deckIdToString)
 import SlamData.Workspace.Deck.Model as Model
+import SlamData.Workspace.StateMode (StateMode(..))
 
 import Utils.Path (DirPath)
 
 type StateP = OpaqueState State
-
-data StateMode
-  = Loading
-  | Ready
-  | Error String
 
 newtype VirtualIndex = VirtualIndex Int
 

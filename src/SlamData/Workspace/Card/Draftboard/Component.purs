@@ -44,7 +44,7 @@ draftboardComponent = Cp.makeCardComponent
   }
 
 render ∷ State → H.ComponentHTML QueryP
-render _ = HH.text ""
+render _ = HH.text "Hello Draftboard"
 
 evalCard ∷ Natural Ceq.CardEvalQuery (H.ComponentDSL State QueryP Slam)
 evalCard (Ceq.EvalCard input k) = pure $ k { output: Nothing, messages: [] }

@@ -19,15 +19,17 @@ module SlamData.Workspace.Model
   , emptyWorkspace
   , encode
   , decode
-  , fresh
+  , freshId
+  , freshRoot
   , getRoot
+  , setRoot
   ) where
 
 import SlamData.Prelude
 
 import Control.Monad.Eff.Exception as Exn
 import Control.Monad.Aff.Free (class Affable)
-import Control.Monad.Except.Trans (ExceptT(..), runExceptT, throwError)
+import Control.Monad.Except.Trans (ExceptT(..), runExceptT, withExceptT)
 
 import Data.Argonaut (Json, (:=), (~>), (.?), decodeJson, jsonEmptyObject)
 
@@ -60,17 +62,39 @@ decode = decodeJson >=> \obj ->
 fresh
   ∷ ∀ eff m
   . (Monad m, Affable (QEff eff) m)
-  ⇒ FilePath
+  ⇒ Boolean -- Should this be the new root
+  → FilePath
   → m (Either Exn.Error Int)
-fresh file = do
+fresh isRoot file  = do
   json ← QD.load file
   runExceptT $ case json of
     Left _ → bump emptyWorkspace
-    Right json' → either (throwError ∘ Exn.error) pure (decode json') >>= bump
+    Right json' → liftExn (pure $ decode json') >>= bump
   where
   bump ws = do
-    ExceptT $ QD.save file $ encode $ ws { fresh = ws.fresh + 1 }
+    let root =
+          if isRoot
+            then ws.fresh
+            else ws.root
+    ExceptT
+      $ QD.save file
+      $ encode
+      $ ws { fresh = ws.fresh + 1, root = root }
     pure ws.fresh
+
+freshId
+  ∷ ∀ eff m
+  . (Monad m, Affable (QEff eff) m)
+  ⇒ FilePath
+  → m (Either Exn.Error Int)
+freshId = fresh false
+
+freshRoot
+  ∷ ∀ eff m
+  . (Monad m, Affable (QEff eff) m)
+  ⇒ FilePath
+  → m (Either Exn.Error Int)
+freshRoot = fresh true
 
 getRoot
   ∷ ∀ eff m
@@ -81,3 +105,20 @@ getRoot file = runExceptT do
   json ← ExceptT $ QD.load file
   ws ← ExceptT $ pure $ decode json
   pure ws.root
+
+setRoot
+  ∷ ∀ eff m
+  . (Monad m, Affable (QEff eff) m)
+  ⇒ Int
+  → FilePath
+  → m (Either Exn.Error Unit)
+setRoot root file = runExceptT do
+  json ← liftExn $ QD.load file
+  ws ← liftExn $ pure $ decode json
+  ExceptT
+    $ QD.save file
+    $ encode
+    $ ws { root = root }
+
+liftExn ∷ ∀ m a. (Monad m) ⇒ m (Either String a) → ExceptT Exn.Error m a
+liftExn = withExceptT Exn.error ∘ ExceptT

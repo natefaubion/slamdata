@@ -44,6 +44,7 @@ import DOM.HTML.Location as Location
 
 import Halogen as H
 import Halogen.Component.Opaque.Unsafe (opaque, opaqueState)
+import Halogen.Component.Utils (raise')
 import Halogen.Component.Utils.Debounced (fireDebouncedQuery')
 import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as HH
@@ -71,16 +72,18 @@ import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Deck.BackSide.Component as Back
 import SlamData.Workspace.Deck.Common (DeckHTML, DeckDSL)
 import SlamData.Workspace.Deck.Component.ChildSlot (cpBackSide, cpCard, cpIndicator, ChildQuery, ChildSlot, CardSlot(..), cpDialog)
-import SlamData.Workspace.Deck.Component.Query (QueryP, Query(..))
+import SlamData.Workspace.Deck.Component.Query (QueryP, Query(..), DeckAction(..))
+import SlamData.Workspace.Deck.Model (Deck)
 import SlamData.Workspace.Deck.Component.State as DCS
 import SlamData.Workspace.Deck.DeckId (DeckId(..), deckIdToString)
 import SlamData.Workspace.Deck.Dialog.Component as Dialog
 import SlamData.Workspace.Deck.Gripper as Gripper
 import SlamData.Workspace.Deck.Indicator.Component as Indicator
 import SlamData.Workspace.Deck.Model as Model
+import SlamData.Workspace.Model as WS
 import SlamData.Workspace.Deck.Slider as Slider
-import SlamData.Workspace.Model as NB
 import SlamData.Workspace.Routing (mkWorkspaceHash, mkWorkspaceURL)
+import SlamData.Workspace.StateMode (StateMode(..))
 
 import Utils.DOM (getBoundingClientRect)
 import Utils.Path (DirPath, FilePath)
@@ -101,7 +104,7 @@ comp =
 render ∷ DCS.VirtualState → DeckHTML
 render vstate =
   case state.stateMode of
-    DCS.Loading →
+    Loading →
       HH.div
         [ HP.classes [ B.alert, B.alertInfo ]
         , HP.key "board"
@@ -117,7 +120,7 @@ render vstate =
             [ HP.key "deck-container" ]
             [ Slider.render comp vstate $ state.displayMode ≡ DCS.Normal ]
         ]
-    DCS.Ready →
+    Ready →
       -- WARNING: Very strange things happen when this is not in a div; see SD-1326.
       HH.div
         ([ HP.class_ CSS.board
@@ -144,7 +147,7 @@ render vstate =
             ]
         ]
 
-    DCS.Error err →
+    Error err →
       HH.div
         [ HP.classes [ B.alert, B.alertDanger ] ]
         [ HH.h1
@@ -190,24 +193,18 @@ eval (RunActiveCard next) = do
   traverse_ runCard =<< H.gets (DCS.activeCardId ∘ DCS.virtualState)
   pure next
 eval (Load dir deckId next) = do
-  state ← H.get
-  H.modify (DCS._stateMode .~ DCS.Loading)
+  H.modify (DCS._stateMode .~ Loading)
   json ← Quasar.load $ deckIndex dir deckId
   case Model.decode =<< json of
     Left err → do
       H.fromAff $ log err
-      H.modify $ DCS._stateMode .~ DCS.Error "There was a problem decoding the saved deck"
+      H.modify $ DCS._stateMode .~ Error "There was a problem decoding the saved deck"
     Right model →
-      case DCS.fromModel (Just dir) (Just deckId) model state of
-        Tuple cards st → do
-          setDeckState st
-          hasRun ← Foldable.or <$> for cards \card → do
-            H.query' cpCard (CardSlot card.cardId)
-              $ left $ H.action $ LoadCard card
-            pure card.hasRun
-          when hasRun $ traverse_ runCard (DCS.findFirst st)
-          H.modify (DCS._stateMode .~ DCS.Ready)
-  updateIndicator
+      setModel (Just dir) (Just deckId) model
+  pure next
+eval (SetModel deckId model next) = do
+  state ← H.get
+  setModel state.path (Just deckId) model
   pure next
 eval (ExploreFile res next) = do
   setDeckState DCS.initialDeck
@@ -232,9 +229,8 @@ eval (Publish next) = do
   H.gets DCS.deckPath >>=
     traverse_ (H.fromEff ∘ newTab ∘ flip mkWorkspaceURL (NA.Load AT.ReadOnly))
   pure next
-eval (Reset dir deckId next) = do
-  let deck = DCS.initialDeck
-  setDeckState $ deck { id = deckId, path = Just dir }
+eval (Reset dir next) = do
+  setDeckState $ DCS.initialDeck { path = Just dir }
   updateIndicator
   pure next
 eval (SetName name next) =
@@ -245,6 +241,8 @@ eval (SetAccessType aType next) = do
   unless (AT.isEditable aType)
     $ H.modify (DCS._displayMode .~ DCS.Normal)
   pure next
+eval (GetPath k) = k <$> H.gets DCS.deckPath
+eval (GetId k) = k <$> H.gets _.id
 eval (Save next) = saveDeck $> next
 eval (RunPendingCards next) = do
   -- Only run pending cards if we have a deckPath. Some cards run with the
@@ -283,6 +281,7 @@ eval (SetCardElement element next) =
     H.fromEff ∘ map _.width ∘ getBoundingClientRect
 eval (StopSliderTransition next) =
   H.modify (DCS._sliderTransition .~ false) $> next
+eval (DoAction _ next) = pure next
 
 peek ∷ ∀ a. H.ChildF ChildSlot ChildQuery a → DeckDSL Unit
 peek (H.ChildF s q) =
@@ -324,8 +323,8 @@ peekBackSide (Back.DoAction action _) =
     Back.Publish →
       H.gets DCS.deckPath >>=
         traverse_ (H.fromEff ∘ newTab ∘ flip mkWorkspaceURL (NA.Load AT.ReadOnly))
-    Back.Mirror → pure unit
-    Back.Wrap → pure unit
+    Back.Mirror → raise' $ H.action $ DoAction Mirror
+    Back.Wrap → raise' $ H.action $ DoAction Wrap
 
 mkShareURL ∷ Port.VarMap → DeckDSL (Maybe String)
 mkShareURL varMap = do
@@ -578,7 +577,7 @@ saveDeck = H.get >>= \st →
   genId ∷ DirPath → Maybe DeckId → DeckDSL (Either Exn.Error DeckId)
   genId path deckId = case deckId of
     Just id' → pure $ Right id'
-    Nothing → map DeckId <$> NB.fresh (path </> Pathy.file "index")
+    Nothing → map DeckId <$> WS.freshId (path </> Pathy.file "index")
 
 deckIndex ∷ DirPath → DeckId → FilePath
 deckIndex path deckId =
@@ -588,3 +587,17 @@ setDeckState ∷ DCS.State → DeckDSL Unit
 setDeckState newState =
   H.modify \oldState →
     newState { cardElementWidth = oldState.cardElementWidth }
+
+setModel ∷ Maybe DirPath → Maybe DeckId → Deck → DeckDSL Unit
+setModel dir deckId model = do
+  state ← H.get
+  case DCS.fromModel dir deckId model state of
+    Tuple cards st → do
+      setDeckState st
+      hasRun ← Foldable.or <$> for cards \card → do
+        H.query' cpCard (CardSlot card.cardId)
+          $ left $ H.action $ LoadCard card
+        pure card.hasRun
+      when hasRun $ traverse_ runCard (DCS.findFirst st)
+      H.modify (DCS._stateMode .~ Ready)
+  updateIndicator
