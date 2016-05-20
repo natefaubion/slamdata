@@ -29,6 +29,7 @@ import Data.Path.Pathy as Pathy
 
 import Halogen as H
 import Halogen.Component.ChildPath (injSlot, injQuery)
+import Halogen.Component.Opaque.Unsafe (opaqueQuery)
 import Halogen.HTML.Core (ClassName, className)
 import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as HH
@@ -131,7 +132,7 @@ rootDeck ∷ UP.DirPath → WorkspaceDSL (Either String DeckId)
 rootDeck path = map (map DeckId) $ Model.getRoot (path </> Pathy.file "index")
 
 queryDeck ∷ ∀ a. Deck.Query a → WorkspaceDSL (Maybe a)
-queryDeck = H.query' cpDeck unit ∘ left
+queryDeck = H.query' cpDeck unit ∘ opaqueQuery
 
 querySignIn ∷ ∀ a. SignIn.Query a → WorkspaceDSL Unit
 querySignIn =

@@ -77,7 +77,7 @@ import Data.StrMap as SM
 
 import DOM.HTML.Types (HTMLElement)
 
-import Halogen as H
+import Halogen.Component.Opaque.Unsafe (OpaqueState)
 import Halogen.Component.Utils.Debounced (DebounceTrigger)
 
 import SlamData.Effects (Slam)
@@ -88,14 +88,13 @@ import SlamData.Workspace.Card.CardType (CardType(..))
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.Port.VarMap as Port
 
-import SlamData.Workspace.Deck.Component.ChildSlot (ChildSlot, ChildState, ChildQuery)
 import SlamData.Workspace.Deck.Component.Query (Query)
 import SlamData.Workspace.Deck.DeckId (DeckId, deckIdToString)
 import SlamData.Workspace.Deck.Model as Model
 
 import Utils.Path (DirPath)
 
-type StateP = H.ParentState State ChildState Query ChildQuery Slam ChildSlot
+type StateP = OpaqueState State
 
 data StateMode
   = Loading

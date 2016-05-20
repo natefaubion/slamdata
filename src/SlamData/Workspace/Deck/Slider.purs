@@ -58,6 +58,7 @@ import SlamData.Workspace.Card.Factory (cardTypeComponent)
 import SlamData.Workspace.Card.Next.Component as Next
 import SlamData.Workspace.Deck.Common (DeckHTML, DeckDSL)
 import SlamData.Workspace.Deck.Component.ChildSlot as ChildSlot
+import SlamData.Workspace.Deck.Component.Cycle (DeckComponent)
 import SlamData.Workspace.Deck.Component.Query (Query)
 import SlamData.Workspace.Deck.Component.Query as DCQ
 import SlamData.Workspace.Deck.Component.State (VirtualState, State, CardDef)
@@ -67,8 +68,8 @@ import SlamData.Workspace.Deck.Gripper as Gripper
 import Utils.CSS as CSSUtils
 import Utils.DOM (getBoundingClientRect)
 
-render ∷ VirtualState → Boolean → DeckHTML
-render vstate visible =
+render ∷ DeckComponent → VirtualState → Boolean → DeckHTML
+render comp vstate visible =
   HH.div
     ([ HP.key "deck-cards"
      , HP.classes [ ClassNames.cardSlider ]
@@ -78,7 +79,7 @@ render vstate visible =
          *> (cardSliderTransitionCSS state.sliderTransition)
      ]
        ⊕ (guard (not visible) $> (HP.class_ ClassNames.invisible)))
-    ((map (Tuple.uncurry (renderCard vstate)) (Array.zip state.cards (0 .. Array.length state.cards))) ⊕ [ renderNextActionCard vstate ])
+    ((map (Tuple.uncurry (renderCard comp vstate)) (Array.zip state.cards (0 .. Array.length state.cards))) ⊕ [ renderNextActionCard vstate ])
   where
     state = DCS.runVirtualState vstate
 
@@ -231,8 +232,8 @@ cardSpacingGridSquares = 2.0
 cardSpacingPx ∷ Number
 cardSpacingPx = cardSpacingGridSquares * Config.gridPx
 
-renderCard ∷ VirtualState → CardDef → Int → DeckHTML
-renderCard vstate cardDef index =
+renderCard ∷ DeckComponent → VirtualState → CardDef → Int → DeckHTML
+renderCard comp vstate cardDef index =
   HH.div
     [ HP.key ("card" ⊕ CardId.cardIdToString cardDef.id)
     , HP.classes [ ClassNames.card ]
@@ -250,7 +251,7 @@ renderCard vstate cardDef index =
   state = DCS.runVirtualState vstate
   slotId = ChildSlot.CardSlot cardDef.id
   cardComponent =
-    { component: cardTypeComponent cardDef.ty cardDef.id state.browserFeatures
+    { component: cardTypeComponent cardDef.ty cardDef.id state.browserFeatures comp
     , initialState:
         H.parentState
           Card.initialCardState { accessType = state.accessType }

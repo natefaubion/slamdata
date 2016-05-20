@@ -44,6 +44,7 @@ import Ace.Halogen.Component as Ace
 import DOM.HTML.Location as Location
 
 import Halogen as H
+import Halogen.Component.Opaque.Unsafe (opaque, opaqueState)
 import Halogen.Component.Utils.Debounced (fireDebouncedQuery')
 import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as HH
@@ -85,12 +86,14 @@ import SlamData.Workspace.Routing (mkWorkspaceHash, mkWorkspaceURL)
 import Utils.Path (DirPath, FilePath)
 
 initialState ∷ BrowserFeatures → DCS.StateP
-initialState fs = H.parentState $ DCS.initialDeck fs
+initialState fs = opaqueState $ DCS.initialDeck fs
 
 comp ∷ H.Component DCS.StateP QueryP Slam
 comp =
-  H.parentComponent
-    { render: render ∘ DCS.virtualState
+  opaque $ H.parentComponent
+    -- Eta-expansion required by PSC because of the recursive reference of
+    -- `comp` within `render`.
+    { render: \s → render $ DCS.virtualState s
     , eval
     , peek: Just peek
     }
@@ -112,7 +115,7 @@ render vstate =
           -- is in the same place in both `Loading` and `Ready` states.
         , HH.div
             [ HP.key "deck-container" ]
-            [ Slider.render vstate $ state.displayMode ≡ DCS.Normal ]
+            [ Slider.render comp vstate $ state.displayMode ≡ DCS.Normal ]
         ]
     DCS.Ready →
       -- WARNING: Very strange things happen when this is not in a div; see SD-1326.
@@ -131,7 +134,7 @@ render vstate =
                 , HP.title "Flip deck"
                 ]
                 [ HH.text "" ]
-            , Slider.render vstate $ state.displayMode ≡ DCS.Normal
+            , Slider.render comp vstate $ state.displayMode ≡ DCS.Normal
             , HH.slot' cpIndicator unit \_ →
                 { component: Indicator.comp
                 , initialState: Indicator.initialState

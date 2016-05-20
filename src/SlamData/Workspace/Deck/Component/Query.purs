@@ -24,12 +24,11 @@ import SlamData.Prelude
 import Data.BrowserFeatures as BF
 import DOM.HTML.Types (HTMLElement)
 
-import Halogen (ChildF)
+import Halogen.Component.Opaque.Unsafe (OpaqueQuery)
 import Halogen.HTML.Events.Types (Event, MouseEvent)
 
 import SlamData.Workspace.AccessType as AT
 import SlamData.Workspace.Card.Port.VarMap as Port
-import SlamData.Workspace.Deck.Component.ChildSlot (ChildSlot, ChildQuery)
 import SlamData.Workspace.Deck.DeckId (DeckId)
 
 import Utils.Path as UP
@@ -53,4 +52,4 @@ data Query a
   | SetNextActionCardElement (Maybe HTMLElement) a
   | StopSliderTransition a
 
-type QueryP = Coproduct Query (ChildF ChildSlot ChildQuery)
+type QueryP = OpaqueQuery Query

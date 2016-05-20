@@ -23,6 +23,7 @@ import Data.List as L
 
 import Halogen as H
 import Halogen.Component.ChildPath (injSlot, injQuery)
+import Halogen.Component.Opaque.Unsafe (opaqueQuery)
 
 import SlamData.Workspace.AccessType (AccessType)
 import SlamData.Workspace.Component.ChildSlot (ChildQuery, ChildSlot, cpDeck)
@@ -52,7 +53,7 @@ toDeck =
   right
     ∘ H.ChildF (injSlot cpDeck unit)
     ∘ injQuery cpDeck
-    ∘ left
+    ∘ opaqueQuery
     ∘ H.action
 
 fromDeck ∷ ∀ a. (∀ i. (a → i) → Deck.Query i) → QueryP a
@@ -60,5 +61,5 @@ fromDeck r =
   right
     $ H.ChildF (injSlot cpDeck unit)
     $ injQuery cpDeck
-    $ left
+    $ opaqueQuery
     $ H.request r
