@@ -266,8 +266,12 @@ renderCard comp vstate cardDef index =
   where
   state = DCS.runVirtualState vstate
   slotId = ChildSlot.CardSlot cardDef.id
+  cardOpts =
+    { deckComponent: comp
+    , path: state.path
+    }
   cardComponent =
-    { component: cardTypeComponent cardDef.ty cardDef.id comp
+    { component: cardTypeComponent cardDef.ty cardDef.id cardOpts
     , initialState:
         H.parentState
           Card.initialCardState { accessType = state.accessType }

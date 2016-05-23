@@ -18,28 +18,45 @@ module SlamData.Workspace.Card.Draftboard.Component.State where
 
 import SlamData.Prelude
 
+import Halogen as H
+import Halogen.Component.Opaque.Unsafe (OpaqueQuery, OpaqueState)
+
 import Data.Argonaut (Json, (.?), decodeJson, jsonEmptyObject, (~>), (:=))
 import Data.Lens (LensP, lens)
 import Data.Map as Map
 
+import SlamData.Effects (Slam)
+import SlamData.Workspace.Card.Draftboard.Component.Query (QueryC)
+import SlamData.Workspace.Deck.Component.Query as DCQ
+import SlamData.Workspace.Deck.Component.State as DCS
 import SlamData.Workspace.Deck.DeckId (DeckId)
+
+import Utils.Path (DirPath)
 
 type State =
   { decks ∷ Map.Map DeckId DeckPosition
   , zoomed ∷ Maybe DeckId
+  , path ∷ Maybe DirPath
   }
 
+type StateP =
+  H.ParentState
+    State (OpaqueState DCS.State)
+    QueryC (OpaqueQuery DCQ.Query)
+    Slam DeckId
+
 type DeckPosition =
-  { x ∷ Int
-  , y ∷ Int
-  , width ∷ Int
-  , height ∷ Int
+  { x ∷ Number
+  , y ∷ Number
+  , width ∷ Number
+  , height ∷ Number
   }
 
 initialState ∷ State
 initialState =
   { decks: Map.empty
   , zoomed: Nothing
+  , path: Nothing
   }
 
 -- | An array of positioned decks.
@@ -67,6 +84,7 @@ decode ∷ Json → Either String State
 decode = decodeJson >=> \obj →
   { decks: _
   , zoomed: Nothing
+  , path: Nothing
   } <$> (traverse decodeDeckPosition =<< obj .? "decks")
 
 decodeDeckPosition ∷ Json → Either String DeckPosition

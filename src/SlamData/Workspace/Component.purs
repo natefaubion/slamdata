@@ -178,26 +178,27 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
       queryDeck (H.action Deck.Save)
       queryDeck (H.request Deck.GetId) >>= join >>> traverse_ \oldId → do
         Model.freshId index >>= traverse_ \newId → do
-          queryDeck $ H.action $ Deck.Reset  path
-          queryDeck $ H.action $ Deck.SetModel (DeckId newId) (wrappedDeck oldId)
+          queryDeck $ H.action $ Deck.Reset path
+          queryDeck $ H.action $ Deck.SetModel (DeckId newId) (wrappedDeck st.path oldId)
           queryDeck $ H.action $ Deck.Save
           Model.setRoot newId index
   peekDeck _ = pure unit
 
-  wrappedDeck ∷ DeckId → DM.Deck
-  wrappedDeck deckId =
+  wrappedDeck ∷ Maybe UP.DirPath → DeckId → DM.Deck
+  wrappedDeck path deckId =
     DM.emptyDeck
       { cards =
           [ { cardId: CID.CardId 0
             , cardType: CT.Draftboard
             , state: DBS.encode
                 { decks: Map.singleton deckId
-                    { x: 0
-                    , y: 0
-                    , width: 20
-                    , height: 10
+                    { x: 1.0
+                    , y: 1.0
+                    , width: 20.0
+                    , height: 10.0
                     }
                 , zoomed: Nothing
+                , path
                 }
             , hasRun: false
             }

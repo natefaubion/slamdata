@@ -9,7 +9,7 @@
   bottom: 0;
   background-color: #eee;
   background-size: @grid-size @grid-size;
-  background-position: center top;
+  background-position: top top;
   background-image:
     linear-gradient(to right, #ddd 1px, transparent 1px),
     linear-gradient(to bottom, #ddd 1px, transparent 1px);
@@ -23,14 +23,13 @@
 }
 
 .sd-deck {
-  position: relative;
-  margin-top: @grid-size * 3;
-  margin-left: auto;
-  margin-right: auto;
-  width: calc(37 * @grid-size);
-  height: calc(20 * @grid-size);
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: 0;
   overflow: hidden;
-        box-shadow: 0 0 32px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 0 32px rgba(0, 0, 0, 0.15);
   background-color: #ddd;
   background-size: 100%;
   background-position: left top;
@@ -103,6 +102,7 @@
 .deck-card {
   height: 100%;
   overflow: auto;
+  position: relative;
 }
 
 .sd-card-ace {
@@ -129,4 +129,5 @@
 @import "deck/save-card";
 @import "deck/search-card";
 @import "deck/table-card";
+@import "deck/draftboard-card";
 @import "deck/dialog";

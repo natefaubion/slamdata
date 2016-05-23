@@ -14,22 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 
-module SlamData.Workspace.Card.Draftboard.Component.Query where
+module SlamData.Workspace.Card.Common where
 
 import SlamData.Prelude
 
-import Halogen as H
-import Halogen.Component.Opaque.Unsafe (OpaqueQuery)
+import SlamData.Workspace.Deck.Component.Cycle (DeckComponent)
 
-import SlamData.Workspace.Card.Common.EvalQuery (CardEvalQuery)
-import SlamData.Workspace.Deck.Component.Query as DCQ
-import SlamData.Workspace.Deck.DeckId (DeckId)
+import Utils.Path (DirPath)
 
-data Query a
-  = StartDragging a
-  | StopDragging a
-  | AddDeck a
-
-type QueryC = Coproduct CardEvalQuery Query
-
-type QueryP = H.ParentQuery QueryC (OpaqueQuery DCQ.Query) DeckId
+type CardOptions =
+  { deckComponent ∷ DeckComponent
+  , path ∷ Maybe DirPath
+  }

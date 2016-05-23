@@ -169,7 +169,7 @@ data AnyCardState
   | SaveState Save.State
   | OpenResourceState Open.State
   | DownloadOptionsState DOpts.State
-  | DraftboardState Draftboard.State
+  | DraftboardState Draftboard.StateP
   | ErrorState Error.State
 
 _AceState ∷ PrismP AnyCardState Ace.StateP
@@ -237,7 +237,7 @@ _DownloadOptionsState = prism' DownloadOptionsState \s → case s of
   DownloadOptionsState s' → Just s'
   _ → Nothing
 
-_DraftboardState ∷ PrismP AnyCardState Draftboard.State
+_DraftboardState ∷ PrismP AnyCardState Draftboard.StateP
 _DraftboardState = prism' DraftboardState \s → case s of
   DraftboardState s' → Just s'
   _ → Nothing
