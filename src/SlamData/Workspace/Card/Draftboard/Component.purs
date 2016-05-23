@@ -29,6 +29,7 @@ import CSS as CSS
 
 import Halogen as H
 import Halogen.Component.Opaque.Unsafe (opaqueState, opaqueQuery)
+import Halogen.Component.Utils.Drag as Drag
 import Halogen.HTML.CSS.Indexed as HC
 import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as HH
@@ -66,7 +67,10 @@ draftboardComponent opts = Cp.makeCardComponent
 
 render ∷ CardOptions → State → DraftboardHTML
 render opts state =
-  HH.div [ HP.classes [ RC.board ] ]
+  HH.div
+    [ HP.classes [ RC.board ]
+    , HE.onMouseDown (HE.input \e → right ∘ StartDragging e)
+    ]
     $ map renderDeck (foldl Array.snoc [] $ Map.toList state.decks)
 
   where
@@ -102,7 +106,17 @@ evalCard (Ceq.Load json next) = do
   pure next
 
 evalBoard ∷ Natural Query DraftboardDSL
-evalBoard (StartDragging next) = pure next
+evalBoard (StartDragging ev next) = do
+  Drag.subscribe' ev
+    $ right ∘ H.action ∘ OnDrag
+  pure next
+evalBoard (OnDrag ev next) = do
+  case ev of
+    Drag.Move _ d → do
+      Debug.Trace.traceAnyA d
+    Drag.Done _ → do
+      Debug.Trace.traceA "Done"
+  pure next
 evalBoard (StopDragging next) = pure next
 evalBoard (AddDeck next) = pure next
 

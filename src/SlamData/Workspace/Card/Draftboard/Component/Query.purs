@@ -19,14 +19,17 @@ module SlamData.Workspace.Card.Draftboard.Component.Query where
 import SlamData.Prelude
 
 import Halogen as H
+import Halogen.HTML.Events.Types as ET
 import Halogen.Component.Opaque.Unsafe (OpaqueQuery)
+import Halogen.Component.Utils.Drag (DragEvent)
 
 import SlamData.Workspace.Card.Common.EvalQuery (CardEvalQuery)
 import SlamData.Workspace.Deck.Component.Query as DCQ
 import SlamData.Workspace.Deck.DeckId (DeckId)
 
 data Query a
-  = StartDragging a
+  = StartDragging (ET.Event ET.MouseEvent) a
+  | OnDrag DragEvent a
   | StopDragging a
   | AddDeck a
 
