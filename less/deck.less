@@ -102,23 +102,62 @@
 .sd-grab-deck {
   height: @grid-size;
   width: (@grid-size * 6);
-  background: red;
   position: absolute;
+  background: transparent;
   top: 0;
   left: 50%;
   margin: 0 0 0 -(@grid-size * 3);
   border: none;
+
+  &:before {
+    content: "";
+    position: absolute;
+    top: (@grid-size / 3);
+    left: 0;
+    right: 0;
+    border-top: 1px solid #ccc;
+  }
+
+  &:after {
+    content: "";
+    position: absolute;
+    margin-top: -1px;
+    top: (@grid-size / 3 * 2);
+    left: @grid-size / 3;
+    right: @grid-size / 3;
+    border-top: 1px solid #ccc;
+  }
 }
 
 .sd-resize-deck {
   height: @grid-size;
   width: @grid-size;
-  background-color: blue;
+  background-color: transparent;
   position: absolute;
   bottom: 0;
   right: 0;
   border: none;
   margin: 0;
+
+  &:before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    border-top: 1px solid #ccc;
+    transform: rotate(-45deg);
+  }
+
+  &:after {
+    content: "";
+    position: absolute;
+    top: (@grid-size / 3 * 2);
+    left: 40%;
+    width: 50%;
+    border-top: 1px solid #ccc;
+    transform: rotate(-45deg);
+  }
 }
 
 .deck-card {

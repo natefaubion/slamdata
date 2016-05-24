@@ -70,32 +70,17 @@ draftboardComponent opts = Cp.makeCardComponent
 
 render ∷ CardOptions → State → DraftboardHTML
 render opts state =
-  HH.div
-    [ HP.classes [ RC.board ]
-    ]
-    $ map renderDeck (foldl Array.snoc [] $ Map.toList state.decks)
+  HH.div [ HP.classes [ RC.board ] ] $
+    map renderDeck (foldl Array.snoc [] $ Map.toList state.decks)
 
   where
 
   renderDeck (Tuple deckId rect) =
     HH.div
       [ HP.key $ deckIdToString deckId
-      , HC.style do
-          CSS.position CSS.absolute
-          CSS.top $ CSS.px $ rect.y * Config.gridPx
-          CSS.left $ CSS.px $ rect.x * Config.gridPx
-          CSS.width $ CSS.px $ rect.width * Config.gridPx
-          CSS.height $ CSS.px $ rect.height * Config.gridPx
-
-          for_ state.resizing \{ deckId: deckId', x, y } →
-            when (deckId == deckId') do
-              CSS.width $ CSS.px $ rect.width * Config.gridPx + x
-              CSS.height $ CSS.px $ rect.height * Config.gridPx + y
-
-          for_ state.grabbing \{ deckId: deckId', x, y } →
-            when (deckId == deckId') do
-              CSSUtils.transform $
-                CSSUtils.translate3d (show x <> "px") (show y <> "px") "0"
+      , HC.style $ cssPos $ case state.moving of
+          Just (Tuple deckId' rect') | deckId == deckId' → rect'
+          _ → rect
       ]
       [ HH.slot deckId $ mkDeckComponent deckId ]
 
@@ -103,6 +88,13 @@ render opts state =
     { component: opts.deckComponent
     , initialState: opaqueState $ DCS.initialDeck
     }
+
+  cssPos rect = do
+    CSS.position CSS.absolute
+    CSS.top $ CSS.px $ rect.y * Config.gridPx
+    CSS.left $ CSS.px $ rect.x * Config.gridPx
+    CSS.width $ CSS.px $ rect.width * Config.gridPx
+    CSS.height $ CSS.px $ rect.height * Config.gridPx
 
 evalCard ∷ Natural Ceq.CardEvalQuery DraftboardDSL
 evalCard (Ceq.EvalCard input k) = pure $ k { output: Nothing, messages: [] }
@@ -121,44 +113,65 @@ evalBoard ∷ Natural Query DraftboardDSL
 evalBoard (Grabbing deckId ev next) = do
   case ev of
     Drag.Move _ d → do
-      H.modify _ { grabbing = Just { deckId, x: d.offsetX, y: d.offsetY } }
-    Drag.Done _ → do
-      H.gets _.grabbing >>= traverse_ \{ deckId, x, y } →
-        H.gets (Map.lookup deckId ∘ _.decks) >>= traverse_ \rect → do
-          let offsetX = round (x / Config.gridPx)
-              offsetY = round (y / Config.gridPx)
-              newRect = rect { x = rect.x + offsetX, y = rect.y + offsetY }
-          H.modify \s → s { decks = Map.insert deckId newRect s.decks }
-      H.modify _ { grabbing = Nothing }
+      H.gets (Map.lookup deckId ∘ _.decks) >>= traverse_ \rect → do
+        let newRect = clampDeck rect
+              { x = rect.x + (d.offsetX / Config.gridPx)
+              , y = rect.y + (d.offsetY / Config.gridPx)
+              }
+        H.modify _ { moving = Just (Tuple deckId newRect) }
+    Drag.Done _ →
+      stopDragging
   pure next
 evalBoard (Resizing deckId ev next) = do
   case ev of
     Drag.Move _ d → do
-      H.modify _ { resizing = Just { deckId, x: d.offsetX, y: d.offsetY } }
-    Drag.Done _ → do
-      H.gets _.resizing >>= traverse_ \{ deckId, x, y } →
-        H.gets (Map.lookup deckId ∘ _.decks) >>= traverse_ \rect → do
-          let offsetX = round (x / Config.gridPx)
-              offsetY = round (y / Config.gridPx)
-              newRect = rect { width = rect.width + offsetX, height = rect.height + offsetY }
-          H.modify \s → s { decks = Map.insert deckId newRect s.decks }
-      H.modify _ { resizing = Nothing }
+      H.gets (Map.lookup deckId ∘ _.decks) >>= traverse_ \rect → do
+        let newRect = clampDeck rect
+              { width = rect.width + (d.offsetX / Config.gridPx)
+              , height = rect.height + (d.offsetY / Config.gridPx)
+              }
+        H.modify _ { moving = Just (Tuple deckId newRect) }
+    Drag.Done _ →
+      stopDragging
   pure next
 evalBoard (AddDeck next) = pure next
 
 peek ∷ ∀ a. H.ChildF DeckId (OpaqueQuery DCQ.Query) a → DraftboardDSL Unit
 peek (H.ChildF deckId q) = flip peekOpaqueQuery q
   case _ of
-    DCQ.GrabDeck ev _ →
+    DCQ.GrabDeck ev _ → startDragging deckId ev Grabbing
+    DCQ.ResizeDeck ev _ → startDragging deckId ev Resizing
+    _ → pure unit
+
+  where
+  startDragging deckId ev tag =
+    H.gets (Map.lookup deckId ∘ _.decks) >>= traverse_ \rect → do
+      H.modify _ { moving = Just (Tuple deckId rect) }
       void
         $ Drag.subscribe' ev
-        $ right ∘ H.action ∘ Grabbing deckId
-    DCQ.ResizeDeck ev _ →
-      void
-        $ Drag.subscribe' ev
-        $ right ∘ H.action ∘ Resizing deckId
-    _ →
-      pure unit
+        $ right ∘ H.action ∘ tag deckId
+
+stopDragging ∷ DraftboardDSL Unit
+stopDragging = do
+  H.gets _.moving >>= traverse_ \(Tuple deckId rect) →
+    H.modify \s → s { decks = Map.insert deckId (roundDeck rect) s.decks }
+  H.modify _ { moving = Nothing }
+
+clampDeck ∷ DeckPosition → DeckPosition
+clampDeck rect =
+  { x: if rect.x < 0.0 then 0.0 else rect.x
+  , y: if rect.y < 0.0 then 0.0 else rect.y
+  , width: if rect.width < 10.0 then 10.0 else rect.width
+  , height: if rect.height < 10.0 then 10.0 else rect.height
+  }
+
+roundDeck ∷ DeckPosition → DeckPosition
+roundDeck rect =
+  { x: round rect.x
+  , y: round rect.y
+  , width: round rect.width
+  , height: round rect.height
+  }
 
 loadDecks ∷ DraftboardDSL Unit
 loadDecks = void $
