@@ -433,6 +433,12 @@ cardGripperLast = className "sd-card-gripper-last"
 flipDeck :: ClassName
 flipDeck = className "sd-flip-deck"
 
+grabDeck :: ClassName
+grabDeck = className "sd-grab-deck"
+
+resizeDeck :: ClassName
+resizeDeck = className "sd-resize-deck"
+
 form ∷ ClassName
 form = className "sd-form"
 

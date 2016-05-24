@@ -26,14 +26,17 @@ import Data.Array as Array
 import Data.Map as Map
 
 import CSS as CSS
+import Utils.CSS as CSSUtils
 
 import Halogen as H
-import Halogen.Component.Opaque.Unsafe (opaqueState, opaqueQuery)
+import Halogen.Component.Opaque.Unsafe (opaqueState, opaqueQuery, peekOpaqueQuery, OpaqueQuery)
 import Halogen.Component.Utils.Drag as Drag
 import Halogen.HTML.CSS.Indexed as HC
 import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as HH
 import Halogen.HTML.Properties.Indexed as HP
+
+import Math (round)
 
 import SlamData.Config as Config
 import SlamData.Effects (Slam)
@@ -58,7 +61,7 @@ draftboardComponent opts = Cp.makeCardComponent
   , component: H.parentComponent
       { render: render opts
       , eval: coproduct evalCard evalBoard
-      , peek: Nothing
+      , peek: Just peek
       }
   , initialState: H.parentState $ initialState { path = opts.path }
   , _State: Cp._DraftboardState
@@ -69,7 +72,6 @@ render ∷ CardOptions → State → DraftboardHTML
 render opts state =
   HH.div
     [ HP.classes [ RC.board ]
-    , HE.onMouseDown (HE.input \e → right ∘ StartDragging e)
     ]
     $ map renderDeck (foldl Array.snoc [] $ Map.toList state.decks)
 
@@ -80,10 +82,20 @@ render opts state =
       [ HP.key $ deckIdToString deckId
       , HC.style do
           CSS.position CSS.absolute
-          CSS.top $ CSS.px $ rect.x * Config.gridPx
-          CSS.left $ CSS.px $ rect.y * Config.gridPx
+          CSS.top $ CSS.px $ rect.y * Config.gridPx
+          CSS.left $ CSS.px $ rect.x * Config.gridPx
           CSS.width $ CSS.px $ rect.width * Config.gridPx
           CSS.height $ CSS.px $ rect.height * Config.gridPx
+
+          for_ state.resizing \{ deckId: deckId', x, y } →
+            when (deckId == deckId') do
+              CSS.width $ CSS.px $ rect.width * Config.gridPx + x
+              CSS.height $ CSS.px $ rect.height * Config.gridPx + y
+
+          for_ state.grabbing \{ deckId: deckId', x, y } →
+            when (deckId == deckId') do
+              CSSUtils.transform $
+                CSSUtils.translate3d (show x <> "px") (show y <> "px") "0"
       ]
       [ HH.slot deckId $ mkDeckComponent deckId ]
 
@@ -106,19 +118,47 @@ evalCard (Ceq.Load json next) = do
   pure next
 
 evalBoard ∷ Natural Query DraftboardDSL
-evalBoard (StartDragging ev next) = do
-  Drag.subscribe' ev
-    $ right ∘ H.action ∘ OnDrag
-  pure next
-evalBoard (OnDrag ev next) = do
+evalBoard (Grabbing deckId ev next) = do
   case ev of
     Drag.Move _ d → do
-      Debug.Trace.traceAnyA d
+      H.modify _ { grabbing = Just { deckId, x: d.offsetX, y: d.offsetY } }
     Drag.Done _ → do
-      Debug.Trace.traceA "Done"
+      H.gets _.grabbing >>= traverse_ \{ deckId, x, y } →
+        H.gets (Map.lookup deckId ∘ _.decks) >>= traverse_ \rect → do
+          let offsetX = round (x / Config.gridPx)
+              offsetY = round (y / Config.gridPx)
+              newRect = rect { x = rect.x + offsetX, y = rect.y + offsetY }
+          H.modify \s → s { decks = Map.insert deckId newRect s.decks }
+      H.modify _ { grabbing = Nothing }
   pure next
-evalBoard (StopDragging next) = pure next
+evalBoard (Resizing deckId ev next) = do
+  case ev of
+    Drag.Move _ d → do
+      H.modify _ { resizing = Just { deckId, x: d.offsetX, y: d.offsetY } }
+    Drag.Done _ → do
+      H.gets _.resizing >>= traverse_ \{ deckId, x, y } →
+        H.gets (Map.lookup deckId ∘ _.decks) >>= traverse_ \rect → do
+          let offsetX = round (x / Config.gridPx)
+              offsetY = round (y / Config.gridPx)
+              newRect = rect { width = rect.width + offsetX, height = rect.height + offsetY }
+          H.modify \s → s { decks = Map.insert deckId newRect s.decks }
+      H.modify _ { resizing = Nothing }
+  pure next
 evalBoard (AddDeck next) = pure next
+
+peek ∷ ∀ a. H.ChildF DeckId (OpaqueQuery DCQ.Query) a → DraftboardDSL Unit
+peek (H.ChildF deckId q) = flip peekOpaqueQuery q
+  case _ of
+    DCQ.GrabDeck ev _ →
+      void
+        $ Drag.subscribe' ev
+        $ right ∘ H.action ∘ Grabbing deckId
+    DCQ.ResizeDeck ev _ →
+      void
+        $ Drag.subscribe' ev
+        $ right ∘ H.action ∘ Resizing deckId
+    _ →
+      pure unit
 
 loadDecks ∷ DraftboardDSL Unit
 loadDecks = void $

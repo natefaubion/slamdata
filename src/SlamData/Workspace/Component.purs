@@ -190,15 +190,14 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
       { cards =
           [ { cardId: CID.CardId 0
             , cardType: CT.Draftboard
-            , state: DBS.encode
-                { decks: Map.singleton deckId
+            , state: DBS.encode $ DBS.initialState
+                { decks = Map.singleton deckId
                     { x: 1.0
                     , y: 1.0
                     , width: 20.0
                     , height: 10.0
                     }
-                , zoomed: Nothing
-                , path
+                , path = path
                 }
             , hasRun: false
             }

@@ -99,6 +99,28 @@
   display: block;
 }
 
+.sd-grab-deck {
+  height: @grid-size;
+  width: (@grid-size * 6);
+  background: red;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  margin: 0 0 0 -(@grid-size * 3);
+  border: none;
+}
+
+.sd-resize-deck {
+  height: @grid-size;
+  width: @grid-size;
+  background-color: blue;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  border: none;
+  margin: 0;
+}
+
 .deck-card {
   height: 100%;
   overflow: auto;

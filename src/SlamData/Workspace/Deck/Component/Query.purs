@@ -50,6 +50,8 @@ data Query a
   | GetGlobalVarMap (Port.VarMap → a)
   | SetGlobalVarMap Port.VarMap a
   | FlipDeck a
+  | GrabDeck (Event MouseEvent) a
+  | ResizeDeck (Event MouseEvent) a
   | StartSliding (Event MouseEvent) a
   | StopSlidingAndSnap (Event MouseEvent) a
   | UpdateSliderPosition (Event MouseEvent) a

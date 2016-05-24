@@ -37,6 +37,8 @@ type State =
   { decks ∷ Map.Map DeckId DeckPosition
   , zoomed ∷ Maybe DeckId
   , path ∷ Maybe DirPath
+  , grabbing ∷ Maybe { deckId ∷ DeckId, x ∷ Number, y ∷ Number }
+  , resizing ∷ Maybe { deckId ∷ DeckId, x ∷ Number, y ∷ Number }
   }
 
 type StateP =
@@ -57,6 +59,8 @@ initialState =
   { decks: Map.empty
   , zoomed: Nothing
   , path: Nothing
+  , grabbing: Nothing
+  , resizing: Nothing
   }
 
 -- | An array of positioned decks.
@@ -66,6 +70,15 @@ _decks = lens _.decks _{ decks = _ }
 -- | The currently zoomed in Deck.
 _zoomed ∷ LensP State (Maybe DeckId)
 _zoomed = lens _.zoomed _{ zoomed = _ }
+
+_path ∷ LensP State (Maybe DirPath)
+_path = lens _.path _{ path = _ }
+
+_grabbing ∷ LensP State (Maybe { deckId ∷ DeckId, x ∷ Number, y ∷ Number })
+_grabbing = lens _.grabbing _{ grabbing = _ }
+
+_resizing ∷ LensP State (Maybe { deckId ∷ DeckId, x ∷ Number, y ∷ Number })
+_resizing = lens _.resizing _{ resizing = _ }
 
 encode ∷ State → Json
 encode state
@@ -85,6 +98,8 @@ decode = decodeJson >=> \obj →
   { decks: _
   , zoomed: Nothing
   , path: Nothing
+  , grabbing: Nothing
+  , resizing: Nothing
   } <$> (traverse decodeDeckPosition =<< obj .? "decks")
 
 decodeDeckPosition ∷ Json → Either String DeckPosition

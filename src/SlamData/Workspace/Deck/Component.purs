@@ -137,11 +137,25 @@ render vstate =
                 , HP.title "Flip deck"
                 ]
                 [ HH.text "" ]
+            , HH.button
+                [ HP.classes [ CSS.grabDeck ]
+                , HE.onMouseDown (HE.input GrabDeck)
+                , ARIA.label "Grab deck"
+                , HP.title "Grab deck"
+                ]
+                [ HH.text "" ]
             , Slider.render comp vstate $ state.displayMode ≡ DCS.Normal
             , HH.slot' cpIndicator unit \_ →
                 { component: Indicator.comp
                 , initialState: Indicator.initialState
                 }
+            , HH.button
+                [ HP.classes [ CSS.resizeDeck ]
+                , HE.onMouseDown (HE.input ResizeDeck)
+                , ARIA.label "Resize deck"
+                , HP.title "Resize deck"
+                ]
+                [ HH.text "" ]
             , renderBackside $ state.displayMode ≡ DCS.Backside
             , renderDialog $ state.displayMode ≡ DCS.Dialog
             ]
@@ -264,6 +278,8 @@ eval (FlipDeck next) = do
         DCS.Normal → DCS.Backside
         _ → DCS.Normal
   pure next
+eval (GrabDeck _ next) = pure next
+eval (ResizeDeck _ next) = pure next
 eval (StartSliding mouseEvent next) =
   Slider.startSliding mouseEvent $> next
 eval (StopSlidingAndSnap mouseEvent next) = do
