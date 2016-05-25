@@ -418,6 +418,9 @@ cardSlider = className "sd-card-slider"
 board :: ClassName
 board = className "sd-board"
 
+gridPattern :: ClassName
+gridPattern = className "sd-grid-pattern"
+
 deck :: ClassName
 deck = className "sd-deck"
 

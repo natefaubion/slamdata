@@ -82,7 +82,8 @@ draftboardComponent opts = Cp.makeCardComponent
 render ∷ CardOptions → State → DraftboardHTML
 render opts state =
   HH.div
-    [ HP.classes [ RC.board ]
+    [ HP.classes [ RC.gridPattern ]
+    , HC.style bgSize
     , HP.ref (right ∘ H.action ∘ SetElement)
     , HE.onMouseDown (pure ∘ Just ∘ right ∘ H.action ∘ AddDeck)
     ]
@@ -111,6 +112,12 @@ render opts state =
     CSS.left $ CSS.px $ rect.x * Config.gridPx
     CSS.width $ CSS.px $ rect.width * Config.gridPx
     CSS.height $ CSS.px $ rect.height * Config.gridPx
+
+  bgSize = do
+    let size = foldr maxSize { width: 0.0, height: 0.0 } state.decks
+        size' = maybe size (flip maxSize size ∘ snd) state.moving
+    CSS.width $ CSS.px $ (size'.width + 1.0) * Config.gridPx
+    CSS.height $ CSS.px $ (size'.height + 1.0) * Config.gridPx
 
 evalCard ∷ Natural Ceq.CardEvalQuery DraftboardDSL
 evalCard (Ceq.EvalCard input k) = pure $ k { output: Nothing, messages: [] }
@@ -189,6 +196,18 @@ stopDragging = do
     when (List.null $ overlapping rect' decks) do
       H.modify \s → s { decks = Map.insert deckId rect' s.decks }
   H.modify _ { moving = Nothing }
+
+maxSize
+  ∷ DeckPosition
+  → { width ∷ Number, height ∷ Number }
+  → { width ∷ Number, height ∷ Number }
+maxSize deck size =
+  { width: if x > size.width then x else size.width
+  , height: if y > size.height then y else size.height
+  }
+  where
+  x = deck.x + deck.width
+  y = deck.y + deck.height
 
 clampDeck ∷ DeckPosition → DeckPosition
 clampDeck rect =

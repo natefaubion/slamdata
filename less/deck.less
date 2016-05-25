@@ -1,18 +1,21 @@
 @import "deck/common";
 @import "deck/indicator";
 
-.sd-board {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  bottom: 0;
+.sd-grid-pattern {
   background-color: #eee;
   background-size: @grid-size @grid-size;
   background-position: top top;
   background-image:
     linear-gradient(to right, #ddd 1px, transparent 1px),
     linear-gradient(to bottom, #ddd 1px, transparent 1px);
+}
+
+.sd-board {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: 0;
 }
 
 .sd-deck-hidden-top-menu {
