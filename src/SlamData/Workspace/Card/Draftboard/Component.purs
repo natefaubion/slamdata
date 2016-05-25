@@ -35,6 +35,7 @@ import CSS as CSS
 import Halogen as H
 import Halogen.Component.Opaque.Unsafe (opaqueState, opaqueQuery, peekOpaqueQuery, OpaqueQuery)
 import Halogen.Component.Utils.Drag as Drag
+import Halogen.Component.Utils (raise')
 import Halogen.HTML.CSS.Indexed as HC
 import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as HH
@@ -171,6 +172,13 @@ evalBoard (AddDeck e next) = do
           , y: floor $ ((unsafeCoerce e).pageY - rect.top + scroll.top) / Config.gridPx
           }
   pure next
+evalBoard (LoadDeck deckId next) = do
+  H.gets _.path >>= traverse \path →
+    H.query deckId
+      $ opaqueQuery
+      $ H.action
+      $ DCQ.Load path deckId
+  pure next
 
 peek ∷ ∀ a. H.ChildF DeckId (OpaqueQuery DCQ.Query) a → DraftboardDSL Unit
 peek (H.ChildF deckId q) = flip peekOpaqueQuery q
@@ -238,13 +246,9 @@ overlapping a = List.filter go
        || b.y + b.height <= a.y
 
 loadDecks ∷ DraftboardDSL Unit
-loadDecks = void $
-  H.gets _.path >>= traverse \path →
-    H.gets (Map.keys ∘ _.decks) >>= traverse \deckId →
-      H.query deckId
-        $ opaqueQuery
-        $ H.action
-        $ DCQ.Load path deckId
+loadDecks =
+  H.gets (Map.keys ∘ _.decks) >>=
+    traverse_ (raise' ∘ right ∘ H.action ∘ LoadDeck)
 
 addDeck ∷ { x ∷ Number, y ∷ Number } → DraftboardDSL Unit
 addDeck coords = do

@@ -34,6 +34,7 @@ data Query a
   | Resizing DeckId DragEvent a
   | SetElement (Maybe HTMLElement) a
   | AddDeck (Event MouseEvent) a
+  | LoadDeck DeckId a
 
 type QueryC = Coproduct CardEvalQuery Query
 
