@@ -38,3 +38,6 @@ transform = key (fromString "transform")
 
 translate3d :: String -> String -> String -> String
 translate3d x y z = "translate3d(" ++ x ++ "," ++ y ++ "," ++ z ++ ")"
+
+zIndex :: Int → CSS
+zIndex = key (fromString "z-index") <<< show

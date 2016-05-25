@@ -22,11 +22,15 @@ module SlamData.Workspace.Card.Draftboard.Component
 
 import SlamData.Prelude
 
+import Control.Monad.Except.Trans (ExceptT(..), runExceptT)
+
 import Data.Array as Array
+import Data.List as List
 import Data.Map as Map
+import Data.Path.Pathy ((</>))
+import Data.Path.Pathy as Pathy
 
 import CSS as CSS
-import Utils.CSS as CSSUtils
 
 import Halogen as H
 import Halogen.Component.Opaque.Unsafe (opaqueState, opaqueQuery, peekOpaqueQuery, OpaqueQuery)
@@ -36,10 +40,11 @@ import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as HH
 import Halogen.HTML.Properties.Indexed as HP
 
-import Math (round)
+import Math (round, floor)
 
 import SlamData.Config as Config
 import SlamData.Effects (Slam)
+import SlamData.Quasar.Data (save) as Quasar
 import SlamData.Render.CSS as RC
 import SlamData.Workspace.Card.Draftboard.Component.Query (Query(..), QueryP, QueryC)
 import SlamData.Workspace.Card.Draftboard.Component.State (State, DeckPosition, initialState, _decks, _zoomed, encode, decode)
@@ -49,7 +54,13 @@ import SlamData.Workspace.Card.Common.EvalQuery as Ceq
 import SlamData.Workspace.Card.Component as Cp
 import SlamData.Workspace.Deck.Component.Query as DCQ
 import SlamData.Workspace.Deck.Component.State as DCS
-import SlamData.Workspace.Deck.DeckId (DeckId, deckIdToString)
+import SlamData.Workspace.Deck.DeckId (DeckId(..), deckIdToString)
+import SlamData.Workspace.Deck.Model as DM
+import SlamData.Workspace.Model as WS
+
+import Unsafe.Coerce (unsafeCoerce)
+import Utils.CSS (zIndex)
+import Utils.DOM (elementEq, scrollTop, scrollLeft, getOffsetClientRect)
 
 type DraftboardDSL = H.ParentDSL State DCS.StateP QueryC DCQ.QueryP Slam DeckId
 
@@ -70,17 +81,22 @@ draftboardComponent opts = Cp.makeCardComponent
 
 render ∷ CardOptions → State → DraftboardHTML
 render opts state =
-  HH.div [ HP.classes [ RC.board ] ] $
-    map renderDeck (foldl Array.snoc [] $ Map.toList state.decks)
+  HH.div
+    [ HP.classes [ RC.board ]
+    , HP.ref (right ∘ H.action ∘ SetElement)
+    , HE.onMouseDown (pure ∘ Just ∘ right ∘ H.action ∘ AddDeck)
+    ]
+    $ map renderDeck (foldl Array.snoc [] $ Map.toList state.decks)
 
   where
 
   renderDeck (Tuple deckId rect) =
     HH.div
       [ HP.key $ deckIdToString deckId
-      , HC.style $ cssPos $ case state.moving of
-          Just (Tuple deckId' rect') | deckId == deckId' → rect'
-          _ → rect
+      , HC.style $
+          case state.moving of
+            Just (Tuple deckId' rect') | deckId == deckId' → zIndex 1 *> cssPos rect'
+            _ → cssPos rect
       ]
       [ HH.slot deckId $ mkDeckComponent deckId ]
 
@@ -134,7 +150,20 @@ evalBoard (Resizing deckId ev next) = do
     Drag.Done _ →
       stopDragging
   pure next
-evalBoard (AddDeck next) = pure next
+evalBoard (SetElement el next) = do
+  H.modify _ { canvas = el }
+  pure next
+evalBoard (AddDeck e next) = do
+  H.gets _.canvas >>= traverse_ \el →
+    H.fromEff (elementEq el e.target) >>= \same →
+      when same do
+        rect ← H.fromEff $ getOffsetClientRect el
+        scroll ← { top: _, left: _ } <$> H.fromEff (scrollTop el) <*> H.fromEff (scrollLeft el)
+        addDeck
+          { x: floor $ ((unsafeCoerce e).pageX - rect.left + scroll.left) / Config.gridPx
+          , y: floor $ ((unsafeCoerce e).pageY - rect.top + scroll.top) / Config.gridPx
+          }
+  pure next
 
 peek ∷ ∀ a. H.ChildF DeckId (OpaqueQuery DCQ.Query) a → DraftboardDSL Unit
 peek (H.ChildF deckId q) = flip peekOpaqueQuery q
@@ -153,8 +182,12 @@ peek (H.ChildF deckId q) = flip peekOpaqueQuery q
 
 stopDragging ∷ DraftboardDSL Unit
 stopDragging = do
-  H.gets _.moving >>= traverse_ \(Tuple deckId rect) →
-    H.modify \s → s { decks = Map.insert deckId (roundDeck rect) s.decks }
+  st ← H.get
+  for_ st.moving \(Tuple deckId rect) → do
+    let rect' = roundDeck rect
+        decks = List.filter ((deckId /= _) ∘ fst) $ Map.toList st.decks
+    when (List.null $ overlapping rect' decks) do
+      H.modify \s → s { decks = Map.insert deckId rect' s.decks }
   H.modify _ { moving = Nothing }
 
 clampDeck ∷ DeckPosition → DeckPosition
@@ -173,6 +206,18 @@ roundDeck rect =
   , height: round rect.height
   }
 
+overlapping
+  ∷ DeckPosition
+  → List.List (Tuple DeckId DeckPosition)
+  → List.List (Tuple DeckId DeckPosition)
+overlapping a = List.filter go
+  where
+  go (Tuple _ b) =
+    not $ a.x + a.width <= b.x
+       || b.x + b.width <= a.x
+       || a.y + a.height <= b.y
+       || b.y + b.height <= a.y
+
 loadDecks ∷ DraftboardDSL Unit
 loadDecks = void $
   H.gets _.path >>= traverse \path →
@@ -181,3 +226,35 @@ loadDecks = void $
         $ opaqueQuery
         $ H.action
         $ DCQ.Load path deckId
+
+addDeck ∷ { x ∷ Number, y ∷ Number } → DraftboardDSL Unit
+addDeck coords = do
+  st ← H.get
+  let deckPos = clampDeck { x: coords.x - 10.0, y: coords.y, width: 20.0, height: 10.0 }
+      overlaps = overlapping deckPos $ Map.toList st.decks
+  case List.uncons overlaps of
+    Nothing → saveDeck st deckPos
+    Just _ → pure unit
+
+  where
+  saveDeck st deckPos = do
+    let json = DM.encode { name: Just "Untitled Deck" , cards: [] }
+    for_ st.path \path → do
+      deckId ← runExceptT do
+        i ← ExceptT $ map DeckId <$> WS.freshId (path </> Pathy.file "index")
+        ExceptT $ Quasar.save (deckIndex path i) json
+        pure i
+
+      case deckId of
+        Left err → do
+          -- TODO: do something to notify the user saving failed
+          pure unit
+        Right deckId' → void do
+          H.modify \s → s { decks = Map.insert deckId' deckPos s.decks }
+          H.query deckId'
+            $ opaqueQuery
+            $ H.action
+            $ DCQ.Load path deckId'
+
+  deckIndex path deckId =
+    path </> Pathy.dir (deckIdToString deckId) </> Pathy.file "index"

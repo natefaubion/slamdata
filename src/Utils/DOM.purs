@@ -38,6 +38,10 @@ foreign import focus :: forall e. HTMLElement -> Eff (dom :: DOM|e) Unit
 foreign import offsetLeft :: forall e. HTMLElement -> Eff (dom :: DOM|e) Number
 foreign import getBoundingClientRect :: forall eff.  HTMLElement -> Eff (dom :: DOM | eff) DOMRect
 foreign import getTextWidth :: forall eff. String -> String -> Eff (dom :: DOM | eff) Number
+foreign import elementEq :: forall eff. HTMLElement -> HTMLElement -> Eff (dom :: DOM | eff) Boolean
+foreign import scrollTop :: forall eff. HTMLElement -> Eff (dom :: DOM | eff) Number
+foreign import scrollLeft :: forall eff. HTMLElement -> Eff (dom :: DOM | eff) Number
+foreign import getOffsetClientRect :: forall eff.  HTMLElement -> Eff (dom :: DOM | eff) DOMRect
 
 type DOMRect =
   { left :: Number

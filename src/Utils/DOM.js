@@ -40,7 +40,6 @@ exports.offsetLeft = function(el) {
     };
 };
 
-
 exports.getTextWidth = function(text, font) {
     return function() {
         var canvas = document.createElement("canvas");
@@ -49,3 +48,35 @@ exports.getTextWidth = function(text, font) {
         return context.measureText(text).width;
     };
 };
+
+exports.elementEq = function(a) {
+    return function(b) {
+        return function() {
+            return a == b;
+        };
+    };
+};
+
+exports.scrollTop = function(el) {
+    return function() {
+        return el.scrollTop;
+    };
+};
+
+exports.scrollLeft = function(el) {
+    return function() {
+        return el.scrollLeft;
+    };
+};
+
+exports.getOffsetClientRect = function(el) {
+  return function() {
+    var rect = el.getBoundingClientRect();
+    return {
+      top: rect.top + document.body.scrollTop,
+      left: rect.left + document.body.scrollLeft,
+      width: rect.width,
+      height: rect.height
+    }
+  }
+}

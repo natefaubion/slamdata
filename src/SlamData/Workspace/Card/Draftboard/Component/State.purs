@@ -18,6 +18,8 @@ module SlamData.Workspace.Card.Draftboard.Component.State where
 
 import SlamData.Prelude
 
+import DOM.HTML.Types (HTMLElement)
+
 import Halogen as H
 import Halogen.Component.Opaque.Unsafe (OpaqueQuery, OpaqueState)
 
@@ -38,6 +40,7 @@ type State =
   , zoomed ∷ Maybe DeckId
   , path ∷ Maybe DirPath
   , moving ∷ Maybe (Tuple DeckId DeckPosition)
+  , canvas ∷ Maybe HTMLElement
   }
 
 type StateP =
@@ -59,6 +62,7 @@ initialState =
   , zoomed: Nothing
   , path: Nothing
   , moving: Nothing
+  , canvas: Nothing
   }
 
 -- | An array of positioned decks.
@@ -94,6 +98,7 @@ decode = decodeJson >=> \obj →
   , zoomed: Nothing
   , path: Nothing
   , moving: Nothing
+  , canvas: Nothing
   } <$> (traverse decodeDeckPosition =<< obj .? "decks")
 
 decodeDeckPosition ∷ Json → Either String DeckPosition

@@ -18,9 +18,12 @@ module SlamData.Workspace.Card.Draftboard.Component.Query where
 
 import SlamData.Prelude
 
+import DOM.HTML.Types (HTMLElement)
+
 import Halogen as H
 import Halogen.Component.Opaque.Unsafe (OpaqueQuery)
 import Halogen.Component.Utils.Drag (DragEvent)
+import Halogen.HTML.Events.Types (Event, MouseEvent)
 
 import SlamData.Workspace.Card.Common.EvalQuery (CardEvalQuery)
 import SlamData.Workspace.Deck.Component.Query as DCQ
@@ -29,7 +32,8 @@ import SlamData.Workspace.Deck.DeckId (DeckId)
 data Query a
   = Grabbing DeckId DragEvent a
   | Resizing DeckId DragEvent a
-  | AddDeck a
+  | SetElement (Maybe HTMLElement) a
+  | AddDeck (Event MouseEvent) a
 
 type QueryC = Coproduct CardEvalQuery Query
 
