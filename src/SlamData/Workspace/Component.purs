@@ -135,7 +135,7 @@ eval (DismissAll next) = do
 eval (GetPath k) = k <$> H.gets _.path
 eval (Reset path next) = do
   H.modify _
-    { path = Just path
+    { path = path
     , stateMode = Ready
     }
   queryDeck $ H.action $ Deck.Reset path
@@ -146,7 +146,7 @@ eval (Load path deckIds next) = do
     , path = Just path
     , root = Nothing
     }
-  queryDeck $ H.action $ Deck.Reset path
+  queryDeck $ H.action $ Deck.Reset (Just path)
   case L.head deckIds of
     Just deckId →
       loadDeck deckId
@@ -178,7 +178,7 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
       queryDeck (H.action Deck.Save)
       queryDeck (H.request Deck.GetId) >>= join >>> traverse_ \oldId → do
         Model.freshId index >>= traverse_ \newId → do
-          queryDeck $ H.action $ Deck.Reset path
+          queryDeck $ H.action $ Deck.Reset (Just path)
           queryDeck $ H.action $ Deck.SetModel (DeckId newId) (wrappedDeck st.path oldId)
           queryDeck $ H.action $ Deck.Save
           Model.setRoot newId index

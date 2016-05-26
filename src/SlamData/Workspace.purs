@@ -29,6 +29,7 @@ import Halogen (Driver, runUI, parentState)
 import Halogen.Util (runHalogenAff, awaitBody)
 
 import SlamData.Config as Config
+import SlamData.FileSystem.Routing (parentURL)
 import SlamData.Workspace.Action (Action(..), toAccessType)
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Component as Workspace
@@ -64,8 +65,11 @@ routeSignal driver =
   where
 
   explore ∷ UP.FilePath → Aff SlamDataEffects Unit
-  explore path =
+  explore path = do
+    driver $ Workspace.toWorkspace $ Workspace.Reset Nothing
     driver $ Workspace.toDeck $ Deck.ExploreFile path
+    driver $ Workspace.toWorkspace $ Workspace.SetParentHref
+      $ parentURL $ Right path
 
   workspace
     ∷ UP.DirPath
@@ -80,8 +84,10 @@ routeSignal driver =
 
     when (currentPath ≠ pure path) do
       if action ≡ New
-        then driver $ Workspace.toWorkspace $ Workspace.Reset path
+        then driver $ Workspace.toWorkspace $ Workspace.Reset (Just path)
         else driver $ Workspace.toWorkspace $ Workspace.Load path deckIds
 
     driver $ Workspace.toWorkspace $ Workspace.SetAccessType accessType
     driver $ Workspace.toDeck $ Deck.SetGlobalVarMap varMap
+    driver $ Workspace.toWorkspace $ Workspace.SetParentHref
+      $ parentURL $ Left path

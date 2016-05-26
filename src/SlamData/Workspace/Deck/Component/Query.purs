@@ -46,7 +46,7 @@ data Query a
   | Load UP.DirPath DeckId a
   | SetModel DeckId Deck a
   | Save a
-  | Reset UP.DirPath a
+  | Reset (Maybe UP.DirPath) a
   | GetGlobalVarMap (Port.VarMap → a)
   | SetGlobalVarMap Port.VarMap a
   | FlipDeck a

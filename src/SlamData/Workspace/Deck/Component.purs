@@ -244,7 +244,7 @@ eval (Publish next) = do
     traverse_ (H.fromEff ∘ newTab ∘ flip mkWorkspaceURL (NA.Load AT.ReadOnly))
   pure next
 eval (Reset dir next) = do
-  setDeckState $ DCS.initialDeck { path = Just dir }
+  setDeckState $ DCS.initialDeck { path = dir }
   updateIndicator
   pure next
 eval (SetName name next) =

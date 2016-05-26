@@ -35,7 +35,7 @@ data Query a
   = SetAccessType AccessType a
   | SetParentHref String a
   | DismissAll a
-  | Reset UP.DirPath a
+  | Reset (Maybe UP.DirPath) a
   | Load UP.DirPath (L.List DeckId) a
   | GetPath (Maybe UP.DirPath → a)
 
