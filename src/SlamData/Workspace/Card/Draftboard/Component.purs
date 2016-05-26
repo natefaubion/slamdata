@@ -126,6 +126,7 @@ evalCard (Ceq.SetupCard info next) = pure next
 evalCard (Ceq.NotifyRunCard next) = pure next
 evalCard (Ceq.NotifyStopCard next) = pure next
 evalCard (Ceq.SetCanceler canceler next) = pure next
+evalCard (Ceq.SetDimensions dims next) = pure next
 evalCard (Ceq.Save k) = map (k ∘ encode) H.get
 evalCard (Ceq.Load json next) = do
   for_ (decode json) \model → do
@@ -173,7 +174,7 @@ evalBoard (AddDeck e next) = do
           }
   pure next
 evalBoard (LoadDeck deckId next) = do
-  H.gets _.path >>= traverse \path →
+  H.gets _.path >>= traverse_ \path →
     H.query deckId
       $ opaqueQuery
       $ H.action
