@@ -36,6 +36,7 @@ import Halogen as H
 import Halogen.Component.Opaque.Unsafe (opaqueState, opaqueQuery, peekOpaqueQuery, OpaqueQuery)
 import Halogen.Component.Utils.Drag as Drag
 import Halogen.Component.Utils (raise')
+import Halogen.CustomEvents (mouseEventToPageEvent)
 import Halogen.HTML.CSS.Indexed as HC
 import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as HH
@@ -59,7 +60,6 @@ import SlamData.Workspace.Deck.DeckId (DeckId(..), deckIdToString)
 import SlamData.Workspace.Deck.Model as DM
 import SlamData.Workspace.Model as WS
 
-import Unsafe.Coerce (unsafeCoerce)
 import Utils.CSS (zIndex)
 import Utils.DOM (elementEq, scrollTop, scrollLeft, getOffsetClientRect)
 
@@ -109,16 +109,16 @@ render opts state =
 
   cssPos rect = do
     CSS.position CSS.absolute
-    CSS.top $ CSS.px $ rect.y * Config.gridPx
-    CSS.left $ CSS.px $ rect.x * Config.gridPx
-    CSS.width $ CSS.px $ rect.width * Config.gridPx
-    CSS.height $ CSS.px $ rect.height * Config.gridPx
+    CSS.top $ CSS.px $ gridToPx rect.y
+    CSS.left $ CSS.px $ gridToPx rect.x
+    CSS.width $ CSS.px $ gridToPx rect.width
+    CSS.height $ CSS.px $ gridToPx rect.height
 
   bgSize = do
     let size = foldr maxSize { width: 0.0, height: 0.0 } state.decks
         size' = maybe size (flip maxSize size ∘ snd) state.moving
-    CSS.width $ CSS.px $ (size'.width + 1.0) * Config.gridPx
-    CSS.height $ CSS.px $ (size'.height + 1.0) * Config.gridPx
+    CSS.width $ CSS.px $ gridToPx $ size'.width + 1.0
+    CSS.height $ CSS.px $ gridToPx $ size'.height + 1.0
 
 evalCard ∷ Natural Ceq.CardEvalQuery DraftboardDSL
 evalCard (Ceq.EvalCard input k) = pure $ k { output: Nothing, messages: [] }
@@ -140,8 +140,8 @@ evalBoard (Grabbing deckId ev next) = do
     Drag.Move _ d → do
       H.gets (Map.lookup deckId ∘ _.decks) >>= traverse_ \rect → do
         let newRect = clampDeck rect
-              { x = rect.x + (d.offsetX / Config.gridPx)
-              , y = rect.y + (d.offsetY / Config.gridPx)
+              { x = rect.x + (pxToGrid d.offsetX)
+              , y = rect.y + (pxToGrid d.offsetY)
               }
         H.modify _ { moving = Just (Tuple deckId newRect) }
     Drag.Done _ →
@@ -152,8 +152,8 @@ evalBoard (Resizing deckId ev next) = do
     Drag.Move _ d → do
       H.gets (Map.lookup deckId ∘ _.decks) >>= traverse_ \rect → do
         let newRect = clampDeck rect
-              { width = rect.width + (d.offsetX / Config.gridPx)
-              , height = rect.height + (d.offsetY / Config.gridPx)
+              { width = rect.width + (pxToGrid d.offsetX)
+              , height = rect.height + (pxToGrid d.offsetY)
               }
         H.modify _ { moving = Just (Tuple deckId newRect) }
     Drag.Done _ →
@@ -163,14 +163,15 @@ evalBoard (SetElement el next) = do
   H.modify _ { canvas = el }
   pure next
 evalBoard (AddDeck e next) = do
+  let e' = mouseEventToPageEvent e
   H.gets _.canvas >>= traverse_ \el →
-    H.fromEff (elementEq el e.target) >>= \same →
+    H.fromEff (elementEq el e'.target) >>= \same →
       when same do
         rect ← H.fromEff $ getOffsetClientRect el
         scroll ← { top: _, left: _ } <$> H.fromEff (scrollTop el) <*> H.fromEff (scrollLeft el)
         addDeck
-          { x: floor $ ((unsafeCoerce e).pageX - rect.left + scroll.left) / Config.gridPx
-          , y: floor $ ((unsafeCoerce e).pageY - rect.top + scroll.top) / Config.gridPx
+          { x: floor $ pxToGrid $ e'.pageX - rect.left + scroll.left
+          , y: floor $ pxToGrid $ e'.pageY - rect.top + scroll.top
           }
   pure next
 evalBoard (LoadDeck deckId next) = do
@@ -195,6 +196,12 @@ peek (H.ChildF deckId q) = flip peekOpaqueQuery q
       void
         $ Drag.subscribe' ev
         $ right ∘ H.action ∘ tag deckId
+
+pxToGrid ∷ Number → Number
+pxToGrid = (_ / Config.gridPx)
+
+gridToPx ∷ Number → Number
+gridToPx = (_ * Config.gridPx)
 
 stopDragging ∷ DraftboardDSL Unit
 stopDragging = do
