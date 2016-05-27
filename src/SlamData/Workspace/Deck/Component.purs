@@ -26,7 +26,7 @@ import SlamData.Prelude
 import Control.Monad.Aff.Console (log)
 import Control.Monad.Eff.Exception as Exn
 import Control.Monad.Except.Trans (ExceptT(..), runExceptT)
-import Control.UI.Browser (newTab, locationObject, locationString)
+import Control.UI.Browser (newTab, locationString)
 
 import Data.Array as Array
 import Data.Foldable as Foldable
@@ -39,8 +39,6 @@ import Data.Time (Milliseconds(..))
 import Data.StrMap as SM
 
 import Ace.Halogen.Component as Ace
-
-import DOM.HTML.Location as Location
 
 import Halogen as H
 import Halogen.Component.Opaque.Unsafe (opaque, opaqueState)
@@ -106,19 +104,20 @@ render vstate =
   case state.stateMode of
     Loading →
       HH.div
-        [ HP.classes [ B.alert, B.alertInfo ]
+        [ HP.class_ CSS.board
         , HP.key "board"
         ]
-        [ HH.h1
-          [ HP.class_ B.textCenter ]
-          [ HH.text "Loading..." ]
-          -- We need to render the cards but have them invisible during loading
-          -- otherwise the various nested components won't initialise correctly.
-          -- This div is required, along with the key, so that structurally it
-          -- is in the same place in both `Loading` and `Ready` states.
-        , HH.div
-            [ HP.key "deck-container" ]
+        -- We need to render the cards but have them invisible during loading
+        -- otherwise the various nested components won't initialise correctly.
+        -- This div is required, along with the key, so that structurally it
+        -- is in the same place in both `Loading` and `Ready` states.
+        [ HH.div
+            [ HP.class_ CSS.deck
+            , HP.key "deck-container" ]
             [ Slider.render comp vstate $ state.displayMode ≡ DCS.Normal ]
+        , HH.div
+            [ HP.class_ CSS.loading ]
+            []
         ]
     Ready →
       -- WARNING: Very strange things happen when this is not in a div; see SD-1326.
@@ -567,16 +566,9 @@ saveDeck = H.get >>= \st →
           pure unit
         Right deckId' → do
           H.modify $ DCS._id .~ Just deckId'
-
           -- runPendingCards would be deferred if there had previously been
           -- no `deckPath`. We need to flush the queue.
           when (isNothing $ DCS.deckPath st) runPendingCards
-
-          -- We need to get the modified version of the deck state.
-          H.gets DCS.deckPath >>= traverse_ \path' →
-            let deckHash =
-                  mkWorkspaceHash path' (NA.Load st.accessType) st.globalVarMap
-            in H.fromEff $ locationObject >>= Location.setHash deckHash
 
   where
 

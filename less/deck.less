@@ -16,6 +16,17 @@
   right: 0;
   left: 0;
   bottom: 0;
+
+  & > .loading {
+    position: absolute;
+    top: @grid-size;
+    bottom: @grid-size;
+    width: 100%;
+    background-color: #fff;
+    background-image:
+      linear-gradient(to left, #bbb @grid-size, transparent @grid-size),
+      linear-gradient(to right, #bbb @grid-size, transparent @grid-size);
+  }
 }
 
 .sd-deck-hidden-top-menu {
