@@ -25,6 +25,7 @@ import SlamData.Prelude
 import Control.Monad.Except.Trans (ExceptT(..), runExceptT)
 
 import Data.Array as Array
+import Data.Function (on)
 import Data.List as List
 import Data.Map as Map
 import Data.Path.Pathy ((</>))
@@ -253,6 +254,30 @@ overlapping a = List.filter go
        || a.y + a.height <= b.y
        || b.y + b.height <= a.y
 
+accomodateDeck
+  ∷ List.List (Tuple DeckId DeckPosition)
+  → { x ∷ Number, y ∷ Number }
+  → DeckPosition
+  → Maybe DeckPosition
+accomodateDeck bs = go List.Nil
+  where
+  go hist c a =
+    case overlapping a bs of
+      List.Nil →
+        Just a
+      bs' | not $ List.null $ List.intersectBy (eq `on` fst) hist bs' →
+        Nothing
+      List.Cons b _ →
+        let a' = clampDeck $ reposition c a (snd b)
+            c' = { x: a'.x + (floor (a'.width / 2.0)), y: a'.y }
+        in  go (List.Cons b hist) c' a'
+
+  reposition c a b
+    | c.x >= b.x && c.x < b.x + b.width = a { y = b.y - a.height }
+    | c.x >= b.x + b.width = a { x = b.x + b.width }
+    | c.y < b.x = a { x = b.x - a.width }
+    | otherwise = a
+
 loadDecks ∷ DraftboardDSL Unit
 loadDecks =
   H.gets (Map.keys ∘ _.decks) >>=
@@ -261,11 +286,10 @@ loadDecks =
 addDeck ∷ { x ∷ Number, y ∷ Number } → DraftboardDSL Unit
 addDeck coords = do
   st ← H.get
-  let deckPos = clampDeck { x: coords.x - 10.0, y: coords.y, width: 20.0, height: 10.0 }
-      overlaps = overlapping deckPos $ Map.toList st.decks
-  case List.uncons overlaps of
-    Nothing → saveDeck st deckPos
-    Just _ → pure unit
+  let decks = Map.toList st.decks
+      deckPos = clampDeck { x: coords.x - 10.0, y: coords.y, width: 20.0, height: 10.0 }
+  for_ (accomodateDeck decks coords deckPos) $
+    saveDeck st
 
   where
   saveDeck st deckPos = do
