@@ -26,7 +26,7 @@ import SlamData.Prelude
 import Control.Monad.Aff.Console (log)
 import Control.Monad.Eff.Exception as Exn
 import Control.Monad.Except.Trans (ExceptT(..), runExceptT)
-import Control.UI.Browser (newTab, locationString)
+import Control.UI.Browser (newTab, locationObject, locationString)
 
 import Data.Array as Array
 import Data.Foldable as Foldable
@@ -39,6 +39,8 @@ import Data.Time (Milliseconds(..))
 import Data.StrMap as SM
 
 import Ace.Halogen.Component as Ace
+
+import DOM.HTML.Location as Location
 
 import Halogen as H
 import Halogen.Component.Opaque.Unsafe (opaque, opaqueState)
@@ -569,6 +571,10 @@ saveDeck = H.get >>= \st →
           -- runPendingCards would be deferred if there had previously been
           -- no `deckPath`. We need to flush the queue.
           when (isNothing $ DCS.deckPath st) runPendingCards
+
+          let deckHash =
+                mkWorkspaceHash path (NA.Load st.accessType) st.globalVarMap
+          H.fromEff $ locationObject >>= Location.setHash deckHash
 
   where
 
