@@ -18,6 +18,7 @@ module SlamData.Quasar.Data
   ( makeFile
   , save
   , load
+  , delete
   ) where
 
 import SlamData.Prelude
@@ -30,7 +31,7 @@ import Data.Argonaut as JS
 import Quasar.Advanced.QuasarAF as QF
 import Quasar.Data (QData(..), JSONMode(..))
 import Quasar.Error (lowerQError)
-import Quasar.Types (FilePath)
+import Quasar.Types (FilePath, AnyPath)
 
 import SlamData.Quasar.Aff (QEff, runQuasarF)
 
@@ -72,3 +73,12 @@ load file =
     Right [file] → Right file
     Right _ → Left "Unexpected result when loading value from file"
     Left err → Left (QF.printQError err)
+
+delete
+  ∷ ∀ eff m
+  . (Functor m, Affable (QEff eff) m)
+  ⇒ AnyPath
+  → m (Either Exn.Error Unit)
+delete path =
+  runQuasarF $ lmap lowerQError <$>
+    QF.deleteData path

@@ -22,6 +22,8 @@ module SlamData.Workspace.Component
 
 import SlamData.Prelude
 
+import Control.UI.Browser (setHref)
+
 import Data.Lens ((^.), (.~), (?~))
 import Data.List as L
 import Data.Map as Map
@@ -39,6 +41,7 @@ import Halogen.Themes.Bootstrap3 as B
 
 import SlamData.Effects (Slam)
 import SlamData.Header.Component as Header
+import SlamData.Quasar.Data as Quasar
 import SlamData.Render.CSS as Rc
 import SlamData.SignIn.Component as SignIn
 import SlamData.Workspace.AccessType as AT
@@ -182,6 +185,15 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
           queryDeck $ H.action $ Deck.SetModel (DeckId newId) (wrappedDeck st.path oldId)
           queryDeck $ H.action $ Deck.Save
           Model.setRoot newId index
+  peekDeck (Deck.DoAction Deck.DeleteDeck _) = do
+    st ← H.get
+    for_ st.parentHref \href →
+      for_ st.path \path → do
+        res ← Quasar.delete $ Left path
+        case res of
+          -- TODO: do something to notify the user deleting failed
+          Left err → pure unit
+          Right _ → void $ H.fromEff $ setHref href
   peekDeck _ = pure unit
 
   wrappedDeck ∷ Maybe UP.DirPath → DeckId → DM.Deck

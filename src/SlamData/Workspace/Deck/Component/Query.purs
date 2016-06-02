@@ -62,5 +62,6 @@ data Query a
 data DeckAction
   = Mirror
   | Wrap
+  | DeleteDeck
 
 type QueryP = OpaqueQuery Query

@@ -313,6 +313,11 @@ peekDialog (Dialog.Show _ _) =
   H.modify (DCS._displayMode .~ DCS.Dialog)
 peekDialog (Dialog.Dismiss _) =
   H.modify (DCS._displayMode .~ DCS.Backside)
+peekDialog (Dialog.Confirm d b _) = do
+  H.modify (DCS._displayMode .~ DCS.Backside)
+  case d of
+    Dialog.DeleteDeck | b → raise' $ H.action $ DoAction DeleteDeck
+    _ → pure unit
 
 peekBackSide ∷ ∀ a. Back.Query a → DeckDSL Unit
 peekBackSide (Back.UpdateFilter _ _) = pure unit
@@ -340,6 +345,13 @@ peekBackSide (Back.DoAction action _) =
     Back.Publish →
       H.gets DCS.deckPath >>=
         traverse_ (H.fromEff ∘ newTab ∘ flip mkWorkspaceURL (NA.Load AT.ReadOnly))
+    Back.DeleteDeck → do
+      cards ← H.gets _.cards
+      if Array.null cards
+        then raise' $ H.action $ DoAction DeleteDeck
+        else do
+          showDialog Dialog.DeleteDeck
+          H.modify (DCS._displayMode .~ DCS.Dialog)
     Back.Mirror → raise' $ H.action $ DoAction Mirror
     Back.Wrap → raise' $ H.action $ DoAction Wrap
 

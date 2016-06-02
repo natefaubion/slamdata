@@ -195,6 +195,24 @@
   display: none;
 }
 
+.action-icon {
+  position: relative;
+  display: inline-block;
+}
+
+.action-icon.delete-deck-icon {
+  width: 28px;
+  height: 28px;
+  top: -4px;
+  background-image: url(../img/delete-deck-white.svg);
+  background-size: 100% 100%;
+
+  .sd-deck-backside button[disabled] & {
+    background-image: url(../img/delete-deck-dark.svg);
+  }
+}
+
+
 @import "deck/api-card";
 @import "deck/download-card";
 @import "deck/markdown-card";

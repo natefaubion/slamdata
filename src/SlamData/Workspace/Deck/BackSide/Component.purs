@@ -41,6 +41,7 @@ data BackAction
   | Share
   | Embed
   | Publish
+  | DeleteDeck
   | Mirror
   | Wrap
 
@@ -51,6 +52,7 @@ allBackActions =
   , Share
   , Embed
   , Publish
+  , DeleteDeck
   , Mirror
   , Wrap
   ]
@@ -73,6 +75,7 @@ labelAction action = case action of
   Share → "Share deck"
   Embed → "Embed deck"
   Publish → "Publish deck"
+  DeleteDeck → "Delete deck"
   Mirror → "Mirror"
   Wrap → "Wrap"
 
@@ -81,6 +84,7 @@ keywordsAction Trash = ["remove", "delete", "trash"]
 keywordsAction Share = ["share"]
 keywordsAction Embed = ["embed"]
 keywordsAction Publish = ["publish", "presentation", "view"]
+keywordsAction DeleteDeck = ["remove", "delete", "trash"]
 keywordsAction Mirror = [] --["mirror", "copy", "duplicate", "shallow"]
 keywordsAction Wrap = ["wrap", "pin", "card"]
 
@@ -93,13 +97,14 @@ actionEnabled st a =
     _, _ → true
 
 actionGlyph ∷ BackAction → HTML
-actionGlyph = glyph ∘ case _ of
-  Trash → B.glyphiconTrash
-  Share → B.glyphiconShare
-  Embed → B.glyphiconShareAlt
-  Publish → B.glyphiconBlackboard
-  Mirror → B.glyphiconDuplicate
-  Wrap → B.glyphiconLogIn
+actionGlyph = case _ of
+  Trash → glyph B.glyphiconTrash
+  Share → glyph B.glyphiconShare
+  Embed → glyph B.glyphiconShareAlt
+  Publish → glyph B.glyphiconBlackboard
+  Mirror → glyph B.glyphiconDuplicate
+  Wrap → glyph B.glyphiconLogIn
+  DeleteDeck → HH.i [ HP.classes [ Rc.actionIcon, Rc.deleteDeckIcon ] ] [ ]
 
 type HTML = H.ComponentHTML Query
 type DSL = H.ComponentDSL State Query Slam

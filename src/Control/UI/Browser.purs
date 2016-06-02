@@ -26,6 +26,7 @@ module Control.UI.Browser
   , setTitle
   , hostAndProtocol
   , getHref
+  , setHref
   ) where
 
 import Prelude
@@ -67,6 +68,11 @@ hostAndProtocol = do
 
 getHref :: forall e. Eff (dom :: DOM|e) String
 getHref = locationObject >>= Location.href
+
+setHref :: forall e. String -> Eff (dom :: DOM|e) String
+setHref str =
+  locationObject
+    >>= Location.setHref str
 
 foreign import locationString :: forall e. Eff (dom :: DOM | e) String
 foreign import select :: forall e. HTMLElement -> Eff (dom :: DOM | e) Unit

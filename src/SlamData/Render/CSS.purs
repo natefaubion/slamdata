@@ -320,6 +320,12 @@ barChartIcon = className "bar-chart-icon"
 lineChartIcon ∷ ClassName
 lineChartIcon = className "line-chart-icon"
 
+deleteDeckIcon ∷ ClassName
+deleteDeckIcon = className "delete-deck-icon"
+
+actionIcon ∷ ClassName
+actionIcon = className "action-icon"
+
 chartEditor ∷ ClassName
 chartEditor = className "chart-editor"
 
@@ -328,7 +334,6 @@ chartOutput = className "chart-output"
 
 glyphiconInactive ∷ ClassName
 glyphiconInactive = className "glyphicon-inactive"
-
 
 axisLabelParam ∷ ClassName
 axisLabelParam = className "axis-label-param"
