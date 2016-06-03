@@ -35,7 +35,6 @@ import SlamData.Workspace.Deck.DeckId (DeckId)
 
 type State =
   { decks ∷ Map.Map DeckId DeckPosition
-  , zoomed ∷ Maybe DeckId
   , moving ∷ Maybe (Tuple DeckId DeckPosition)
   , canvas ∷ Maybe HTMLElement
   }
@@ -56,7 +55,6 @@ type DeckPosition =
 initialState ∷ State
 initialState =
   { decks: Map.empty
-  , zoomed: Nothing
   , moving: Nothing
   , canvas: Nothing
   }
@@ -64,10 +62,6 @@ initialState =
 -- | An array of positioned decks.
 _decks ∷ LensP State (Map.Map DeckId DeckPosition)
 _decks = lens _.decks _{ decks = _ }
-
--- | The currently zoomed in Deck.
-_zoomed ∷ LensP State (Maybe DeckId)
-_zoomed = lens _.zoomed _{ zoomed = _ }
 
 _moving ∷ LensP State (Maybe (Tuple DeckId DeckPosition))
 _moving = lens _.moving _{ moving = _ }
@@ -88,7 +82,6 @@ encodeDeckPosition pos
 decode ∷ Json → Either String State
 decode = decodeJson >=> \obj →
   { decks: _
-  , zoomed: Nothing
   , moving: Nothing
   , canvas: Nothing
   } <$> (traverse decodeDeckPosition =<< obj .? "decks")

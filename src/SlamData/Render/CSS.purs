@@ -447,6 +447,12 @@ grabDeck = className "sd-grab-deck"
 resizeDeck :: ClassName
 resizeDeck = className "sd-resize-deck"
 
+zoomInDeck :: ClassName
+zoomInDeck = className "sd-zoom-in-deck"
+
+zoomOutDeck :: ClassName
+zoomOutDeck = className "sd-zoom-out-deck"
+
 form ∷ ClassName
 form = className "sd-form"
 

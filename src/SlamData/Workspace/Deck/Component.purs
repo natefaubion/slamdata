@@ -56,9 +56,10 @@ import SlamData.Config (workspaceUrl)
 import SlamData.Effects (Slam)
 import SlamData.FileSystem.Resource as R
 import SlamData.Quasar.Data (save, load) as Quasar
+import SlamData.Render.Common (glyph)
 import SlamData.Render.CSS as CSS
 import SlamData.Workspace.AccessType as AT
-import SlamData.Workspace.Action as NA
+import SlamData.Workspace.Action as WA
 import SlamData.Workspace.Card.CardId (CardId())
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Common.EvalQuery as CEQ
@@ -139,6 +140,15 @@ render vstate =
                 ]
                 [ HH.text "" ]
             , HH.button
+                ([ HE.onClick (HE.input_ ZoomDeck)
+                 , ARIA.label "Zoom deck"
+                 ] ⊕ if state.topLevel
+                       then [ HP.classes [ CSS.zoomOutDeck ], HP.title "Zoom out" ]
+                       else [ HP.classes [ CSS.zoomInDeck ], HP.title "Zoom in" ])
+                [ if state.topLevel
+                    then glyph B.glyphiconZoomOut
+                    else glyph B.glyphiconZoomIn ]
+            , HH.button
                 [ HP.classes [ CSS.grabDeck ]
                 , HE.onMouseDown (HE.input GrabDeck)
                 , ARIA.label "Grab deck"
@@ -207,8 +217,10 @@ eval ∷ Natural Query DeckDSL
 eval (RunActiveCard next) = do
   traverse_ runCard =<< H.gets (DCS.activeCardId ∘ DCS.virtualState)
   pure next
-eval (Load dir deckId next) = do
-  H.modify (DCS._stateMode .~ Loading)
+eval (Load dir deckId topLevel next) = do
+  H.modify
+    $ (DCS._stateMode .~ Loading)
+    ∘ (DCS._topLevel .~ topLevel)
   json ← Quasar.load $ deckIndex dir deckId
   case Model.decode =<< json of
     Left err → do
@@ -217,8 +229,9 @@ eval (Load dir deckId next) = do
     Right model →
       setModel (Just dir) (Just deckId) model
   pure next
-eval (SetModel deckId model next) = do
+eval (SetModel deckId model topLevel next) = do
   state ← H.get
+  H.modify $ DCS._topLevel .~ topLevel
   setModel state.path (Just deckId) model
   pure next
 eval (ExploreFile res next) = do
@@ -242,7 +255,7 @@ eval (ExploreFile res next) = do
   pure next
 eval (Publish next) = do
   H.gets DCS.deckPath >>=
-    traverse_ (H.fromEff ∘ newTab ∘ flip mkWorkspaceURL (NA.Load AT.ReadOnly))
+    traverse_ (H.fromEff ∘ newTab ∘ flip mkWorkspaceURL (WA.Load AT.ReadOnly))
   pure next
 eval (Reset dir next) = do
   setDeckState $ DCS.initialDeck { path = dir }
@@ -284,6 +297,7 @@ eval (FlipDeck next) = do
   pure next
 eval (GrabDeck _ next) = pure next
 eval (ResizeDeck _ next) = pure next
+eval (ZoomDeck next) = pure next
 eval (StartSliding mouseEvent next) =
   Slider.startSliding mouseEvent $> next
 eval (StopSlidingAndSnap mouseEvent next) = do
@@ -347,7 +361,7 @@ peekBackSide (Back.DoAction action _) =
       H.modify (DCS._displayMode .~ DCS.Dialog)
     Back.Publish →
       H.gets DCS.deckPath >>=
-        traverse_ (H.fromEff ∘ newTab ∘ flip mkWorkspaceURL (NA.Load AT.ReadOnly))
+        traverse_ (H.fromEff ∘ newTab ∘ flip mkWorkspaceURL (WA.Load AT.ReadOnly))
     Back.DeleteDeck → do
       cards ← H.gets _.cards
       if Array.null cards
@@ -364,7 +378,7 @@ mkShareURL varMap = do
   saveDeck
   path ← H.gets DCS.deckPath
   pure $ path <#> \p →
-    loc ⊕ "/" ⊕ workspaceUrl ⊕ mkWorkspaceHash p (NA.Load AT.ReadOnly) varMap
+    loc ⊕ "/" ⊕ workspaceUrl ⊕ mkWorkspaceHash p (WA.Load AT.ReadOnly) varMap
 
 peekCards ∷ ∀ a. CardSlot → CardQueryP a → DeckDSL Unit
 peekCards (CardSlot cardId) = peekCard cardId ⨁ peekCardInner cardId
@@ -586,10 +600,10 @@ saveDeck = H.get >>= \st →
           -- runPendingCards would be deferred if there had previously been
           -- no `deckPath`. We need to flush the queue.
           when (isNothing $ DCS.deckPath st) runPendingCards
-
-          let deckHash =
-                mkWorkspaceHash path (NA.Load st.accessType) st.globalVarMap
-          H.fromEff $ locationObject >>= Location.setHash deckHash
+          when st.topLevel $ H.gets DCS.deckPath >>= traverse_ \path' → do
+            let deckHash =
+                  mkWorkspaceHash path' (WA.Load st.accessType) st.globalVarMap
+            H.fromEff $ locationObject >>= Location.setHash deckHash
 
   where
 

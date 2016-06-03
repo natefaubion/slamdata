@@ -46,8 +46,8 @@ data Query a
   | SetAccessType AT.AccessType a
   | ExploreFile UP.FilePath a
   | Publish a
-  | Load UP.DirPath DeckId a
-  | SetModel DeckId Deck a
+  | Load UP.DirPath DeckId Boolean a
+  | SetModel DeckId Deck Boolean a
   | Save a
   | Reset (Maybe UP.DirPath) a
   | GetGlobalVarMap (Port.VarMap → a)
@@ -55,6 +55,7 @@ data Query a
   | FlipDeck a
   | GrabDeck (Event MouseEvent) a
   | ResizeDeck (Event MouseEvent) a
+  | ZoomDeck a
   | StartSliding (Event MouseEvent) a
   | StopSlidingAndSnap (Event MouseEvent) a
   | UpdateSliderPosition (Event MouseEvent) a

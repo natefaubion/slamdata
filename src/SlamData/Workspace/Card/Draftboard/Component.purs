@@ -52,7 +52,7 @@ import SlamData.Effects (Slam)
 import SlamData.Quasar.Data (save, load, delete) as Quasar
 import SlamData.Render.CSS as RC
 import SlamData.Workspace.Card.Draftboard.Component.Query (Query(..), QueryP, QueryC)
-import SlamData.Workspace.Card.Draftboard.Component.State (State, DeckPosition, initialState, _decks, _zoomed, encode, decode)
+import SlamData.Workspace.Card.Draftboard.Component.State (State, DeckPosition, initialState, encode, decode)
 import SlamData.Workspace.Card.CardType as Ct
 import SlamData.Workspace.Card.Common (CardOptions)
 import SlamData.Workspace.Card.Common.EvalQuery as Ceq
@@ -183,7 +183,7 @@ evalBoard opts (LoadDeck deckId next) = do
     H.query deckId
       $ opaqueQuery
       $ H.action
-      $ DCQ.Load path deckId
+      $ DCQ.Load path deckId false
   pure next
 
 peek ∷ ∀ a. CardOptions → H.ChildF DeckId (OpaqueQuery DCQ.Query) a → DraftboardDSL Unit
@@ -325,7 +325,7 @@ addDeck opts coords =
           H.query deckId'
             $ opaqueQuery
             $ H.action
-            $ DCQ.Load path deckId'
+            $ DCQ.Load path deckId' false
 
 deleteDeck ∷ DirPath → DeckId → DraftboardDSL Unit
 deleteDeck path deckId = do

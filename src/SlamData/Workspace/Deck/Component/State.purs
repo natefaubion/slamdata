@@ -39,6 +39,7 @@ module SlamData.Workspace.Deck.Component.State
   , _sliderTransition
   , _sliderTranslateX
   , _cardElementWidth
+  , _topLevel
   , addCard
   , addCard'
   , removeCard
@@ -142,6 +143,7 @@ type State =
   , sliderTransition ∷ Boolean
   , sliderTranslateX ∷ Number
   , cardElementWidth ∷ Maybe Number
+  , topLevel ∷ Boolean
   }
 
 -- | A record used to represent card definitions in the deck.
@@ -170,6 +172,7 @@ initialDeck =
   , sliderTransition: false
   , sliderTranslateX: 0.0
   , cardElementWidth: Nothing
+  , topLevel: true
   }
 
 -- | The unique identifier of the deck. If it's a fresh, unsaved deck, the id
@@ -260,6 +263,10 @@ _sliderTranslateX = lens _.sliderTranslateX _{sliderTranslateX = _}
 -- | The width of card
 _cardElementWidth ∷ ∀ a r. LensP {cardElementWidth ∷ a|r} a
 _cardElementWidth = lens _.cardElementWidth _{cardElementWidth = _}
+
+-- | Whether the deck is at the top-level of the deck component hierarchy
+_topLevel ∷ ∀ a r. LensP {topLevel ∷ a|r} a
+_topLevel = lens _.topLevel _{topLevel = _}
 
 addCard ∷ CardType → State → State
 addCard cardType st = fst $ addCard' cardType st
