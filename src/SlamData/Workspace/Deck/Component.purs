@@ -250,6 +250,8 @@ eval (Reset dir next) = do
   pure next
 eval (SetName name next) =
   H.modify (DCS._name .~ Just name) $> next
+eval (SetParent parent next) =
+  H.modify (DCS._parent .~ Just parent) $> next
 eval (SetAccessType aType next) = do
   void $ H.queryAll' cpCard $ left $ H.action $ SetCardAccessType aType
   H.modify $ DCS._accessType .~ aType
@@ -258,6 +260,7 @@ eval (SetAccessType aType next) = do
   pure next
 eval (GetPath k) = k <$> H.gets DCS.deckPath
 eval (GetId k) = k <$> H.gets _.id
+eval (GetParent k) = k <$> H.gets _.parent
 eval (Save next) = saveDeck $> next
 eval (RunPendingCards next) = do
   -- Only run pending cards if we have a deckPath. Some cards run with the
@@ -566,7 +569,7 @@ saveDeck = H.get >>= \st →
           $ left
           $ H.request (SaveCard card.id card.ty)
 
-    let json = Model.encode { name: st.name , cards }
+    let json = Model.encode { name: st.name, parent: st.parent, cards }
 
     for_ st.path \path → do
       deckId ← runExceptT do

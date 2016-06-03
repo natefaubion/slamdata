@@ -25,7 +25,6 @@ import SlamData.Prelude
 import Control.UI.Browser (setHref)
 
 import Data.Lens ((^.), (.~), (?~))
-import Data.List as L
 import Data.Map as Map
 import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as Pathy
@@ -143,19 +142,14 @@ eval (Reset path next) = do
     }
   queryDeck $ H.action $ Deck.Reset path
   pure next
-eval (Load path deckIds next) = do
+eval (Load path deckId next) = do
   H.modify _
     { stateMode = Loading
     , path = Just path
     , root = Nothing
     }
   queryDeck $ H.action $ Deck.Reset (Just path)
-  case L.head deckIds of
-    Just deckId →
-      loadDeck deckId
-    Nothing →
-      rootDeck path >>=
-        either (\err → H.modify $ _stateMode .~ Error err) loadDeck
+  maybe loadRoot loadDeck deckId
   pure next
 
   where
@@ -165,6 +159,10 @@ eval (Load path deckIds next) = do
       , stateMode = Ready
       }
     queryDeck $ H.action $ Deck.Load path deckId
+
+  loadRoot =
+    rootDeck path >>=
+      either (\err → H.modify $ _stateMode .~ Error err) loadDeck
 
 rootDeck ∷ UP.DirPath → WorkspaceDSL (Either String DeckId)
 rootDeck path = map (map DeckId) $ Model.getRoot (path </> Pathy.file "index")
@@ -178,12 +176,17 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
     st ← H.get
     for_ st.path \path → do
       let index = path </> Pathy.file "index"
-      queryDeck (H.action Deck.Save)
       queryDeck (H.request Deck.GetId) >>= join >>> traverse_ \oldId → do
         Model.freshId index >>= traverse_ \newId → do
-          queryDeck $ H.action $ Deck.Reset (Just path)
-          queryDeck $ H.action $ Deck.SetModel (DeckId newId) (wrappedDeck st.path oldId)
-          queryDeck $ H.action $ Deck.Save
+          let newDeck = wrappedDeck st.path oldId
+              newId' = DeckId newId
+          traverse_ (queryDeck ∘ H.action)
+            [ Deck.SetParent (Tuple newId' (CID.CardId 0))
+            , Deck.Save
+            , Deck.Reset (Just path)
+            , Deck.SetModel newId' newDeck
+            , Deck.Save
+            ]
           Model.setRoot newId index
   peekDeck (Deck.DoAction Deck.DeleteDeck _) = do
     st ← H.get
@@ -209,7 +212,6 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
                     , width: 20.0
                     , height: 10.0
                     }
-                , path = path
                 }
             , hasRun: false
             }

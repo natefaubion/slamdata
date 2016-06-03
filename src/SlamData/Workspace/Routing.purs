@@ -47,11 +47,11 @@ import Text.Parsing.Parser (runParser)
 import Utils.Path as UP
 
 data Routes
-  = WorkspaceRoute UP.DirPath (L.List D.DeckId) WA.Action Port.VarMap
+  = WorkspaceRoute UP.DirPath (Maybe D.DeckId) WA.Action Port.VarMap
 
 routing ∷ Match Routes
 routing
-  =  WorkspaceRoute <$> workspace <*> deckIds <*> action <*> optionalVarMap
+  =  WorkspaceRoute <$> workspace <*> deckId <*> action <*> optionalVarMap
 
   where
   optionalVarMap ∷ Match Port.VarMap
@@ -113,8 +113,10 @@ routing
   checkExtension ∷ String → Boolean
   checkExtension = R.test extensionRegex
 
-  deckIds ∷ Match (L.List D.DeckId)
-  deckIds = Match.list $ Match.eitherMatch $ map D.stringToDeckId Match.str
+  deckId ∷ Match (Maybe D.DeckId)
+  deckId
+      = Match.eitherMatch (map (map Just ∘ D.stringToDeckId) Match.str)
+    <|> pure Nothing
 
   action ∷ Match WA.Action
   action

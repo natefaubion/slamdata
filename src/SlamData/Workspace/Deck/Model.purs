@@ -22,16 +22,20 @@ import Control.Monad.Error.Class (throwError)
 
 import Data.Argonaut (Json, (:=), (~>), (.?), decodeJson, jsonEmptyObject)
 
+import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.Model as Card
+import SlamData.Workspace.Deck.DeckId (DeckId)
 
 type Deck =
   { name ∷ Maybe String
+  , parent ∷ Maybe (Tuple DeckId CardId)
   , cards ∷ Array Card.Model
   }
 
 emptyDeck :: Deck
 emptyDeck =
   { name: Nothing
+  , parent: Nothing
   , cards: [ ]
   }
 
@@ -39,6 +43,7 @@ encode ∷ Deck → Json
 encode r
    = "version" := 3
   ~> "name" := r.name
+  ~> "parent" := r.parent
   ~> "cards" := map Card.encode r.cards
   ~> jsonEmptyObject
 
@@ -48,6 +53,8 @@ decode = decodeJson >=> \obj → do
     Right n | n ≠ 3 → throwError "Expected deck format v3"
     l → l
   { name: _
+  , parent: _
   , cards: _
   } <$> obj .? "name"
+    <*> obj .? "parent"
     <*> (traverse Card.decode =<< obj .? "cards")

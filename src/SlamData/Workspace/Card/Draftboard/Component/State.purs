@@ -33,12 +33,9 @@ import SlamData.Workspace.Deck.Component.Query as DCQ
 import SlamData.Workspace.Deck.Component.State as DCS
 import SlamData.Workspace.Deck.DeckId (DeckId)
 
-import Utils.Path (DirPath)
-
 type State =
   { decks ∷ Map.Map DeckId DeckPosition
   , zoomed ∷ Maybe DeckId
-  , path ∷ Maybe DirPath
   , moving ∷ Maybe (Tuple DeckId DeckPosition)
   , canvas ∷ Maybe HTMLElement
   }
@@ -60,7 +57,6 @@ initialState ∷ State
 initialState =
   { decks: Map.empty
   , zoomed: Nothing
-  , path: Nothing
   , moving: Nothing
   , canvas: Nothing
   }
@@ -72,9 +68,6 @@ _decks = lens _.decks _{ decks = _ }
 -- | The currently zoomed in Deck.
 _zoomed ∷ LensP State (Maybe DeckId)
 _zoomed = lens _.zoomed _{ zoomed = _ }
-
-_path ∷ LensP State (Maybe DirPath)
-_path = lens _.path _{ path = _ }
 
 _moving ∷ LensP State (Maybe (Tuple DeckId DeckPosition))
 _moving = lens _.moving _{ moving = _ }
@@ -96,7 +89,6 @@ decode ∷ Json → Either String State
 decode = decodeJson >=> \obj →
   { decks: _
   , zoomed: Nothing
-  , path: Nothing
   , moving: Nothing
   , canvas: Nothing
   } <$> (traverse decodeDeckPosition =<< obj .? "decks")

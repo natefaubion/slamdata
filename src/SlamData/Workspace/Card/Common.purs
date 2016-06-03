@@ -18,6 +18,8 @@ module SlamData.Workspace.Card.Common where
 
 import SlamData.Prelude
 
+import SlamData.Workspace.Card.CardId (CardId)
+import SlamData.Workspace.Deck.DeckId (DeckId)
 import SlamData.Workspace.Deck.Component.Cycle (DeckComponent)
 
 import Utils.Path (DirPath)
@@ -25,4 +27,6 @@ import Utils.Path (DirPath)
 type CardOptions =
   { deckComponent ∷ DeckComponent
   , path ∷ Maybe DirPath
+  , cardId ∷ CardId
+  , deckId ∷ Maybe DeckId
   }

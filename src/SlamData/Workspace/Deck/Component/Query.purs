@@ -28,6 +28,7 @@ import Halogen.Component.Opaque.Unsafe (OpaqueQuery)
 import Halogen.HTML.Events.Types (Event, MouseEvent)
 
 import SlamData.Workspace.AccessType as AT
+import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.Port.VarMap as Port
 import SlamData.Workspace.Deck.DeckId (DeckId)
 import SlamData.Workspace.Deck.Model (Deck)
@@ -39,6 +40,8 @@ data Query a
   | RunPendingCards a
   | GetId (Maybe DeckId → a)
   | GetPath (Maybe UP.DirPath → a)
+  | GetParent (Maybe (Tuple DeckId CardId) → a)
+  | SetParent (Tuple DeckId CardId) a
   | SetName String a
   | SetAccessType AT.AccessType a
   | ExploreFile UP.FilePath a

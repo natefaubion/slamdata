@@ -76,10 +76,10 @@ draftboardComponent opts = Cp.makeCardComponent
   { cardType: Ct.Draftboard
   , component: H.parentComponent
       { render: render opts
-      , eval: coproduct evalCard evalBoard
-      , peek: Just peek
+      , eval: coproduct evalCard (evalBoard opts)
+      , peek: Just (peek opts)
       }
-  , initialState: H.parentState $ initialState { path = opts.path }
+  , initialState: H.parentState initialState
   , _State: Cp._DraftboardState
   , _Query: Cp.makeQueryPrism' Cp._DraftboardQuery
   }
@@ -138,8 +138,8 @@ evalCard (Ceq.Load json next) = do
     loadDecks
   pure next
 
-evalBoard ∷ Natural Query DraftboardDSL
-evalBoard (Grabbing deckId ev next) = do
+evalBoard ∷ CardOptions → Natural Query DraftboardDSL
+evalBoard _ (Grabbing deckId ev next) = do
   case ev of
     Drag.Move _ d → do
       H.gets (Map.lookup deckId ∘ _.decks) >>= traverse_ \rect → do
@@ -151,7 +151,7 @@ evalBoard (Grabbing deckId ev next) = do
     Drag.Done _ →
       stopDragging
   pure next
-evalBoard (Resizing deckId ev next) = do
+evalBoard _ (Resizing deckId ev next) = do
   case ev of
     Drag.Move _ d → do
       H.gets (Map.lookup deckId ∘ _.decks) >>= traverse_ \rect → do
@@ -163,35 +163,35 @@ evalBoard (Resizing deckId ev next) = do
     Drag.Done _ →
       stopDragging
   pure next
-evalBoard (SetElement el next) = do
+evalBoard _ (SetElement el next) = do
   H.modify _ { canvas = el }
   pure next
-evalBoard (AddDeck e next) = do
+evalBoard opts (AddDeck e next) = do
   let e' = mouseEventToPageEvent e
   H.gets _.canvas >>= traverse_ \el →
     H.fromEff (elementEq el e'.target) >>= \same →
       when same do
         rect ← H.fromEff $ getOffsetClientRect el
         scroll ← { top: _, left: _ } <$> H.fromEff (scrollTop el) <*> H.fromEff (scrollLeft el)
-        addDeck
+        addDeck opts
           { x: floor $ pxToGrid $ e'.pageX - rect.left + scroll.left
           , y: floor $ pxToGrid $ e'.pageY - rect.top + scroll.top
           }
   pure next
-evalBoard (LoadDeck deckId next) = do
-  H.gets _.path >>= traverse_ \path →
+evalBoard opts (LoadDeck deckId next) = do
+  for_ opts.path \path →
     H.query deckId
       $ opaqueQuery
       $ H.action
       $ DCQ.Load path deckId
   pure next
 
-peek ∷ ∀ a. H.ChildF DeckId (OpaqueQuery DCQ.Query) a → DraftboardDSL Unit
-peek (H.ChildF deckId q) = flip peekOpaqueQuery q
+peek ∷ ∀ a. CardOptions → H.ChildF DeckId (OpaqueQuery DCQ.Query) a → DraftboardDSL Unit
+peek opts (H.ChildF deckId q) = flip peekOpaqueQuery q
   case _ of
     DCQ.GrabDeck ev _ → startDragging deckId ev Grabbing
     DCQ.ResizeDeck ev _ → startDragging deckId ev Resizing
-    DCQ.DoAction DCQ.DeleteDeck _ → deleteDeck deckId
+    DCQ.DoAction DCQ.DeleteDeck _ → for_ opts.path (flip deleteDeck deckId)
     _ → pure unit
 
   where
@@ -287,18 +287,30 @@ loadDecks =
   H.gets (Map.keys ∘ _.decks) >>=
     traverse_ (raise' ∘ right ∘ H.action ∘ LoadDeck)
 
-addDeck ∷ { x ∷ Number, y ∷ Number } → DraftboardDSL Unit
-addDeck coords = do
-  st ← H.get
-  let decks = Map.toList st.decks
-      deckPos = clampDeck { x: coords.x - 10.0, y: coords.y, width: 20.0, height: 10.0 }
-  for_ (accomodateDeck decks coords deckPos) $
-    saveDeck st
+addDeck ∷ CardOptions → { x ∷ Number, y ∷ Number } → DraftboardDSL Unit
+addDeck opts coords =
+  for_ opts.deckId \deckId → do
+    st ← H.get
+    let decks = Map.toList st.decks
+        deckPos =
+          clampDeck
+            { x: coords.x - 10.0
+            , y: coords.y
+            , width: 20.0
+            , height: 10.0
+            }
+    for_ (accomodateDeck decks coords deckPos) $
+      saveDeck st deckId
 
   where
-  saveDeck st deckPos = do
-    let json = DM.encode { name: Just "Untitled Deck" , cards: [] }
-    for_ st.path \path → do
+  saveDeck st deckId deckPos = do
+    let json =
+          DM.encode
+            { name: Nothing
+            , parent: Just (Tuple deckId opts.cardId)
+            , cards: []
+            }
+    for_ opts.path \path → do
       deckId ← runExceptT do
         i ← ExceptT $ map DeckId <$> WS.freshId (path </> Pathy.file "index")
         ExceptT $ Quasar.save (deckIndex path i) json
@@ -315,29 +327,27 @@ addDeck coords = do
             $ H.action
             $ DCQ.Load path deckId'
 
-deleteDeck ∷ DeckId → DraftboardDSL Unit
-deleteDeck deckId = do
-  st ← H.get
-  for_ st.path \path → do
-    let deleteId ∷ DeckId → Slam (Either Exn.Error Unit)
-        deleteId i =
-          Quasar.delete $ Left $ path </> Pathy.dir (deckIdToString i)
+deleteDeck ∷ DirPath → DeckId → DraftboardDSL Unit
+deleteDeck path deckId = do
+  let deleteId ∷ DeckId → Slam (Either Exn.Error Unit)
+      deleteId i =
+        Quasar.delete $ Left $ path </> Pathy.dir (deckIdToString i)
 
-    res ← H.fromAff $ runExceptT do
-      children ← ExceptT $ deckGraph path deckId
-      withExceptT Exn.message
-        $ ExceptT
-        $ map sequence
-        $ runPar
-        $ traverse (Par ∘ deleteId)
-        $ Array.cons deckId children
+  res ← H.fromAff $ runExceptT do
+    children ← ExceptT $ deckGraph path deckId
+    withExceptT Exn.message
+      $ ExceptT
+      $ map sequence
+      $ runPar
+      $ traverse (Par ∘ deleteId)
+      $ Array.cons deckId children
 
-    case res of
-      Left err →
-        -- TODO: do something to notify the user deleting failed
-        pure unit
-      Right _ →
-        H.modify \s → s { decks = Map.delete deckId s.decks }
+  case res of
+    Left err →
+      -- TODO: do something to notify the user deleting failed
+      pure unit
+    Right _ →
+      H.modify \s → s { decks = Map.delete deckId s.decks }
 
 deckIndex ∷ DirPath → DeckId → FilePath
 deckIndex path deckId =

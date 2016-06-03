@@ -18,8 +18,6 @@ module SlamData.Workspace (main) where
 
 import SlamData.Prelude
 
-import Data.List as L
-
 import Control.Monad.Aff (Aff, forkAff)
 import Control.Monad.Eff (Eff)
 
@@ -57,24 +55,24 @@ routeSignal
   → Aff SlamDataEffects Unit
 routeSignal driver =
   Routing.matchesAff' UP.decodeURIPath routing >>= snd >>> case _ of
-    WorkspaceRoute res deckIds action varMap →
-      workspace res deckIds action varMap
+    WorkspaceRoute res deckId action varMap →
+      workspace res deckId action varMap
 
   where
   workspace
     ∷ UP.DirPath
-    → L.List DeckId
+    → Maybe DeckId
     → Action
     → Port.VarMap
     → Aff SlamDataEffects Unit
-  workspace path deckIds action varMap = do
+  workspace path deckId action varMap = do
     let name = UP.getNameStr $ Left path
         accessType = toAccessType action
     currentPath ← driver $ Workspace.fromWorkspace Workspace.GetPath
 
     when (currentPath ≠ pure path) case action of
       New → driver $ Workspace.toWorkspace $ Workspace.Reset (Just path)
-      Load _ → driver $ Workspace.toWorkspace $ Workspace.Load path deckIds
+      Load _ → driver $ Workspace.toWorkspace $ Workspace.Load path deckId
       Exploring fp → do
         driver $ Workspace.toWorkspace $ Workspace.Reset (Just path)
         driver $ Workspace.toDeck $ Deck.ExploreFile fp

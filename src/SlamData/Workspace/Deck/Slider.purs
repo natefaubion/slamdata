@@ -265,9 +265,11 @@ renderCard comp vstate cardDef index =
   cardOpts =
     { deckComponent: comp
     , path: state.path
+    , cardId: cardDef.id
+    , deckId: state.id
     }
   cardComponent =
-    { component: cardTypeComponent cardDef.ty cardDef.id cardOpts
+    { component: cardTypeComponent cardDef.ty cardOpts
     , initialState:
         H.parentState
           Card.initialCardState { accessType = state.accessType }

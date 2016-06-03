@@ -28,6 +28,8 @@ import SlamData.Workspace.Deck.Model as Model
 
 import Test.StrongCheck (QC, Result(..), class Arbitrary, arbitrary, quickCheck)
 import Test.SlamData.Property.Workspace.Card.Model (runArbCard, checkCardEquality)
+import Test.SlamData.Property.Workspace.Card.CardId (runArbCardId)
+import Test.SlamData.Property.Workspace.Deck.DeckId (runArbDeckId)
 
 newtype ArbDeck = ArbDeck Model.Deck
 
@@ -38,7 +40,8 @@ instance arbitraryArbWorkspace ∷ Arbitrary ArbDeck where
   arbitrary = do
     cards ← map runArbCard <$> arbitrary
     name ← arbitrary
-    pure $ ArbDeck { name, cards }
+    parent ← map (bimap runArbDeckId runArbCardId) <$> arbitrary
+    pure $ ArbDeck { name, cards, parent }
 
 check ∷ QC Unit
 check = quickCheck $ runArbDeck ⋙ \model →

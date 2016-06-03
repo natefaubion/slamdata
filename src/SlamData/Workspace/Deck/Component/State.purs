@@ -21,6 +21,7 @@ module SlamData.Workspace.Deck.Component.State
   , CardDef
   , initialDeck
   , _id
+  , _parent
   , _accessType
   , _cards
   , _activeCardIndex
@@ -122,6 +123,7 @@ derive instance eqDisplayMode ∷ Eq DisplayMode
 -- | the fields.
 type State =
   { id ∷ Maybe DeckId
+  , parent ∷ Maybe (Tuple DeckId CardId)
   , fresh ∷ Int
   , accessType ∷ AccessType
   , cards ∷ Array CardDef
@@ -149,6 +151,7 @@ type CardDef = { id ∷ CardId, ty ∷ CardType }
 initialDeck ∷ State
 initialDeck =
   { id: Nothing
+  , parent: Nothing
   , fresh: 0
   , accessType: Editable
   , cards: mempty
@@ -173,6 +176,11 @@ initialDeck =
 -- | will be Nothing.
 _id ∷ ∀ a r. LensP {id ∷ a|r} a
 _id = lens _.id _{id = _}
+
+-- | A pointer to the parent deck/card. If `Nothing`, the deck is assumed to be
+-- | the root deck.
+_parent ∷ ∀ a r. LensP {parent ∷ a|r} a
+_parent = lens _.parent _{parent = _}
 
 -- | A counter used to generate `CardId` values. This should be a monotonically increasing value
 _fresh ∷ ∀ a r. LensP {fresh ∷ a|r} a
@@ -421,7 +429,7 @@ fromModel
   → Model.Deck
   → State
   → Tuple (Array Card.Model) State
-fromModel path deckId { cards, name } state =
+fromModel path deckId { cards, name, parent } state =
   Tuple
     cards
     ((state
@@ -433,6 +441,7 @@ fromModel path deckId { cards, name } state =
         , fresh = maybe 0 (_ + 1) $ maximum $ map (runCardId ∘ _.cardId) cards
         , globalVarMap = SM.empty
         , id = deckId
+        , parent = parent
         , initialSliderX = Nothing
         , name = name
         , path = path

@@ -18,8 +18,6 @@ module SlamData.Workspace.Component.Query where
 
 import SlamData.Prelude
 
-import Data.List as L
-
 import Halogen as H
 import Halogen.Component.ChildPath (injSlot, injQuery)
 import Halogen.Component.Opaque.Unsafe (opaqueQuery)
@@ -36,7 +34,7 @@ data Query a
   | SetParentHref String a
   | DismissAll a
   | Reset (Maybe UP.DirPath) a
-  | Load UP.DirPath (L.List DeckId) a
+  | Load UP.DirPath (Maybe DeckId) a
   | GetPath (Maybe UP.DirPath → a)
 
 type QueryP = Coproduct Query (H.ChildF ChildSlot ChildQuery)
