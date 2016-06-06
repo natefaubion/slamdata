@@ -143,7 +143,7 @@ eval (Reset path next) = do
   queryDeck $ H.action $ Deck.Reset path
   pure next
 eval (Load path deckId next) = do
-  H.gets _.root >>= \deckId' →
+  queryDeck (H.request Deck.GetId) >>= join >>> \deckId' →
     case deckId, deckId' of
       Just a, Just b | a == b → pure unit
       _, _ → load
@@ -154,16 +154,12 @@ eval (Load path deckId next) = do
     H.modify _
       { stateMode = Loading
       , path = Just path
-      , root = Nothing
       }
     queryDeck $ H.action $ Deck.Reset (Just path)
     maybe loadRoot loadDeck deckId
 
   loadDeck deckId = void do
-    H.modify _
-      { root = Just deckId
-      , stateMode = Ready
-      }
+    H.modify _ { stateMode = Ready }
     queryDeck $ H.action $ Deck.Load path deckId true
 
   loadRoot =
@@ -176,7 +172,6 @@ rootDeck path = map (map DeckId) $ Model.getRoot (path </> Pathy.file "index")
 peek ∷ ∀ a. ChildQuery a → WorkspaceDSL Unit
 peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
   where
-
   peekDeck (Deck.DoAction Deck.Mirror _) = pure unit
   peekDeck (Deck.DoAction Deck.Wrap _) = do
     st ← H.get

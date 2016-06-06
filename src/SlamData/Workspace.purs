@@ -30,7 +30,6 @@ import Halogen.Util (runHalogenAff, awaitBody)
 
 import SlamData.Config as Config
 import SlamData.Workspace.Action (Action(..), toAccessType)
-import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Component as Workspace
 import SlamData.Workspace.Deck.Component as Deck
 import SlamData.Workspace.Deck.DeckId (DeckId)
@@ -67,9 +66,9 @@ routeSignal driver =
       WorkspaceRoute path deckId action varMap → lift do
         case old of
           Just (WorkspaceRoute path' deckId' _ _) | path ≠ path' || deckId ≠ deckId' →
-            workspace path deckId action varMap
+            workspace path deckId action
           Nothing →
-            workspace path deckId action varMap
+            workspace path deckId action
           _ →
             pure unit
 
@@ -82,10 +81,9 @@ routeSignal driver =
     ∷ UP.DirPath
     → Maybe DeckId
     → Action
-    → Port.VarMap
     → Aff SlamDataEffects Unit
-  workspace path deckId action varMap = do
-    case action of
+  workspace path deckId =
+    case _ of
       New → driver $ Workspace.toWorkspace $ Workspace.Reset (Just path)
       Load _ → driver $ Workspace.toWorkspace $ Workspace.Load path deckId
       Exploring fp → do
