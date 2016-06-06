@@ -18,6 +18,8 @@ module SlamData.Workspace (main) where
 
 import SlamData.Prelude
 
+import Control.Coroutine (runProcess, await, ($$))
+import Control.Coroutine.Aff (produce)
 import Control.Monad.Aff (Aff, forkAff)
 import Control.Monad.Eff (Eff)
 
@@ -27,7 +29,6 @@ import Halogen (Driver, runUI, parentState)
 import Halogen.Util (runHalogenAff, awaitBody)
 
 import SlamData.Config as Config
-import SlamData.FileSystem.Routing (parentURL)
 import SlamData.Workspace.Action (Action(..), toAccessType)
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Component as Workspace
@@ -54,11 +55,29 @@ routeSignal
   ∷ Driver Workspace.QueryP SlamDataRawEffects
   → Aff SlamDataEffects Unit
 routeSignal driver =
-  Routing.matchesAff' UP.decodeURIPath routing >>= snd >>> case _ of
-    WorkspaceRoute res deckId action varMap →
-      workspace res deckId action varMap
+  runProcess (routeProducer $$ routeConsumer Nothing)
 
   where
+  routeProducer = produce \emit →
+    Routing.matches' UP.decodeURIPath routing \_ → emit ∘ Left
+
+  routeConsumer old = do
+    new ← await
+    case new of
+      WorkspaceRoute path deckId action varMap → lift do
+        case old of
+          Just (WorkspaceRoute path' deckId' _ _) | path ≠ path' || deckId ≠ deckId' →
+            workspace path deckId action varMap
+          Nothing →
+            workspace path deckId action varMap
+          _ →
+            pure unit
+
+        driver $ Workspace.toWorkspace $ Workspace.SetAccessType $ toAccessType action
+        driver $ Workspace.toDeck $ Deck.SetGlobalVarMap varMap
+
+    routeConsumer (Just new)
+
   workspace
     ∷ UP.DirPath
     → Maybe DeckId
@@ -66,18 +85,9 @@ routeSignal driver =
     → Port.VarMap
     → Aff SlamDataEffects Unit
   workspace path deckId action varMap = do
-    let name = UP.getNameStr $ Left path
-        accessType = toAccessType action
-    currentPath ← driver $ Workspace.fromWorkspace Workspace.GetPath
-
-    when (currentPath ≠ pure path) case action of
+    case action of
       New → driver $ Workspace.toWorkspace $ Workspace.Reset (Just path)
       Load _ → driver $ Workspace.toWorkspace $ Workspace.Load path deckId
       Exploring fp → do
         driver $ Workspace.toWorkspace $ Workspace.Reset (Just path)
         driver $ Workspace.toDeck $ Deck.ExploreFile fp
-
-    driver $ Workspace.toWorkspace $ Workspace.SetAccessType accessType
-    driver $ Workspace.toDeck $ Deck.SetGlobalVarMap varMap
-    driver $ Workspace.toWorkspace $ Workspace.SetParentHref
-      $ parentURL $ Left path
