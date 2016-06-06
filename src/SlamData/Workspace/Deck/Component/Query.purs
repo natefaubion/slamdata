@@ -17,6 +17,7 @@ limitations under the License.
 module SlamData.Workspace.Deck.Component.Query
   ( Query(..)
   , DeckAction(..)
+  , DeckLevel(..)
   , QueryP
   ) where
 
@@ -46,8 +47,8 @@ data Query a
   | SetAccessType AT.AccessType a
   | ExploreFile UP.FilePath a
   | Publish a
-  | Load UP.DirPath DeckId Boolean a
-  | SetModel DeckId Deck Boolean a
+  | Load UP.DirPath DeckId DeckLevel a
+  | SetModel DeckId Deck DeckLevel a
   | Save a
   | Reset (Maybe UP.DirPath) a
   | GetGlobalVarMap (Port.VarMap → a)
@@ -68,5 +69,9 @@ data DeckAction
   = Mirror
   | Wrap
   | DeleteDeck
+
+data DeckLevel = Root | Nested
+
+derive instance eqDeckLevel ∷ Eq DeckLevel
 
 type QueryP = OpaqueQuery Query

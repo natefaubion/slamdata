@@ -183,7 +183,7 @@ evalBoard opts (LoadDeck deckId next) = do
     H.query deckId
       $ opaqueQuery
       $ H.action
-      $ DCQ.Load path deckId false
+      $ DCQ.Load path deckId DCQ.Nested
   pure next
 
 peek ∷ ∀ a. CardOptions → H.ChildF DeckId (OpaqueQuery DCQ.Query) a → DraftboardDSL Unit
@@ -325,7 +325,7 @@ addDeck opts coords =
           H.query deckId'
             $ opaqueQuery
             $ H.action
-            $ DCQ.Load path deckId' false
+            $ DCQ.Load path deckId' DCQ.Nested
 
 deleteDeck ∷ DirPath → DeckId → DraftboardDSL Unit
 deleteDeck path deckId = do

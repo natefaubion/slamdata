@@ -74,7 +74,7 @@ import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Deck.BackSide.Component as Back
 import SlamData.Workspace.Deck.Common (DeckHTML, DeckDSL)
 import SlamData.Workspace.Deck.Component.ChildSlot (cpBackSide, cpCard, cpIndicator, ChildQuery, ChildSlot, CardSlot(..), cpDialog)
-import SlamData.Workspace.Deck.Component.Query (QueryP, Query(..), DeckAction(..))
+import SlamData.Workspace.Deck.Component.Query (QueryP, Query(..), DeckAction(..), DeckLevel(..))
 import SlamData.Workspace.Deck.Model (Deck)
 import SlamData.Workspace.Deck.Component.State as DCS
 import SlamData.Workspace.Deck.DeckId (DeckId(..), deckIdToString)
@@ -140,20 +140,21 @@ render vstate =
                 , HP.title "Flip deck"
                 ]
                 [ HH.text "" ]
-            , HH.button
-                ([ ARIA.label "Zoom deck" ] ⊕
-                 if state.topLevel
-                   then [ HP.classes [ CSS.zoomOutDeck ]
-                        , HP.title "Zoom out"
-                        , HE.onClick (HE.input_ ZoomOut)
-                        ]
-                   else [ HP.classes [ CSS.zoomInDeck ]
-                        , HP.title "Zoom in"
-                        , HE.onClick (HE.input_ ZoomIn)
-                        ])
-                [ if state.topLevel
-                    then glyph B.glyphiconZoomOut
-                    else glyph B.glyphiconZoomIn ]
+            , if state.level == Root
+                then HH.button
+                       [ ARIA.label "Zoom deck"
+                       , HP.classes [ CSS.zoomOutDeck ]
+                       , HP.title "Zoom out"
+                       , HE.onClick (HE.input_ ZoomOut)
+                       ]
+                       [ glyph B.glyphiconZoomOut ]
+                else HH.button
+                       [ ARIA.label "Zoom deck"
+                       , HP.classes [ CSS.zoomInDeck ]
+                       , HP.title "Zoom in"
+                       , HE.onClick (HE.input_ ZoomIn)
+                       ]
+                       [ glyph B.glyphiconZoomIn ]
             , HH.button
                 [ HP.classes [ CSS.grabDeck ]
                 , HE.onMouseDown (HE.input GrabDeck)
@@ -223,13 +224,13 @@ eval ∷ Natural Query DeckDSL
 eval (RunActiveCard next) = do
   traverse_ runCard =<< H.gets (DCS.activeCardId ∘ DCS.virtualState)
   pure next
-eval (Load dir deckId topLevel next) = do
-  H.modify $ DCS._topLevel .~ topLevel
+eval (Load dir deckId level next) = do
+  H.modify $ DCS._level .~ level
   loadDeck dir deckId
   pure next
-eval (SetModel deckId model topLevel next) = do
+eval (SetModel deckId model level next) = do
   state ← H.get
-  H.modify $ DCS._topLevel .~ topLevel
+  H.modify $ DCS._level .~ level
   setModel state.path (Just deckId) model
   pure next
 eval (ExploreFile res next) = do
@@ -616,9 +617,10 @@ saveDeck = H.get >>= \st →
           -- runPendingCards would be deferred if there had previously been
           -- no `deckPath`. We need to flush the queue.
           when (isNothing $ DCS.deckPath st) runPendingCards
-          when st.topLevel $ H.gets DCS.deckPath >>= traverse_ \path' → do
-            let deckHash = mkWorkspaceHash path' (WA.Load st.accessType) st.globalVarMap
-            H.fromEff $ locationObject >>= Location.setHash deckHash
+          when (st.level == Root) $
+            H.gets DCS.deckPath >>= traverse_ \path' → do
+              let deckHash = mkWorkspaceHash path' (WA.Load st.accessType) st.globalVarMap
+              H.fromEff $ locationObject >>= Location.setHash deckHash
 
   where
 

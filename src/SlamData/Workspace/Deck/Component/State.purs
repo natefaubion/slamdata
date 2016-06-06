@@ -39,7 +39,7 @@ module SlamData.Workspace.Deck.Component.State
   , _sliderTransition
   , _sliderTranslateX
   , _cardElementWidth
-  , _topLevel
+  , _level
   , addCard
   , addCard'
   , removeCard
@@ -88,7 +88,7 @@ import SlamData.Workspace.Card.CardType (CardType(..))
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.Port.VarMap as Port
 
-import SlamData.Workspace.Deck.Component.Query (Query)
+import SlamData.Workspace.Deck.Component.Query (Query, DeckLevel(..))
 import SlamData.Workspace.Deck.DeckId (DeckId, deckIdToString)
 import SlamData.Workspace.Deck.Model as Model
 import SlamData.Workspace.StateMode (StateMode(..))
@@ -144,7 +144,7 @@ type State =
   , sliderTransition ∷ Boolean
   , sliderTranslateX ∷ Number
   , cardElementWidth ∷ Maybe Number
-  , topLevel ∷ Boolean
+  , level ∷ DeckLevel
   }
 
 -- | A record used to represent card definitions in the deck.
@@ -173,7 +173,7 @@ initialDeck =
   , sliderTransition: false
   , sliderTranslateX: 0.0
   , cardElementWidth: Nothing
-  , topLevel: true
+  , level: Root
   }
 
 -- | The unique identifier of the deck. If it's a fresh, unsaved deck, the id
@@ -266,8 +266,8 @@ _cardElementWidth ∷ ∀ a r. LensP {cardElementWidth ∷ a|r} a
 _cardElementWidth = lens _.cardElementWidth _{cardElementWidth = _}
 
 -- | Whether the deck is at the top-level of the deck component hierarchy
-_topLevel ∷ ∀ a r. LensP {topLevel ∷ a|r} a
-_topLevel = lens _.topLevel _{topLevel = _}
+_level ∷ ∀ a r. LensP {level ∷ a|r} a
+_level = lens _.level _{level = _}
 
 addCard ∷ CardType → State → State
 addCard cardType st = fst $ addCard' cardType st

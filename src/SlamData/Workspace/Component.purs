@@ -160,7 +160,7 @@ eval (Load path deckId next) = do
 
   loadDeck deckId = void do
     H.modify _ { stateMode = Ready }
-    queryDeck $ H.action $ Deck.Load path deckId true
+    queryDeck $ H.action $ Deck.Load path deckId Deck.Root
 
   loadRoot =
     rootDeck path >>=
@@ -185,7 +185,7 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
             [ Deck.SetParent (Tuple newId' (CID.CardId 0))
             , Deck.Save
             , Deck.Reset (Just path)
-            , Deck.SetModel newId' newDeck true
+            , Deck.SetModel newId' newDeck Deck.Root
             , Deck.Save
             ]
           Model.setRoot newId index
