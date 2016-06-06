@@ -31,7 +31,6 @@ import Utils.Path as UP
 
 data Query a
   = SetAccessType AccessType a
-  | SetParentHref String a
   | DismissAll a
   | Reset (Maybe UP.DirPath) a
   | Load UP.DirPath (Maybe DeckId) a

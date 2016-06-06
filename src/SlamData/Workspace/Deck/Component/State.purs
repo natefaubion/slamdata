@@ -52,6 +52,7 @@ module SlamData.Workspace.Deck.Component.State
   , cardsOfType
   , fromModel
   , deckPath
+  , deckPath'
   , cardIndexFromId
   , cardIdFromIndex
   , VirtualState
@@ -165,7 +166,7 @@ initialDeck =
   , runTrigger: Nothing
   , pendingCard: Nothing
   , failingCards: S.empty
-  , stateMode: Ready
+  , stateMode: Loading
   , displayMode: Normal
   , initialSliderX: Nothing
   , initialSliderCardWidth: Nothing
@@ -424,10 +425,10 @@ removePendingCard cardId st@{ pendingCard } =
 
 -- | Finds the current deck path
 deckPath ∷ State → Maybe DirPath
-deckPath state = do
-  path ← state.path
-  deckId ← deckIdToString <$> state.id
-  pure $ path </> P.dir deckId
+deckPath state = deckPath' <$> state.path <*> state.id
+
+deckPath' ∷ DirPath → DeckId → DirPath
+deckPath' path deckId = path </> P.dir (deckIdToString deckId)
 
 -- | Reconstructs a deck state from a deck model.
 fromModel

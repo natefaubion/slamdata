@@ -26,7 +26,7 @@ import SlamData.Prelude
 import Control.Monad.Aff.Console (log)
 import Control.Monad.Eff.Exception as Exn
 import Control.Monad.Except.Trans (ExceptT(..), runExceptT)
-import Control.UI.Browser (newTab, locationObject, locationString)
+import Control.UI.Browser (newTab, locationObject, locationString, setHref)
 
 import Data.Array as Array
 import Data.Foldable as Foldable
@@ -55,6 +55,7 @@ import Halogen.HTML.Properties.Indexed.ARIA as ARIA
 import SlamData.Config (workspaceUrl)
 import SlamData.Effects (Slam)
 import SlamData.FileSystem.Resource as R
+import SlamData.FileSystem.Routing (parentURL)
 import SlamData.Quasar.Data (save, load) as Quasar
 import SlamData.Render.Common (glyph)
 import SlamData.Render.CSS as CSS
@@ -140,11 +141,16 @@ render vstate =
                 ]
                 [ HH.text "" ]
             , HH.button
-                ([ HE.onClick (HE.input_ ZoomDeck)
-                 , ARIA.label "Zoom deck"
-                 ] ⊕ if state.topLevel
-                       then [ HP.classes [ CSS.zoomOutDeck ], HP.title "Zoom out" ]
-                       else [ HP.classes [ CSS.zoomInDeck ], HP.title "Zoom in" ])
+                ([ ARIA.label "Zoom deck" ] ⊕
+                 if state.topLevel
+                   then [ HP.classes [ CSS.zoomOutDeck ]
+                        , HP.title "Zoom out"
+                        , HE.onClick (HE.input_ ZoomOut)
+                        ]
+                   else [ HP.classes [ CSS.zoomInDeck ]
+                        , HP.title "Zoom in"
+                        , HE.onClick (HE.input_ ZoomIn)
+                        ])
                 [ if state.topLevel
                     then glyph B.glyphiconZoomOut
                     else glyph B.glyphiconZoomIn ]
@@ -218,16 +224,8 @@ eval (RunActiveCard next) = do
   traverse_ runCard =<< H.gets (DCS.activeCardId ∘ DCS.virtualState)
   pure next
 eval (Load dir deckId topLevel next) = do
-  H.modify
-    $ (DCS._stateMode .~ Loading)
-    ∘ (DCS._topLevel .~ topLevel)
-  json ← Quasar.load $ deckIndex dir deckId
-  case Model.decode =<< json of
-    Left err → do
-      H.fromAff $ log err
-      H.modify $ DCS._stateMode .~ Error "There was a problem decoding the saved deck"
-    Right model →
-      setModel (Just dir) (Just deckId) model
+  H.modify $ DCS._topLevel .~ topLevel
+  loadDeck dir deckId
   pure next
 eval (SetModel deckId model topLevel next) = do
   state ← H.get
@@ -258,7 +256,10 @@ eval (Publish next) = do
     traverse_ (H.fromEff ∘ newTab ∘ flip mkWorkspaceURL (WA.Load AT.ReadOnly))
   pure next
 eval (Reset dir next) = do
-  setDeckState $ DCS.initialDeck { path = dir }
+  setDeckState $ DCS.initialDeck
+    { path = dir
+    , stateMode = Ready
+    }
   updateIndicator
   pure next
 eval (SetName name next) =
@@ -297,7 +298,22 @@ eval (FlipDeck next) = do
   pure next
 eval (GrabDeck _ next) = pure next
 eval (ResizeDeck _ next) = pure next
-eval (ZoomDeck next) = pure next
+eval (ZoomIn next) = do
+  st ← H.get
+  for_ (DCS.deckPath st) \path → do
+    let deckHash = mkWorkspaceHash path (WA.Load st.accessType) st.globalVarMap
+    H.fromEff $ locationObject >>= Location.setHash deckHash
+  pure next
+eval (ZoomOut next) = do
+  st ← H.get
+  for_ st.path \path →
+    case st.parent of
+      Just (Tuple deckId _) → do
+        let deckHash = mkWorkspaceHash (DCS.deckPath' path deckId) (WA.Load st.accessType) st.globalVarMap
+        H.fromEff $ locationObject >>= Location.setHash deckHash
+      Nothing →
+        void $ H.fromEff $ setHref $ parentURL $ Left path
+  pure next
 eval (StartSliding mouseEvent next) =
   Slider.startSliding mouseEvent $> next
 eval (StopSlidingAndSnap mouseEvent next) = do
@@ -601,8 +617,7 @@ saveDeck = H.get >>= \st →
           -- no `deckPath`. We need to flush the queue.
           when (isNothing $ DCS.deckPath st) runPendingCards
           when st.topLevel $ H.gets DCS.deckPath >>= traverse_ \path' → do
-            let deckHash =
-                  mkWorkspaceHash path' (WA.Load st.accessType) st.globalVarMap
+            let deckHash = mkWorkspaceHash path' (WA.Load st.accessType) st.globalVarMap
             H.fromEff $ locationObject >>= Location.setHash deckHash
 
   where
@@ -630,6 +645,17 @@ setDeckState ∷ DCS.State → DeckDSL Unit
 setDeckState newState =
   H.modify \oldState →
     newState { cardElementWidth = oldState.cardElementWidth }
+
+loadDeck ∷ DirPath → DeckId → DeckDSL Unit
+loadDeck dir deckId = do
+  H.modify $ DCS._stateMode .~ Loading
+  json ← Quasar.load $ deckIndex dir deckId
+  case Model.decode =<< json of
+    Left err → do
+      H.fromAff $ log err
+      H.modify $ DCS._stateMode .~ Error "There was a problem decoding the saved deck"
+    Right model →
+      setModel (Just dir) (Just deckId) model
 
 setModel ∷ Maybe DirPath → Maybe DeckId → Deck → DeckDSL Unit
 setModel dir deckId model = do

@@ -24,7 +24,7 @@ import SlamData.Prelude
 
 import Control.UI.Browser (setHref)
 
-import Data.Lens ((^.), (.~), (?~))
+import Data.Lens ((^.), (.~))
 import Data.Map as Map
 import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as Pathy
@@ -39,6 +39,7 @@ import Halogen.HTML.Properties.Indexed as HP
 import Halogen.Themes.Bootstrap3 as B
 
 import SlamData.Effects (Slam)
+import SlamData.FileSystem.Routing (parentURL)
 import SlamData.Header.Component as Header
 import SlamData.Quasar.Data as Quasar
 import SlamData.Render.CSS as Rc
@@ -49,7 +50,7 @@ import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Draftboard.Component.State as DBS
 import SlamData.Workspace.Component.ChildSlot (ChildQuery, ChildSlot, ChildState, cpDeck, cpHeader)
 import SlamData.Workspace.Component.Query (QueryP, Query(..), fromWorkspace, fromDeck, toWorkspace, toDeck)
-import SlamData.Workspace.Component.State (State, _accessType, _loaded, _parentHref, _path, _version, _stateMode,  initialState)
+import SlamData.Workspace.Component.State (State, _accessType, _loaded, _path, _version, _stateMode,  initialState)
 import SlamData.Workspace.Deck.Component as Deck
 import SlamData.Workspace.Deck.DeckId (DeckId(..))
 import SlamData.Workspace.Deck.Model as DM
@@ -130,7 +131,6 @@ eval (SetAccessType aType next) = do
   H.modify (_accessType .~ aType)
   queryDeck $ H.action $ Deck.SetAccessType aType
   pure next
-eval (SetParentHref href next) = H.modify (_parentHref ?~ href) $> next
 eval (DismissAll next) = do
   querySignIn $ H.action SignIn.DismissSubmenu
   pure next
@@ -143,16 +143,22 @@ eval (Reset path next) = do
   queryDeck $ H.action $ Deck.Reset path
   pure next
 eval (Load path deckId next) = do
-  H.modify _
-    { stateMode = Loading
-    , path = Just path
-    , root = Nothing
-    }
-  queryDeck $ H.action $ Deck.Reset (Just path)
-  maybe loadRoot loadDeck deckId
+  H.gets _.root >>= \deckId' →
+    case deckId, deckId' of
+      Just a, Just b | a == b → pure unit
+      _, _ → load
   pure next
 
   where
+  load = do
+    H.modify _
+      { stateMode = Loading
+      , path = Just path
+      , root = Nothing
+      }
+    queryDeck $ H.action $ Deck.Reset (Just path)
+    maybe loadRoot loadDeck deckId
+
   loadDeck deckId = void do
     H.modify _
       { root = Just deckId
@@ -190,13 +196,12 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
           Model.setRoot newId index
   peekDeck (Deck.DoAction Deck.DeleteDeck _) = do
     st ← H.get
-    for_ st.parentHref \href →
-      for_ st.path \path → do
-        res ← Quasar.delete $ Left path
-        case res of
-          -- TODO: do something to notify the user deleting failed
-          Left err → pure unit
-          Right _ → void $ H.fromEff $ setHref href
+    for_ st.path \path → do
+      res ← Quasar.delete $ Left path
+      case res of
+        -- TODO: do something to notify the user deleting failed
+        Left err → pure unit
+        Right _ → void $ H.fromEff $ setHref $ parentURL $ Left path
   peekDeck _ = pure unit
 
   wrappedDeck ∷ Maybe UP.DirPath → DeckId → DM.Deck
