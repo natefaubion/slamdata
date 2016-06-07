@@ -53,10 +53,12 @@ import SlamData.Quasar.Data (save, load, delete) as Quasar
 import SlamData.Render.CSS as RC
 import SlamData.Workspace.Card.Draftboard.Component.Query (Query(..), QueryP, QueryC)
 import SlamData.Workspace.Card.Draftboard.Component.State (State, DeckPosition, initialState, encode, decode)
+import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.CardType as Ct
 import SlamData.Workspace.Card.Common (CardOptions)
 import SlamData.Workspace.Card.Common.EvalQuery as Ceq
 import SlamData.Workspace.Card.Component as Cp
+import SlamData.Workspace.Deck.Common (wrappedDeck, defaultPosition)
 import SlamData.Workspace.Deck.Component.Query as DCQ
 import SlamData.Workspace.Deck.Component.State as DCS
 import SlamData.Workspace.Deck.DeckId (DeckId(..), deckIdToString)
@@ -180,8 +182,7 @@ evalBoard opts (AddDeck e next) = do
   pure next
 evalBoard opts (LoadDeck deckId next) = do
   for_ opts.path \path →
-    H.query deckId
-      $ opaqueQuery
+    queryDeck deckId
       $ H.action
       $ DCQ.Load path deckId DCQ.Nested
   pure next
@@ -191,7 +192,8 @@ peek opts (H.ChildF deckId q) = flip peekOpaqueQuery q
   case _ of
     DCQ.GrabDeck ev _ → startDragging deckId ev Grabbing
     DCQ.ResizeDeck ev _ → startDragging deckId ev Resizing
-    DCQ.DoAction DCQ.DeleteDeck _ → for_ opts.path (flip deleteDeck deckId)
+    DCQ.DoAction DCQ.DeleteDeck _ → deleteDeck opts deckId
+    DCQ.DoAction DCQ.Wrap _ → wrapDeck opts deckId
     _ → pure unit
 
   where
@@ -288,66 +290,78 @@ loadDecks =
     traverse_ (raise' ∘ right ∘ H.action ∘ LoadDeck)
 
 addDeck ∷ CardOptions → { x ∷ Number, y ∷ Number } → DraftboardDSL Unit
-addDeck opts coords =
-  for_ opts.deckId \deckId → do
-    st ← H.get
-    let decks = Map.toList st.decks
-        deckPos =
-          clampDeck
-            { x: coords.x - 10.0
-            , y: coords.y
-            , width: 20.0
-            , height: 10.0
-            }
-    for_ (accomodateDeck decks coords deckPos) $
-      saveDeck st deckId
+addDeck opts coords = do
+  decks ← Map.toList <$> H.gets _.decks
+  let deckPos = clampDeck $ defaultPosition
+        { x = coords.x - 10.0
+        , y = coords.y
+        }
+  for_ (accomodateDeck decks coords deckPos) \deckPos' →
+  for_ opts.deckId \parentId →
+  for_ opts.path \path → do
+    deckId ← saveDeck path $ DM.emptyDeck { parent = Just (Tuple parentId opts.cardId) }
+    case deckId of
+      Left err → do
+        -- TODO: do something to notify the user saving failed
+        pure unit
+      Right deckId' → void do
+        H.modify \s → s { decks = Map.insert deckId' deckPos' s.decks }
+        queryDeck deckId'
+          $ H.action
+          $ DCQ.Load path deckId' DCQ.Nested
 
-  where
-  saveDeck st deckId deckPos = do
-    let json =
-          DM.encode
-            { name: Nothing
-            , parent: Just (Tuple deckId opts.cardId)
-            , cards: []
-            }
-    for_ opts.path \path → do
-      deckId ← runExceptT do
-        i ← ExceptT $ map DeckId <$> WS.freshId (path </> Pathy.file "index")
-        ExceptT $ Quasar.save (deckIndex path i) json
-        pure i
+saveDeck ∷ DirPath → DM.Deck → DraftboardDSL (Either Exn.Error DeckId)
+saveDeck path model = runExceptT do
+  i ← ExceptT $ map DeckId <$> WS.freshId (path </> Pathy.file "index")
+  ExceptT $ Quasar.save (deckIndex path i) $ DM.encode model
+  pure i
 
-      case deckId of
-        Left err → do
-          -- TODO: do something to notify the user saving failed
-          pure unit
-        Right deckId' → void do
-          H.modify \s → s { decks = Map.insert deckId' deckPos s.decks }
-          H.query deckId'
-            $ opaqueQuery
-            $ H.action
-            $ DCQ.Load path deckId' DCQ.Nested
+deleteDeck ∷ CardOptions → DeckId → DraftboardDSL Unit
+deleteDeck opts deckId =
+  for_ opts.path \path → do
+    let deleteId i = Quasar.delete $ Left $ path </> Pathy.dir (deckIdToString i)
+    res ← H.fromAff $ runExceptT do
+      children ← ExceptT $ deckGraph path deckId
+      withExceptT Exn.message
+        $ ExceptT
+        $ map sequence
+        $ runPar
+        $ traverse (Par ∘ deleteId)
+        $ Array.cons deckId children
 
-deleteDeck ∷ DirPath → DeckId → DraftboardDSL Unit
-deleteDeck path deckId = do
-  let deleteId ∷ DeckId → Slam (Either Exn.Error Unit)
-      deleteId i =
-        Quasar.delete $ Left $ path </> Pathy.dir (deckIdToString i)
+    case res of
+      Left err →
+        -- TODO: do something to notify the user deleting failed
+        pure unit
+      Right _ →
+        H.modify \s → s { decks = Map.delete deckId s.decks }
 
-  res ← H.fromAff $ runExceptT do
-    children ← ExceptT $ deckGraph path deckId
-    withExceptT Exn.message
-      $ ExceptT
-      $ map sequence
-      $ runPar
-      $ traverse (Par ∘ deleteId)
-      $ Array.cons deckId children
-
-  case res of
-    Left err →
-      -- TODO: do something to notify the user deleting failed
-      pure unit
-    Right _ →
-      H.modify \s → s { decks = Map.delete deckId s.decks }
+wrapDeck ∷ CardOptions → DeckId → DraftboardDSL Unit
+wrapDeck opts oldId = do
+  H.gets (Map.lookup oldId ∘ _.decks) >>= traverse_ \deckPos →
+  for_ opts.deckId \parentId →
+  for_ opts.path \path → do
+    let deckPos' = deckPos { x = 1.0, y = 1.0 }
+        newDeck = (wrappedDeck deckPos' oldId) { parent = Just (Tuple parentId opts.cardId) }
+    deckId ← saveDeck path newDeck
+    case deckId of
+      Left err → do
+        -- TODO: do something to notify the user saving failed
+        pure unit
+      Right newId → void do
+        traverse_ (queryDeck oldId ∘ H.action)
+          [ DCQ.SetParent (Tuple newId (CID.CardId 0))
+          , DCQ.Save
+          ]
+        H.modify \s → s
+          { decks
+              = Map.insert newId deckPos
+              $ Map.delete oldId
+              $ s.decks
+          }
+        queryDeck newId
+          $ H.action
+          $ DCQ.Load path newId DCQ.Nested
 
 deckIndex ∷ DirPath → DeckId → FilePath
 deckIndex path deckId =
@@ -372,6 +386,9 @@ deckGraph path deckId = runExceptT do
 
   where
   transDecks ids = map (map join ∘ sequence) $ runPar $ traverse (Par ∘ deckGraph path) ids
+
+queryDeck ∷ ∀ a. DeckId → DCQ.Query a → DraftboardDSL (Maybe a)
+queryDeck deckId = H.query deckId <<< opaqueQuery
 
 -- This can be removed once Array gets fromFoldable
 listToArray ∷ ∀ a. List.List a → Array a

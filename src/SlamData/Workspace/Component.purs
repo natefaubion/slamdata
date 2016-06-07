@@ -25,7 +25,6 @@ import SlamData.Prelude
 import Control.UI.Browser (setHref)
 
 import Data.Lens ((^.), (.~))
-import Data.Map as Map
 import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as Pathy
 
@@ -46,14 +45,12 @@ import SlamData.Render.CSS as Rc
 import SlamData.SignIn.Component as SignIn
 import SlamData.Workspace.AccessType as AT
 import SlamData.Workspace.Card.CardId as CID
-import SlamData.Workspace.Card.CardType as CT
-import SlamData.Workspace.Card.Draftboard.Component.State as DBS
 import SlamData.Workspace.Component.ChildSlot (ChildQuery, ChildSlot, ChildState, cpDeck, cpHeader)
 import SlamData.Workspace.Component.Query (QueryP, Query(..), fromWorkspace, fromDeck, toWorkspace, toDeck)
 import SlamData.Workspace.Component.State (State, _accessType, _loaded, _path, _version, _stateMode,  initialState)
+import SlamData.Workspace.Deck.Common (wrappedDeck, defaultPosition)
 import SlamData.Workspace.Deck.Component as Deck
 import SlamData.Workspace.Deck.DeckId (DeckId(..))
-import SlamData.Workspace.Deck.Model as DM
 import SlamData.Workspace.Model as Model
 import SlamData.Workspace.StateMode (StateMode(..))
 
@@ -179,7 +176,7 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
       let index = path </> Pathy.file "index"
       queryDeck (H.request Deck.GetId) >>= join >>> traverse_ \oldId → do
         Model.freshId index >>= traverse_ \newId → do
-          let newDeck = wrappedDeck st.path oldId
+          let newDeck = wrappedDeck defaultPosition oldId
               newId' = DeckId newId
           traverse_ (queryDeck ∘ H.action)
             [ Deck.SetParent (Tuple newId' (CID.CardId 0))
@@ -198,25 +195,6 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
         Left err → pure unit
         Right _ → void $ H.fromEff $ setHref $ parentURL $ Left path
   peekDeck _ = pure unit
-
-  wrappedDeck ∷ Maybe UP.DirPath → DeckId → DM.Deck
-  wrappedDeck path deckId =
-    DM.emptyDeck
-      { cards =
-          [ { cardId: CID.CardId 0
-            , cardType: CT.Draftboard
-            , state: DBS.encode $ DBS.initialState
-                { decks = Map.singleton deckId
-                    { x: 1.0
-                    , y: 1.0
-                    , width: 20.0
-                    , height: 10.0
-                    }
-                }
-            , hasRun: false
-            }
-          ]
-      }
 
 queryDeck ∷ ∀ a. Deck.Query a → WorkspaceDSL (Maybe a)
 queryDeck = H.query' cpDeck unit ∘ opaqueQuery
