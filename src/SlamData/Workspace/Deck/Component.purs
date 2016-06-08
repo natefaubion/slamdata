@@ -794,11 +794,18 @@ setModel ∷ Maybe DirPath → Maybe DeckId → Deck → DeckDSL Unit
 setModel dir deckId model = do
   st ← DCS.fromModel dir deckId model <$> H.get
   setDeckState st
-  if Array.null st.modelCards
-    then H.modify $ DCS._stateMode .~ Ready
-    else do
-      H.modify
-        $ (DCS._cardsToLoad .~ Set.fromFoldable (_.cardId <$> st.modelCards))
-        ∘ (DCS._stateMode .~ Preparing)
-      traverse_ runCard $ _.cardId <$> Array.head st.modelCards
+  maybe ready runCards
+    $ Array.uncons
+    $ _.cardId <$> st.modelCards
   updateIndicatorAndNextAction
+
+  where
+  ready =
+    H.modify $ DCS._stateMode .~ Ready
+
+  runCards { head, tail } = do
+    H.modify
+      $ (DCS._cardsToLoad .~ Set.fromFoldable (Array.cons head tail))
+      ∘ (DCS._stateMode .~ Preparing)
+      ∘ (DCS.addPendingCard head)
+    runPendingCards
