@@ -19,6 +19,7 @@ module SlamData.Workspace.Card.Draftboard.Common
   , transitiveChildren
   , childDeckIds
   , deleteGraph
+  , replacePointer
   ) where
 
 import SlamData.Prelude
@@ -40,9 +41,10 @@ import Data.Set as Set
 
 import SlamData.Quasar.Aff (QEff)
 import SlamData.Quasar.Data as Quasar
+import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.Model as CM
-import SlamData.Workspace.Deck.Model as DM
 import SlamData.Workspace.Deck.DeckId (DeckId, deckIdToString)
+import SlamData.Workspace.Deck.Model as DM
 
 import Utils.AffableProducer (produce)
 import Utils.Path (DirPath)
@@ -107,7 +109,7 @@ childDeckIds = (_ >>= getDeckIds ∘ _.model)
   where
   getDeckIds =
     case _ of
-      CM.Draftboard {decks} → L.fromList $ Map.keys decks
+      CM.Draftboard { decks } → L.fromList $ Map.keys decks
       _ → []
 
 deleteGraph
@@ -129,3 +131,25 @@ deleteGraph path parentId = fromAff $ runExceptT do
   where
   delete deckId =
     Quasar.delete $ Left $ path </> Pathy.dir (deckIdToString deckId)
+
+replacePointer
+  ∷ DeckId
+  → DeckId
+  → CardId
+  → Array (CM.Model)
+  → Array (CM.Model)
+replacePointer from to cid = map replace
+  where
+  replace model =
+    case model of
+      { cardId, model = CM.Draftboard { decks } } | cardId ≡ cid →
+        { cardId, model: CM.Draftboard { decks: update decks } }
+      _ → model
+
+  update decks =
+    case Map.lookup from decks of
+      Nothing → decks
+      Just rect →
+        decks
+          # Map.delete from
+          # Map.insert to rect

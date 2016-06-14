@@ -22,6 +22,7 @@ module SlamData.Workspace.Component
 
 import SlamData.Prelude
 
+import Control.Monad.Maybe.Trans (MaybeT(..), runMaybeT)
 import Control.UI.Browser (setHref)
 
 import Data.Lens ((^.), (.~))
@@ -45,12 +46,14 @@ import SlamData.Render.CSS as Rc
 import SlamData.SignIn.Component as SignIn
 import SlamData.Workspace.AccessType as AT
 import SlamData.Workspace.Card.CardId as CID
+import SlamData.Workspace.Card.Draftboard.Common as DBC
 import SlamData.Workspace.Component.ChildSlot (ChildQuery, ChildSlot, ChildState, cpDeck, cpHeader)
 import SlamData.Workspace.Component.Query (QueryP, Query(..), fromWorkspace, fromDeck, toWorkspace, toDeck)
 import SlamData.Workspace.Component.State (State, _accessType, _loaded, _path, _version, _stateMode, _globalVarMap, initialState)
 import SlamData.Workspace.Deck.Common (wrappedDeck, defaultPosition)
 import SlamData.Workspace.Deck.Component as Deck
 import SlamData.Workspace.Deck.DeckId (DeckId(..))
+import SlamData.Workspace.Deck.Model as DM
 import SlamData.Workspace.Model as Model
 import SlamData.Workspace.StateMode (StateMode(..))
 
@@ -175,14 +178,17 @@ peek ∷ ∀ a. ChildQuery a → WorkspaceDSL Unit
 peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
   where
   peekDeck (Deck.DoAction Deck.Mirror _) = pure unit
-  peekDeck (Deck.DoAction Deck.Wrap _) = do
-    st ← H.get
-    for_ st.path \path → do
-      let index = path </> Pathy.file "index"
-      queryDeck (H.request Deck.GetId) >>= join >>> traverse_ \oldId → do
-        Model.freshId index >>= traverse_ \newId → do
-          let newDeck = wrappedDeck defaultPosition oldId
-              newId' = DeckId newId
+  peekDeck (Deck.DoAction Deck.Wrap _) = void $ runMaybeT do
+    path ← MaybeT $ H.gets _.path
+
+    let index = path </> Pathy.file "index"
+
+    parent ← lift $ join <$> queryDeck (H.request Deck.GetParent)
+    oldId  ← MaybeT $ join <$> queryDeck (H.request Deck.GetId)
+    newId  ← MaybeT $ either (const Nothing) Just <$> Model.freshId index
+
+    let newId' = DeckId newId
+        transitionDeck newDeck =
           traverse_ (queryDeck ∘ H.action)
             [ Deck.SetParent (Tuple newId' (CID.CardId 0))
             , Deck.Save
@@ -190,7 +196,18 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
             , Deck.SetModel newId' newDeck Deck.Root
             , Deck.Save
             ]
-          Model.setRoot newId index
+
+    lift case parent of
+      Just (Tuple deckId cardId) →
+        Quasar.load (DM.deckIndex path deckId)
+          >>= flip bind DM.decode
+          >>> traverse_ \parentDeck → void do
+            let cards = DBC.replacePointer oldId newId' cardId parentDeck.cards
+            Quasar.save (DM.deckIndex path deckId) $ DM.encode parentDeck { cards = cards }
+            transitionDeck $ (wrappedDeck defaultPosition oldId) { parent = parent }
+      Nothing → void do
+        transitionDeck $ wrappedDeck defaultPosition oldId
+        Model.setRoot newId index
   peekDeck (Deck.DoAction Deck.DeleteDeck _) = do
     st ← H.get
     for_ st.path \path → do
