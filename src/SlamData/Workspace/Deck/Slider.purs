@@ -224,7 +224,7 @@ renderCard comp st (deckId × card) index =
     $ Gripper.renderGrippers
         (cardSelected st (deckId × card.cardId))
         (isJust st.initialSliderX)
-        (Gripper.gripperDefsForCoord st.displayCards $ Just coord)
+        (Gripper.gripperDefsForCard st.displayCards $ Just coord)
         ⊕ [ HH.div
               (cardProperties st coord)
               [ HH.slot' ChildSlot.cpCard slotId \_ → cardComponent ]

@@ -198,7 +198,7 @@ render st =
           (Gripper.renderGrippers
              visible
              (isJust st.initialSliderX)
-             (Gripper.gripperDefsForCoord st.displayCards $ DCS.activeCardCoord st)
+             (Gripper.gripperDefsForCard st.displayCards $ DCS.activeCardCoord st)
              ⊕ [ HH.slot' cpBackSide unit \_ →
                   { component: Back.comp
                   , initialState: Back.initialState

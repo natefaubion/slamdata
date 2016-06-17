@@ -16,7 +16,7 @@ limitations under the License.
 
 module SlamData.Workspace.Deck.Gripper
   ( GripperDef
-  , gripperDefsForCoord
+  , gripperDefsForCard
   , renderGrippers
   ) where
 
@@ -44,11 +44,11 @@ import Data.Bifoldable (bifoldMap)
 
 data GripperDef = Previous Boolean | Next Boolean
 
-gripperDefsForCoord
+gripperDefsForCard
   ∷ Array (DeckId × Card.Model)
   → Maybe (DeckId × CardId)
   → GripperDef × GripperDef
-gripperDefsForCoord cards coord =
+gripperDefsForCard cards coord =
   Tuple (Previous previousCardAvailable) (Next nextCardAvailable)
   where
   previousCardAvailable =
