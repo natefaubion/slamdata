@@ -37,7 +37,6 @@ import Data.String as S
 import Data.Time as DT
 
 import SlamData.Effects (Slam, SlamDataEffects)
-import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.Eval.CardEvalT as CET
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Quasar.Query as Quasar
@@ -59,8 +58,8 @@ markdownEval
   ⇒ CET.CardEvalInput
   → String
   → CET.CardEvalT m Port.Port
-markdownEval { cardId, path } str = do
-  result ← lift ∘ AffF.fromAff ∘ Aff.attempt ∘ evalEmbeddedQueries path cardId $ SDP.parseMd str
+markdownEval { path } str = do
+  result ← lift ∘ AffF.fromAff ∘ Aff.attempt ∘ evalEmbeddedQueries path $ SDP.parseMd str
   doc ← either (Err.throwError ∘ Exn.message) pure result
   pure $ Port.SlamDown doc
 
@@ -87,10 +86,9 @@ runEvalM = flip State.evalStateT 0
 
 evalEmbeddedQueries
   ∷ DirPath
-  → CID.CardId
   → SD.SlamDownP Port.VarMapValue
   → Slam (SD.SlamDownP Port.VarMapValue)
-evalEmbeddedQueries dir cardId =
+evalEmbeddedQueries dir =
   runEvalM ∘
     SDE.eval
       { code: evalCode

@@ -16,7 +16,7 @@ limitations under the License.
 
 module SlamData.Workspace.Deck.Gripper
   ( GripperDef
-  , gripperDefsForCardId
+  , gripperDefsForCoord
   , renderGrippers
   ) where
 
@@ -31,6 +31,8 @@ import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Deck.Common (DeckHTML)
 import SlamData.Workspace.Deck.Component.Query (Query(StartSliding))
+import SlamData.Workspace.Deck.Component.State (coordModelToCoord)
+import SlamData.Workspace.Deck.DeckId (DeckId)
 import SlamData.Prelude
 import SlamData.Render.CSS as ClassNames
 import Data.Bifoldable (bifoldMap)
@@ -42,14 +44,18 @@ import Data.Bifoldable (bifoldMap)
 
 data GripperDef = Previous Boolean | Next Boolean
 
-gripperDefsForCardId :: Array Card.Model -> Maybe CardId -> Tuple GripperDef GripperDef
-gripperDefsForCardId cards cardId =
+gripperDefsForCoord
+  ∷ Array (DeckId × Card.Model)
+  → Maybe (DeckId × CardId)
+  → GripperDef × GripperDef
+gripperDefsForCoord cards coord =
   Tuple (Previous previousCardAvailable) (Next nextCardAvailable)
   where
   previousCardAvailable =
-    cardId /= (_.cardId <$> Array.head cards)
+    fromMaybe true $
+      not ∘ eq <$> coord <*> map coordModelToCoord (Array.head cards)
   nextCardAvailable =
-    isJust cardId
+    isJust coord
 
 isAvailable :: GripperDef -> Boolean
 isAvailable (Previous available) =

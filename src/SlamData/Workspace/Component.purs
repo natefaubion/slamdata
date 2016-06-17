@@ -178,7 +178,7 @@ eval (Load path deckId accessType next) = do
     maybe loadRoot loadDeck deckId
 
   loadDeck deckId = void do
-    H.modify _ { stateMode = Ready }
+    H.modify _ { stateMode = Ready, deckId = Just deckId }
     queryDeck $ H.action $ Deck.Load path deckId DL.root
 
   loadRoot =
@@ -220,7 +220,7 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
             transitionDeck $ (wrappedDeck defaultPosition oldId) { parent = parent }
       Nothing → void do
         transitionDeck $ wrappedDeck defaultPosition oldId
-        Model.setRoot newId index
+        Model.setRoot index newId
   peekDeck (Deck.DoAction Deck.DeleteDeck _) = do
     st ← H.get
     for_ st.path \path → do

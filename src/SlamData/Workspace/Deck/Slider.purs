@@ -56,6 +56,7 @@ import SlamData.Workspace.Deck.Component.Query (Query)
 import SlamData.Workspace.Deck.Component.Query as DCQ
 import SlamData.Workspace.Deck.Component.State (State)
 import SlamData.Workspace.Deck.Component.State as DCS
+import SlamData.Workspace.Deck.DeckId (DeckId)
 import SlamData.Workspace.Deck.Gripper as Gripper
 
 import Utils.CSS as CSSUtils
@@ -198,13 +199,13 @@ containerProperties st =
     ⊕ (guard (isJust st.initialSliderX)
          $> (HE.onMouseMove $ HE.input DCQ.UpdateSliderPosition))
 
-cardSelected ∷ State → CardId → Boolean
-cardSelected state cardId =
-  Just cardId ≡ DCS.activeCardId state
+cardSelected ∷ State → DeckId × CardId → Boolean
+cardSelected state coord =
+  Just coord ≡ DCS.activeCardCoord state
 
-cardProperties ∷ ∀ a b. State → CardId → Array (IProp a b)
-cardProperties state cardId =
-  [ ARIA.disabled ∘ show ∘ not $ cardSelected state cardId ]
+cardProperties ∷ ∀ a b. State → DeckId × CardId → Array (IProp a b)
+cardProperties state coord =
+  [ ARIA.disabled ∘ show ∘ not $ cardSelected state coord ]
 
 cardSpacingGridSquares ∷ Number
 cardSpacingGridSquares = 2.0
@@ -212,8 +213,8 @@ cardSpacingGridSquares = 2.0
 cardSpacingPx ∷ Number
 cardSpacingPx = cardSpacingGridSquares * Config.gridPx
 
-renderCard ∷ DeckComponent → State → Card.Model → Int → DeckHTML
-renderCard comp st card index =
+renderCard ∷ DeckComponent → State → (DeckId × Card.Model) → Int → DeckHTML
+renderCard comp st (deckId × card) index =
   HH.div
     ([ HP.key ("card" ⊕ CardId.cardIdToString card.cardId)
     , HP.classes [ ClassNames.card ]
@@ -221,15 +222,16 @@ renderCard comp st card index =
     , HP.ref (H.action ∘ DCQ.SetCardElement)
     ])
     $ Gripper.renderGrippers
-        (cardSelected st card.cardId)
+        (cardSelected st (deckId × card.cardId))
         (isJust st.initialSliderX)
-        (Gripper.gripperDefsForCardId st.displayCards $ Just card.cardId)
+        (Gripper.gripperDefsForCoord st.displayCards $ Just coord)
         ⊕ [ HH.div
-              (cardProperties st card.cardId)
+              (cardProperties st coord)
               [ HH.slot' ChildSlot.cpCard slotId \_ → cardComponent ]
            ]
   where
-  slotId = ChildSlot.CardSlot card.cardId
+  coord = deckId × card.cardId
+  slotId = ChildSlot.CardSlot coord
   cardOpts =
     { deckComponent: comp
     , path: st.path

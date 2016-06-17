@@ -31,20 +31,23 @@ import SlamData.Workspace.Deck.DeckId (DeckId, deckIdToString)
 import Utils.Path (DirPath, FilePath)
 
 type Deck =
-  { parent ∷ Maybe (Tuple DeckId CardId)
+  { parent ∷ Maybe (DeckId × CardId)
+  , mirror ∷ Maybe (DeckId × Int)
   , cards ∷ Array Card.Model
   }
 
 emptyDeck :: Deck
 emptyDeck =
   { parent: Nothing
-  , cards: [ ]
+  , mirror: Nothing
+  , cards: mempty
   }
 
 encode ∷ Deck → Json
 encode r
    = "version" := 3
   ~> "parent" := r.parent
+  ~> "mirror" := r.mirror
   ~> "cards" := map Card.encode r.cards
   ~> jsonEmptyObject
 
@@ -53,10 +56,10 @@ decode = decodeJson >=> \obj → do
   case obj .? "version" of
     Right n | n ≠ 3 → throwError "Expected deck format v3"
     l → l
-  { parent: _
-  , cards: _
-  } <$> obj .? "parent"
-    <*> (traverse Card.decode =<< obj .? "cards")
+  parent ← obj .? "parent"
+  mirror ← obj .? "mirror"
+  cards ← traverse Card.decode =<< obj .? "cards"
+  pure { parent, mirror, cards }
 
 deckIndex ∷ DirPath → DeckId → FilePath
 deckIndex path deckId =

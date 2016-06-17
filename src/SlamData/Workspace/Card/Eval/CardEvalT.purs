@@ -33,13 +33,14 @@ import Control.Monad.Except.Trans as ET
 import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Port.VarMap as VM
+import SlamData.Workspace.Deck.DeckId as DID
 
 import Utils.Path (DirPath, FilePath)
 
 type CardEvalInput =
   { path ∷ DirPath
   , input ∷ Maybe Port.Port
-  , cardId ∷ CID.CardId
+  , cardCoord ∷ DID.DeckId × CID.CardId
   , globalVarMap ∷ VM.VarMap
   }
 
@@ -81,14 +82,19 @@ runCardEvalT_ (CardEvalT m) =
 
 temporaryOutputResource ∷
   ∀ r
-  . { path ∷ DirPath, cardId ∷ CID.CardId | r }
+  . { path ∷ DirPath, cardCoord ∷ DID.DeckId × CID.CardId | r }
   → FilePath
-temporaryOutputResource { path, cardId } = outputDirectory </> outputFile
+temporaryOutputResource { path, cardCoord = deckId × cardId } =
+  outputDirectory </> outputFile
+
   where
-  outputDirectory =
+  outputRoot =
     if path ≡ Path.rootDir
-    then Path.rootDir </> Path.dir ".tmp"
-    else path
+      then Path.rootDir </> Path.dir ".tmp"
+      else path
+
+  outputDirectory =
+    outputRoot </> Path.dir (DID.deckIdToString deckId)
 
   outputFile =
     Path.file $

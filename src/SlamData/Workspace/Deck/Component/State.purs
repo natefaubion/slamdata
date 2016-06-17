@@ -52,10 +52,13 @@ module SlamData.Workspace.Deck.Component.State
   , fromModel
   , deckPath
   , deckPath'
-  , cardIndexFromId
-  , cardIdFromIndex
-  , activeCardId
+  , cardIndexFromCoord
+  , cardCoordFromIndex
+  , activeCardCoord
   , activeCardType
+  , eqCoordModel
+  , compareCoordCards
+  , coordModelToCoord
   ) where
 
 import SlamData.Prelude
@@ -103,17 +106,18 @@ derive instance eqDisplayMode ∷ Eq DisplayMode
 -- | the fields.
 type State =
   { id ∷ DeckId
-  , parent ∷ Maybe (Tuple DeckId CardId)
+  , parent ∷ Maybe (DeckId × CardId)
+  , mirror ∷ Maybe (DeckId × Int)
   , fresh ∷ Int
   , accessType ∷ AccessType
-  , modelCards ∷ Array Card.Model
-  , displayCards ∷ Array Card.Model
-  , cardsToLoad ∷ Set.Set CardId
+  , modelCards ∷ Array (DeckId × Card.Model)
+  , displayCards ∷ Array (DeckId × Card.Model)
+  , cardsToLoad ∷ Set.Set (DeckId × CardId)
   , activeCardIndex ∷ Maybe Int
   , path ∷ DirPath
   , saveTrigger ∷ Maybe (DebounceTrigger Query Slam)
   , runTrigger ∷ Maybe (DebounceTrigger Query Slam)
-  , pendingCard ∷ Maybe CardId
+  , pendingCard ∷ Maybe (DeckId × CardId)
   , globalVarMap ∷ Port.VarMap
   , stateMode ∷ StateMode
   , displayMode ∷ DisplayMode
@@ -133,6 +137,7 @@ initialDeck ∷ DirPath → DeckId → State
 initialDeck path deckId =
   { id: deckId
   , parent: Nothing
+  , mirror: Nothing
   , fresh: 0
   , accessType: Editable
   , modelCards: mempty
@@ -163,6 +168,11 @@ _id = lens _.id _{id = _}
 -- | the root deck.
 _parent ∷ ∀ a r. LensP {parent ∷ a|r} a
 _parent = lens _.parent _{parent = _}
+
+-- | A pointer to the mirrored base of the deck. A mirror is a slice of some
+-- | other deck, represented by a DeckId and a card offset.
+_mirror ∷ ∀ a r. LensP {mirror ∷ a|r} a
+_mirror = lens _.mirror _{mirror = _}
 
 -- | A counter used to generate `CardId` values. This should be a monotonically increasing value
 _fresh ∷ ∀ a r. LensP {fresh ∷ a|r} a
@@ -250,74 +260,71 @@ addCard ∷ Card.AnyCardModel → State → State
 addCard card st = fst $ addCard' card st
 
 addCard' ∷ Card.AnyCardModel → State → State × CardId
-addCard' card st =
+addCard' model st =
   let
     cardId = CardId st.fresh
     newState = st
       { fresh = st.fresh + one
-      , modelCards = A.snoc st.modelCards { cardId, model: card}
+      , modelCards =
+          A.snoc st.modelCards (st.id × { cardId, model })
       }
   in newState × cardId
 
-removeCard ∷ CardId → State → Tuple (Array Card.Model) State
-removeCard cardId st =
-  Tuple oldModelCards
-    $ removePendingCard cardId
+removeCard ∷ DeckId × CardId → State → (Array (DeckId × Card.Model)) × State
+removeCard coord st =
+  Tuple displayCards.rest
+    $ removePendingCard coord
     $ st
-      { modelCards = newModelCards
-      , displayCards = newDisplayCards
-      , activeCardIndex = Just $ max zero $ A.length newDisplayCards - 1
+      { modelCards = modelCards.init
+      , displayCards = displayCards.init
+      , activeCardIndex = Just $ max zero $ A.length displayCards.init - 1
       }
   where
-  newDisplayCards ∷ Array Card.Model
-  newDisplayCards = A.filter (\c → c.cardId < cardId) st.displayCards
-
-  newModelCards ∷ Array Card.Model
-  newModelCards = A.filter (\c → c.cardId < cardId) st.modelCards
-
-  oldModelCards ∷ Array Card.Model
-  oldModelCards = A.filter (\c → c.cardId >= cardId) st.modelCards
+  modelCards = A.span (not ∘ eqCoordModel coord) st.modelCards
+  displayCards = A.span (not ∘ eqCoordModel coord) st.displayCards
 
 findLastRealCardIndex ∷ State → Maybe Int
 findLastRealCardIndex =
-  A.findLastIndex (Lens.has CID._CardId ∘ _.cardId)
+  A.findLastIndex (Lens.has CID._CardId ∘ _.cardId ∘ snd)
     ∘ _.displayCards
 
-findLastRealCard ∷ State → Maybe CardId
+findLastRealCard ∷ State → Maybe (DeckId × CardId)
 findLastRealCard state =
   findLastRealCardIndex state
     >>= A.index state.displayCards
-    <#> _.cardId
+    <#> coordModelToCoord
 
 -- | Finds the type of the last card.
 findLastCardType ∷ State → Maybe CT.CardType
-findLastCardType { displayCards } = Card.modelCardType ∘ _.model <$> A.last displayCards
+findLastCardType { displayCards } = Card.modelCardType ∘ _.model ∘ snd <$> A.last displayCards
 
-apiCards ∷ State → Array CardId
+apiCards ∷ State → Array (DeckId × CardId)
 apiCards =
   _.modelCards ⋙ A.mapMaybe cardTypeMatches ⋙ foldMap pure
   where
-  cardTypeMatches { cardId: cid, model } =
+  cardTypeMatches (deckId × { cardId, model }) =
     if Card.modelCardType model ≡ CT.API
-       then Just cid
+       then Just (deckId × cardId)
        else Nothing
 
 -- | Updates the stored card that is pending to run. This handles the logic of
 -- | changing the pending card when a provided card appears earlier in the deck
 -- | than the currently enqueued card, and if the provided card appears after
 -- | the currently enqueued card the function is a no-op.
-addPendingCard ∷ CardId → State → State
-addPendingCard cardId st@{ pendingCard } =
-  case pendingCard of
-    Nothing → st { pendingCard = Just cardId }
-    Just oldCardId | cardId < oldCardId → st { pendingCard = Just cardId }
-    _ -> st
+addPendingCard ∷ (DeckId × CardId) → State → State
+addPendingCard coord st =
+  case st.pendingCard of
+    Nothing → st { pendingCard = Just coord }
+    Just oldCoord → fromMaybe st $
+      compareCoordCards coord oldCoord st.modelCards <#> eq LT <#>
+        if _ then st { pendingCard = Just coord } else st
 
-removePendingCard ∷ CardId → State → State
-removePendingCard cardId st@{ pendingCard } =
-  case pendingCard of
-    Just oldCardId | cardId <= oldCardId → st { pendingCard = Nothing }
-    _ → st
+removePendingCard ∷ DeckId × CardId → State → State
+removePendingCard coord st =
+  fromMaybe st do
+    oldCoord ← st.pendingCard
+    comp ← (eq LT || eq EQ) <$> compareCoordCards coord oldCoord st.modelCards
+    pure $ st { pendingCard = Nothing }
 
 -- | Finds the current deck path
 deckPath ∷ State → DirPath
@@ -337,7 +344,7 @@ fromModel path deckId { cards, parent } state =
   state
     { activeCardIndex = Nothing
     , displayMode = Normal
-    , modelCards = cards
+    , modelCards = Tuple deckId <$> cards
     , displayCards = mempty
     , fresh = fresh
     , globalVarMap = SM.empty
@@ -353,19 +360,36 @@ fromModel path deckId { cards, parent } state =
     fresh ∷ Int
     fresh = maybe 0 (_ + 1) $ maximum $ A.mapMaybe (Lens.preview CID._CardId ∘ _.cardId) cards
 
-cardIndexFromId ∷ CardId → State → Maybe Int
-cardIndexFromId cid = A.findIndex (\c → c.cardId ≡ cid) ∘ _.displayCards
+cardIndexFromCoord ∷ DeckId × CardId → State → Maybe Int
+cardIndexFromCoord coord = A.findIndex (eqCoordModel coord) ∘ _.displayCards
 
-cardFromIndex ∷ Int → State → Maybe Card.Model
+cardFromIndex ∷ Int → State → Maybe (DeckId × Card.Model)
 cardFromIndex i st = A.index st.displayCards i
 
-cardIdFromIndex ∷ Int → State → Maybe CardId
-cardIdFromIndex vi = map _.cardId ∘ cardFromIndex vi
+cardCoordFromIndex ∷ Int → State → Maybe (DeckId × CardId)
+cardCoordFromIndex vi = map (map _.cardId) ∘ cardFromIndex vi
 
-activeCardId ∷ State → Maybe CardId
-activeCardId st = cardIdFromIndex (fromMaybe 0 st.activeCardIndex) st
+activeCardCoord ∷ State → Maybe (DeckId × CardId)
+activeCardCoord st = cardCoordFromIndex (fromMaybe 0 st.activeCardIndex) st
 
 activeCardType ∷ State → Maybe CT.CardType
 activeCardType st =
-  Card.modelCardType ∘ _.model <$>
+  Card.modelCardType ∘ _.model ∘ snd <$>
     cardFromIndex (fromMaybe 0 st.activeCardIndex) st
+
+eqCoordModel ∷ DeckId × CardId → DeckId × Card.Model → Boolean
+eqCoordModel (deckId × cardId) (deckId' × model) =
+  deckId ≡ deckId' && cardId ≡ model.cardId
+
+compareCoordCards
+  ∷ DeckId × CardId
+  → DeckId × CardId
+  → Array (DeckId × Card.Model)
+  → Maybe Ordering
+compareCoordCards coordA coordB cards = 
+  compare
+    <$> A.findIndex (eqCoordModel coordA) cards
+    <*> A.findIndex (eqCoordModel coordB) cards
+
+coordModelToCoord ∷ DeckId × Card.Model → DeckId × CardId
+coordModelToCoord = map _.cardId

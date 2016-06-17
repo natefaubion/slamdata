@@ -57,6 +57,7 @@ stringToDeckId str =
 deckIdToString ∷ DeckId → String
 deckIdToString (DeckId x) = x
 
+derive instance genericDeckId ∷ Generic DeckId
 derive instance eqDeckId ∷ Eq DeckId
 derive instance ordDeckId ∷ Ord DeckId
 

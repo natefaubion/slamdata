@@ -22,11 +22,12 @@ import Halogen.Component.ChildPath (ChildPath, cpL, cpR, (:>))
 
 import SlamData.Workspace.Card.Component (CardQueryP, CardStateP)
 import SlamData.Workspace.Card.CardId (CardId)
+import SlamData.Workspace.Deck.DeckId (DeckId)
 import SlamData.Workspace.Deck.BackSide.Component as Back
 import SlamData.Workspace.Deck.Indicator.Component as Indicator
 import SlamData.Workspace.Deck.Dialog.Component as Dialog
 
-newtype CardSlot = CardSlot CardId
+newtype CardSlot = CardSlot (DeckId × CardId)
 
 derive instance genericCardSlot ∷ Generic CardSlot
 derive instance eqCardSlot ∷ Eq CardSlot
@@ -44,7 +45,6 @@ type ChildQuery =
 
 type ChildState =
   CardStateP ⊹ Back.State ⊹ Indicator.State ⊹ Dialog.StateP
-
 
 cpCard
   ∷ ChildPath

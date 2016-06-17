@@ -67,14 +67,11 @@ getRoot file = runExceptT do
 setRoot
   ∷ ∀ eff m
   . (Monad m, Affable (QEff eff) m)
-  ⇒ DeckId
-  → FilePath
+  ⇒ FilePath
+  → DeckId
   → m (Either Exn.Error Unit)
-setRoot root file = runExceptT do
-  json ← liftExn $ QD.load file
-  ws ← liftExn $ pure $ decode json
-  ExceptT
-    $ QD.save file
+setRoot file root =
+  QD.save file
     $ encode
     $ { root: Just root }
 
