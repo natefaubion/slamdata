@@ -15,8 +15,10 @@ limitations under the License.
 -}
 
 module SlamData.Workspace.Deck.Component
-  ( comp
-  , initialState
+  ( initialState
+  , render
+  , eval
+  , peek
   , module SlamData.Workspace.Deck.Component.Query
   , module DCS
   ) where
@@ -45,7 +47,7 @@ import Data.Time (Milliseconds(..))
 import DOM.HTML.Location as Location
 
 import Halogen as H
-import Halogen.Component.Opaque.Unsafe (opaque, opaqueState)
+import Halogen.Component.Opaque.Unsafe (opaqueState)
 import Halogen.Component.Utils (raise', subscribeToBus')
 import Halogen.Component.Utils.Debounced (fireDebouncedQuery')
 import Halogen.HTML.Events.Indexed as HE
@@ -56,7 +58,6 @@ import Halogen.HTML.Properties.Indexed.ARIA as ARIA
 import Halogen.Themes.Bootstrap3 as B
 
 import SlamData.Config (workspaceUrl)
-import SlamData.Effects (Slam)
 import SlamData.FileSystem.Resource as R
 import SlamData.FileSystem.Routing (parentURL)
 import SlamData.Quasar.Data (save) as Quasar
@@ -80,6 +81,7 @@ import SlamData.Workspace.Deck.Component.ChildSlot (cpBackSide, cpCard, cpIndica
 import SlamData.Workspace.Deck.Component.CSS as CSS
 import SlamData.Workspace.Deck.Component.Query (QueryP, Query(..), DeckAction(..))
 import SlamData.Workspace.Deck.Component.State as DCS
+import SlamData.Workspace.Deck.Component.Cycle (DeckComponent)
 import SlamData.Workspace.Deck.DeckId (DeckId)
 import SlamData.Workspace.Deck.DeckLevel as DL
 import SlamData.Workspace.Deck.Dialog.Component as Dialog
@@ -99,19 +101,14 @@ import Utils.Path (DirPath)
 initialState ∷ DirPath → DeckId → DCS.StateP
 initialState path = opaqueState ∘ DCS.initialDeck path
 
-comp ∷ Wiring → H.Component DCS.StateP QueryP Slam
-comp wiring =
-  opaque $ H.lifecycleParentComponent
-    { render: render wiring
-    , eval: eval wiring
-    , peek: Just (peek wiring)
-    , initializer: Just (H.action Init)
-    , finalizer: Just (H.action Finish)
-    }
-
-render ∷ Wiring → DCS.State → DeckHTML
-render wiring st =
-  case st.stateMode of
+render ∷ Wiring → DeckComponent → DCS.State → DeckHTML
+render wiring deckComponent st =
+  -- HACK: required so that nested finalizers get run. Since this is run inside
+  -- of a separate runUI instance with Deck.Component.Nested, they will not
+  -- get invoked by normal machinery.
+  if st.finalized
+  then HH.div_ []
+  else case st.stateMode of
     Error err → renderError err
     _ →
       -- WARNING: Very strange things happen when this is not in a div; see SD-1326.
@@ -168,7 +165,7 @@ render wiring st =
             [ HP.class_ CSS.deck
             , HP.key "deck"
             ]
-            [ Slider.render wiring (comp wiring) st $ st.displayMode ≡ DCS.Normal
+            [ Slider.render wiring deckComponent st $ st.displayMode ≡ DCS.Normal
             , renderBackside $ st.displayMode ≡ DCS.Backside
             , renderDialog $ st.displayMode ≡ DCS.Dialog
             ]
@@ -244,6 +241,7 @@ eval wiring (Init next) = do
   H.modify $ DCS._breakers .~ [pb, mb]
   pure next
 eval _ (Finish next) = do
+  H.modify _ { finalized = true }
   H.gets _.breakers >>= traverse_ (H.fromAff ∘ EventLoop.break')
   pure next
 eval wiring (Load dir deckId level next) = do

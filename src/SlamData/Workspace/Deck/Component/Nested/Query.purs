@@ -14,27 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 
-module SlamData.Workspace.Card.Draftboard.Component.Query where
+module SlamData.Workspace.Deck.Component.Nested.Query
+  ( Query(..)
+  , QueryP
+  ) where
 
 import SlamData.Prelude
-
 import DOM.HTML.Types (HTMLElement)
-
-import Halogen as H
-import Halogen.Component.Utils.Drag (DragEvent)
-import Halogen.HTML.Events.Types (Event, MouseEvent)
-
-import SlamData.Workspace.Card.Common.EvalQuery (CardEvalQuery)
-import SlamData.Workspace.Deck.Component.Nested.Query as DNQ
-import SlamData.Workspace.Deck.DeckId (DeckId)
+import SlamData.Workspace.Deck.Component.Query as DCQ
 
 data Query a
-  = Grabbing DeckId DragEvent a
-  | Resizing DeckId DragEvent a
-  | SetElement (Maybe HTMLElement) a
-  | AddDeck (Event MouseEvent) a
-  | LoadDeck DeckId a
+  = Init a
+  | Finish a
+  | Ref (Maybe HTMLElement) a
 
-type QueryC = Coproduct CardEvalQuery Query
-
-type QueryP = H.ParentQuery QueryC DNQ.QueryP DeckId
+type QueryP = Coproduct Query DCQ.Query

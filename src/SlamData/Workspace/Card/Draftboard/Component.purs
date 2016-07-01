@@ -35,7 +35,7 @@ import CSS as CSS
 import DOM.HTML.Types (HTMLElement)
 
 import Halogen as H
-import Halogen.Component.Opaque.Unsafe (opaqueState, opaqueQuery, peekOpaqueQuery, OpaqueQuery)
+import Halogen.Component.Opaque.Unsafe (opaqueState)
 import Halogen.Component.Utils.Drag as Drag
 import Halogen.Component.Utils (raise')
 import Halogen.CustomEvents (mouseEventToPageEvent)
@@ -63,6 +63,8 @@ import SlamData.Workspace.Card.Draftboard.Component.Query (Query(..), QueryP, Qu
 import SlamData.Workspace.Card.Draftboard.Component.State (State, DeckPosition, initialState, encode, decode, _moving, _inserting, _grouping, modelFromState)
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Deck.Common (wrappedDeck, defaultPosition)
+import SlamData.Workspace.Deck.Component.Nested.Query as DNQ
+import SlamData.Workspace.Deck.Component.Nested.State as DNS
 import SlamData.Workspace.Deck.Component.Query as DCQ
 import SlamData.Workspace.Deck.Component.State as DCS
 import SlamData.Workspace.Deck.DeckId (DeckId, deckIdToString, freshDeckId)
@@ -75,13 +77,13 @@ import Utils.CSS (zIndex)
 import Utils.DOM (elementEq, scrollTop, scrollLeft, getOffsetClientRect)
 import Utils.Path (DirPath)
 
-type DraftboardDSL = H.ParentDSL State DCS.StateP QueryC DCQ.QueryP Slam DeckId
+type DraftboardDSL = H.ParentDSL State DNS.State QueryC DNQ.QueryP Slam DeckId
 
-type DraftboardHTML = H.ParentHTML DCS.StateP QueryC DCQ.QueryP Slam DeckId
+type DraftboardHTML = H.ParentHTML DNS.State QueryC DNQ.QueryP Slam DeckId
 
 levelOfDetails ∷ DL.DeckLevel → LOD.LevelOfDetails
 levelOfDetails dl =
-  if DL.runDeckLevel dl < 2
+  if DL.runDeckLevel dl < 20
     then LOD.High
     else LOD.Low
 
@@ -146,8 +148,8 @@ render opts state =
       [ HH.slot deckId $ mkDeckComponent deckId ]
 
   mkDeckComponent id _ =
-    { component: opts.deckComponent
-    , initialState: opaqueState $ DCS.initialDeck opts.path id
+    { component: opts.deckComponent (opaqueState $ DCS.initialDeck opts.path id)
+    , initialState: DNS.initialState
     }
 
   cssPos rect = do
@@ -249,9 +251,11 @@ evalBoard opts = case _ of
       $ DCQ.Load opts.path deckId (DL.succ opts.level)
     pure next
 
-peek ∷ ∀ a. CardOptions → H.ChildF DeckId (OpaqueQuery DCQ.Query) a → DraftboardDSL Unit
-peek opts (H.ChildF deckId q) = flip peekOpaqueQuery q
-  case _ of
+peek ∷ ∀ a. CardOptions → H.ChildF DeckId DNQ.QueryP a → DraftboardDSL Unit
+peek opts (H.ChildF deckId q) = coproduct (const (pure unit)) peekDeck q
+  where
+  peekDeck ∷ DCQ.Query a → DraftboardDSL Unit
+  peekDeck = case _ of
     DCQ.GrabDeck ev _ → startDragging deckId ev Grabbing
     DCQ.ResizeDeck ev _ → startDragging deckId ev Resizing
     DCQ.DoAction DCQ.DeleteDeck _ → do
@@ -265,7 +269,6 @@ peek opts (H.ChildF deckId q) = flip peekOpaqueQuery q
       CC.raiseUpdatedP' CC.StateOnlyUpdate
     _ → pure unit
 
-  where
   startDragging deckId ev tag =
     H.gets (Map.lookup deckId ∘ _.decks) >>= traverse_ \rect → do
       H.modify $ _moving ?~ Tuple deckId rect
@@ -534,4 +537,4 @@ groupDecks opts deckFrom deckTo = do
           $ DCQ.Load opts.path newId (DL.succ opts.level)
 
 queryDeck ∷ ∀ a. DeckId → DCQ.Query a → DraftboardDSL (Maybe a)
-queryDeck deckId = H.query deckId <<< opaqueQuery
+queryDeck deckId = H.query deckId ∘ right

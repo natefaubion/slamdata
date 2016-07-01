@@ -31,7 +31,7 @@ import Data.Path.Pathy as Pathy
 
 import Halogen as H
 import Halogen.Component.ChildPath (injSlot, injQuery)
-import Halogen.Component.Opaque.Unsafe (opaqueQuery, opaqueState, peekOpaqueQuery)
+import Halogen.Component.Opaque.Unsafe (opaqueState)
 import Halogen.HTML.Core (ClassName, className)
 import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as HH
@@ -52,6 +52,7 @@ import SlamData.Workspace.Component.Query (QueryP, Query(..), fromWorkspace, fro
 import SlamData.Workspace.Component.State (State, _accessType, _loaded, _path, _version, _stateMode, _globalVarMap, _deckId, initialState)
 import SlamData.Workspace.Deck.Common (wrappedDeck, defaultPosition)
 import SlamData.Workspace.Deck.Component as Deck
+import SlamData.Workspace.Deck.Component.Nested as DN
 import SlamData.Workspace.Deck.DeckId (DeckId, freshDeckId)
 import SlamData.Workspace.Deck.DeckLevel as DL
 import SlamData.Workspace.Deck.Model as DM
@@ -101,14 +102,16 @@ render wiring state =
       _, Just path, Just deckId →
         HH.div [ HP.classes [ workspaceClass ] ]
           [ HH.slot' cpDeck unit \_ →
-             { component: Deck.comp wiring
-             , initialState:
+             let
+               init =
                  opaqueState $
                    (Deck.initialDeck path deckId)
                      { accessType = state.accessType
                      , globalVarMap = state.globalVarMap
                      }
-             }
+              in { component: DN.comp wiring init
+                 , initialState: DN.initialState
+                 }
           ]
       _, Nothing, _ → showError "Missing workspace path"
       _, _, Nothing → showError "Missing deck id (impossible!)"
@@ -194,7 +197,7 @@ rootDeck ∷ UP.DirPath → WorkspaceDSL (Either String DeckId)
 rootDeck path = Model.getRoot (path </> Pathy.file "index")
 
 peek ∷ ∀ a. ChildQuery a → WorkspaceDSL Unit
-peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
+peek = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
   where
   peekDeck (Deck.DoAction Deck.Mirror _) = pure unit
   peekDeck (Deck.DoAction Deck.Wrap _) = void $ runMaybeT do
@@ -237,7 +240,7 @@ peek = (peekOpaqueQuery peekDeck) ⨁ (const $ pure unit)
   peekDeck _ = pure unit
 
 queryDeck ∷ ∀ a. Deck.Query a → WorkspaceDSL (Maybe a)
-queryDeck = H.query' cpDeck unit ∘ opaqueQuery
+queryDeck = H.query' cpDeck unit ∘ right
 
 querySignIn ∷ ∀ a. SignIn.Query a → WorkspaceDSL Unit
 querySignIn =

@@ -32,7 +32,6 @@ import SlamData.Prelude
 import DOM.HTML.Types (HTMLElement)
 
 import Halogen as H
-import Halogen.Component.Opaque.Unsafe (OpaqueQuery, OpaqueState)
 
 import Data.Lens (LensP, lens)
 import Data.Map as Map
@@ -40,8 +39,8 @@ import Data.Map as Map
 import SlamData.Effects (Slam)
 
 import SlamData.Workspace.Card.Draftboard.Component.Query (QueryC)
-import SlamData.Workspace.Deck.Component.Query as DCQ
-import SlamData.Workspace.Deck.Component.State as DCS
+import SlamData.Workspace.Deck.Component.Nested.Query as DNQ
+import SlamData.Workspace.Deck.Component.Nested.State as DNS
 import SlamData.Workspace.Deck.DeckId (DeckId)
 
 import SlamData.Workspace.Card.Draftboard.Model as Model
@@ -56,8 +55,8 @@ type State =
 
 type StateP =
   H.ParentState
-    State (OpaqueState DCS.State)
-    QueryC (OpaqueQuery DCQ.Query)
+    State DNS.State
+    QueryC DNQ.QueryP
     Slam DeckId
 
 initialState ∷ State

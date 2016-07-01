@@ -136,6 +136,7 @@ type State =
   , slidingTo ∷ Maybe GripperDef
   , breakers ∷ Array (Breaker Unit)
   , focused ∷ Boolean
+  , finalized ∷ Boolean
   }
 
 -- | A record used to represent card definitions in the deck.
@@ -169,6 +170,7 @@ initialDeck path deckId =
   , slidingTo: Nothing
   , breakers: mempty
   , focused: false
+  , finalized: false
   }
 
 -- | The unique identifier of the deck.

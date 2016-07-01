@@ -20,22 +20,23 @@ import SlamData.Prelude
 
 import Halogen.Component.ChildPath (ChildPath, cpL, cpR)
 
-import SlamData.Workspace.Deck.Component as Deck
 import SlamData.Header.Component as Header
+import SlamData.Workspace.Deck.Component.Nested.Query as DNQ
+import SlamData.Workspace.Deck.Component.Nested.State as DNS
 
 type ChildQuery =
-  Deck.QueryP ⨁ Header.QueryP
+  DNQ.QueryP ⨁ Header.QueryP
 
 type ChildState =
-  Deck.StateP ⊹ Header.StateP
+  DNS.State ⊹ Header.StateP
 
 type ChildSlot =
   Unit ⊹ Unit
 
 cpDeck
   ∷ ChildPath
-      Deck.StateP ChildState
-      Deck.QueryP ChildQuery
+      DNS.State ChildState
+      DNQ.QueryP ChildQuery
       Unit ChildSlot
 cpDeck = cpL
 

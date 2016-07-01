@@ -20,7 +20,8 @@ import SlamData.Prelude
 
 import Halogen.Component.ChildPath (ChildPath, cpL, cpR, (:>))
 
-import SlamData.Workspace.Card.Component (CardQueryP, CardStateP)
+import SlamData.Workspace.Card.Component.Query (CardQueryP)
+import SlamData.Workspace.Card.Component.State (CardStateP)
 import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Deck.DeckId (DeckId)
 import SlamData.Workspace.Deck.BackSide.Component as Back

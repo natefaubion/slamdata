@@ -20,7 +20,6 @@ import SlamData.Prelude
 
 import Halogen as H
 import Halogen.Component.ChildPath (injSlot, injQuery)
-import Halogen.Component.Opaque.Unsafe (opaqueQuery)
 
 import SlamData.Workspace.AccessType (AccessType)
 import SlamData.Workspace.Card.Port.VarMap as Port
@@ -50,7 +49,7 @@ toDeck =
   right
     ∘ H.ChildF (injSlot cpDeck unit)
     ∘ injQuery cpDeck
-    ∘ opaqueQuery
+    ∘ right
     ∘ H.action
 
 fromDeck ∷ ∀ a. (∀ i. (a → i) → Deck.Query i) → QueryP a
@@ -58,5 +57,5 @@ fromDeck r =
   right
     $ H.ChildF (injSlot cpDeck unit)
     $ injQuery cpDeck
-    $ opaqueQuery
+    $ right
     $ H.request r

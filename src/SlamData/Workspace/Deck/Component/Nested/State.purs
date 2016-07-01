@@ -14,14 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 
-module SlamData.Workspace.Deck.Component.Cycle where
+module SlamData.Workspace.Deck.Component.Nested.State
+  ( Driver(..)
+  , State
+  , initialState
+  ) where
 
 import SlamData.Prelude
+import DOM.HTML.Types (HTMLElement)
+import Halogen.Driver as HD
 
-import Halogen as H
-import SlamData.Effects (Slam)
-import SlamData.Workspace.Deck.Component.Nested.Query (QueryP)
-import SlamData.Workspace.Deck.Component.Nested.State (State)
-import SlamData.Workspace.Deck.Component.State (StateP)
+import SlamData.Effects (SlamDataRawEffects)
+import SlamData.Workspace.Deck.Component.Query as DCQ
 
-type DeckComponent = StateP → H.Component State QueryP Slam
+-- Newtyped because of impredicativity
+newtype Driver = Driver (HD.Driver DCQ.QueryP SlamDataRawEffects)
+
+type State =
+  { el ∷ Maybe HTMLElement
+  , driver ∷ Maybe Driver
+  }
+
+initialState ∷ State
+initialState =
+  { el: Nothing
+  , driver: Nothing
+  }
