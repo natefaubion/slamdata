@@ -282,6 +282,7 @@ eval wiring (Reset path next) = do
       { stateMode = Ready
       , accessType = st.accessType
       , displayCards = [ st.id × nextActionCard ]
+      , deckElement = st.deckElement
       }
   pure next
 eval _ (SetParent parent next) =
