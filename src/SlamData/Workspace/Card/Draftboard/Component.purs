@@ -43,15 +43,12 @@ import Halogen.HTML.CSS.Indexed as HC
 import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as HH
 import Halogen.HTML.Properties.Indexed as HP
-import Halogen.HTML.Properties.Indexed.ARIA as ARIA
-import Halogen.Themes.Bootstrap3 as B
 
 import Math (round, floor)
 
 import SlamData.Config as Config
 import SlamData.Effects (Slam)
 import SlamData.Quasar.Data as Quasar
-import SlamData.Render.Common (glyph)
 import SlamData.Workspace.AccessType as AT
 import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.CardType as CT
@@ -70,7 +67,6 @@ import SlamData.Workspace.Deck.Component.State as DCS
 import SlamData.Workspace.Deck.DeckId (DeckId, deckIdToString, freshDeckId)
 import SlamData.Workspace.Deck.DeckLevel as DL
 import SlamData.Workspace.Deck.Model as DM
-import SlamData.Workspace.LevelOfDetails as LOD
 import SlamData.Workspace.Wiring (putDeck)
 
 import Utils.CSS (zIndex)
@@ -80,12 +76,6 @@ import Utils.Path (DirPath)
 type DraftboardDSL = H.ParentDSL State DNS.State QueryC DNQ.QueryP Slam DeckId
 
 type DraftboardHTML = H.ParentHTML DNS.State QueryC DNQ.QueryP Slam DeckId
-
-levelOfDetails ∷ DL.DeckLevel → LOD.LevelOfDetails
-levelOfDetails dl =
-  if DL.runDeckLevel dl < 20
-    then LOD.High
-    else LOD.Low
 
 draftboardComponent ∷ CardOptions → CC.CardComponent
 draftboardComponent opts = CC.makeCardComponent
@@ -102,35 +92,18 @@ draftboardComponent opts = CC.makeCardComponent
 
 render ∷ CardOptions → State → DraftboardHTML
 render opts state =
-  case levelOfDetails opts.level of
-    LOD.High →
-      HH.div_
-        [ HH.div [ HP.class_ CCSS.insetShadow ] []
-        , HH.div
-            [ HP.class_ CCSS.grid
-            , HC.style bgSize
-            , HP.ref (right ∘ H.action ∘ SetElement)
-            , HE.onClick \e → pure $
-                guard (AT.isEditable opts.accessType && not state.inserting) $>
-                right (H.action $ AddDeck e)
-            ]
-            $ map renderDeck (foldl Array.snoc [] $ Map.toList state.decks)
+  HH.div_
+    [ HH.div [ HP.class_ CCSS.insetShadow ] []
+    , HH.div
+        [ HP.class_ CCSS.grid
+        , HC.style bgSize
+        , HP.ref (right ∘ H.action ∘ SetElement)
+        , HE.onClick \e → pure $
+            guard (AT.isEditable opts.accessType && not state.inserting) $>
+            right (H.action $ AddDeck e)
         ]
-    LOD.Low →
-      HH.div
-        [ HP.classes [ HH.className "lod-overlay" ] ]
-        [ HH.div
-            [ HP.classes [ HH.className "card-input-minimum-lod" ] ]
-            [ HH.button
-                [ ARIA.label "Zoom to view"
-                , HP.title "Zoom to view"
-                , HP.disabled true
-                ]
-                [ glyph B.glyphiconZoomIn
-                , HH.text $ "Please, zoom to see the draftboard"
-                ]
-            ]
-        ]
+        $ map renderDeck (foldl Array.snoc [] $ Map.toList state.decks)
+    ]
 
   where
   renderDeck (deckId × rect) =
