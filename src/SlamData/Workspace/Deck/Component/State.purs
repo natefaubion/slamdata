@@ -69,6 +69,8 @@ import SlamData.Prelude
 
 import Control.Monad.Aff.EventLoop (Breaker)
 
+import DOM.HTML.Types (HTMLElement)
+
 import Data.Array as A
 import Data.Foldable (maximum)
 import Data.Lens (LensP, lens)
@@ -137,6 +139,7 @@ type State =
   , breakers ∷ Array (Breaker Unit)
   , focused ∷ Boolean
   , finalized ∷ Boolean
+  , deckElement ∷ Maybe HTMLElement
   }
 
 -- | A record used to represent card definitions in the deck.
@@ -171,6 +174,7 @@ initialDeck path deckId =
   , breakers: mempty
   , focused: false
   , finalized: false
+  , deckElement: Nothing
   }
 
 -- | The unique identifier of the deck.

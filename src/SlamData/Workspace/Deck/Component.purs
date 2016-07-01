@@ -117,6 +117,7 @@ render wiring deckComponent st =
          , HP.key "deck-container"
          , HE.onMouseUp (HE.input_ UpdateCardSize)
          , HE.onMouseDown \_ → HEH.stopPropagation $> Just (H.action Focus)
+         , HP.ref (H.action ∘ SetCardElement)
          ] ⊕ Slider.containerProperties st)
         [ HH.div
             [ HP.class_ CSS.deckFrame ]
@@ -347,21 +348,24 @@ eval _ (ZoomOut next) = do
     Nothing →
       void $ H.fromEff $ setHref $ parentURL $ Left st.path
   pure next
-eval _ (StartSliding mouseEvent gDef next) =
-  Slider.startSliding mouseEvent gDef $> next
+eval _ (StartSliding mouseEvent gDef next) = do
+  H.gets _.deckElement >>= traverse_ \el → do
+    width ← getBoundingClientWidth el
+    H.modify (DCS._cardElementWidth ?~ width)
+    Slider.startSliding mouseEvent gDef
+  pure next
+  where
+  getBoundingClientWidth =
+    H.fromEff ∘ map _.width ∘ getBoundingClientRect
 eval _ (StopSlidingAndSnap mouseEvent next) = do
   Slider.stopSlidingAndSnap mouseEvent
   updateIndicator
   pure next
 eval _ (UpdateSliderPosition mouseEvent next) =
   Slider.updateSliderPosition mouseEvent $> next
-eval _ (SetCardElement element next) =
-  next <$ for_ element \el → do
-    width ← getBoundingClientWidth el
-    H.modify (DCS._cardElementWidth ?~ width)
-  where
-  getBoundingClientWidth =
-    H.fromEff ∘ map _.width ∘ getBoundingClientRect
+eval _ (SetCardElement element next) = do
+  H.modify _ { deckElement = element }
+  pure next
 eval _ (StopSliderTransition next) =
   H.modify (DCS._sliderTransition .~ false) $> next
 eval _ (DoAction _ next) = pure next

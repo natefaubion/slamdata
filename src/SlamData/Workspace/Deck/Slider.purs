@@ -231,7 +231,6 @@ renderCard wiring comp st (deckId × card) index =
     ([ HP.key key
     , HP.classes classes
     , style $ cardPositionCSS index
-    , HP.ref (H.action ∘ DCQ.SetCardElement)
     ])
     $ Gripper.renderGrippers
         (cardSelected st (deckId × card.cardId))
