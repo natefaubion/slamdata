@@ -22,8 +22,6 @@ module SlamData.Workspace.Card.Draftboard.Component
 
 import SlamData.Prelude
 
-import Control.Monad.Eff.Exception as Exn
-import Control.Monad.Except.Trans (ExceptT(..), runExceptT)
 import Control.Monad.Maybe.Trans (MaybeT(..), runMaybeT)
 
 import Data.Array as Array
@@ -49,7 +47,6 @@ import Math (round, floor)
 
 import SlamData.Config as Config
 import SlamData.Effects (Slam)
-import SlamData.Quasar.Data as Quasar
 import SlamData.Workspace.AccessType as AT
 import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.CardType as CT
@@ -72,7 +69,6 @@ import SlamData.Workspace.Wiring (putDeck)
 
 import Utils.CSS (zIndex)
 import Utils.DOM (elementEq, scrollTop, scrollLeft, getOffsetClientRect)
-import Utils.Path (DirPath)
 
 type DraftboardDSL = H.ParentDSL State DNS.State QueryC DNQ.QueryP Slam DeckId
 
@@ -399,27 +395,20 @@ addDeckAt ∷ CardOptions → DM.Deck → DeckPosition → DraftboardDSL Unit
 addDeckAt { deck: opts, deckId: parentId, cardId } deck deckPos = do
   let deck' = deck { parent = Just (parentId × cardId) }
   H.modify $ _inserting .~ true
-  deckId ← saveDeck opts.path deck'
-  case deckId of
+  deckId ← H.fromEff freshDeckId
+  putDeck opts.path deckId deck' opts.wiring.decks >>= case _ of
     Left err → do
       H.modify $ _inserting .~ false
       -- TODO: do something to notify the user saving failed
       pure unit
-    Right deckId' → void do
-      putDeck deckId' deck' opts.wiring.decks
+    Right _ → void do
       H.modify \s → s
-        { decks = Map.insert deckId' deckPos s.decks
+        { decks = Map.insert deckId deckPos s.decks
         , inserting = false
         }
-      queryDeck deckId'
+      queryDeck deckId
         $ H.action
-        $ DCQ.Load opts.path deckId' (DL.succ opts.level)
-
-saveDeck ∷ DirPath → DM.Deck → DraftboardDSL (Either Exn.Error DeckId)
-saveDeck path model = runExceptT do
-  i ← lift $ H.fromEff freshDeckId
-  ExceptT $ Quasar.save (DM.deckIndex path i) $ DM.encode model
-  pure i
+        $ DCQ.Load opts.path deckId (DL.succ opts.level)
 
 deleteDeck ∷ CardOptions → DeckId → DraftboardDSL Unit
 deleteDeck { deck } deckId = do
@@ -437,12 +426,12 @@ wrapDeck { cardId, deckId: parentId, deck } oldId = do
     let
       deckPos' = deckPos { x = 1.0, y = 1.0 }
       newDeck = (wrappedDeck deckPos' oldId) { parent = Just (parentId × cardId) }
-    saveDeck deck.path newDeck >>= case _ of
+    newId ← H.fromEff freshDeckId
+    putDeck deck.path newId newDeck deck.wiring.decks >>= case _ of
       Left err → do
         -- TODO: do something to notify the user saving failed
         pure unit
-      Right newId → void do
-        putDeck newId newDeck deck.wiring.decks
+      Right _ → void do
         traverse_ (queryDeck oldId ∘ H.action)
           [ DCQ.SetParent (newId × CID.CardId 0)
           , DCQ.Save Nothing
@@ -495,18 +484,19 @@ mirrorDeck opts oldId = do
     if Array.null modelCards'.rest
       then insertNewDeck DM.emptyDeck { mirror = DCS.coordModelToCoord <$> modelCards'.init }
       else do
-        res ←
-          saveDeck opts.deck.path
+        let
+          newDeck =
             { parent: Nothing
             , mirror: map _.cardId <$> modelCards'.init
             , cards: snd <$> modelCards'.rest
             , name: ""
             }
-        case res of
+        newId ← H.fromEff freshDeckId
+        putDeck opts.deck.path newId newDeck opts.deck.wiring.decks >>= case _ of
           Left _ →
             -- TODO: do something to notify the user saving failed
             pure unit
-          Right newId → do
+          Right _ → do
             let modelCards'' = modelCards'.init <> map (lmap (const newId)) modelCards'.rest
             queryDeck oldId $ H.action $ DCQ.SetModelCards modelCards''
             insertNewDeck DM.emptyDeck { mirror = DCS.coordModelToCoord <$> modelCards'' }
@@ -537,12 +527,12 @@ groupDecks { cardId, deckId, deck } deckFrom deckTo = do
             }
           }
         }
-    saveDeck deck.path newDeck >>= case _ of
+    newId ← H.fromEff freshDeckId
+    putDeck deck.path newId newDeck deck.wiring.decks >>= case _ of
       Left err → do
         -- TODO: do something to notify the user saving failed
         pure unit
-      Right newId → void do
-        putDeck newId newDeck deck.wiring.decks
+      Right _ → void do
         H.modify \s → s
           { decks
               = Map.insert newId rectTo

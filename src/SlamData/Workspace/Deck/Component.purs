@@ -57,7 +57,6 @@ import Halogen.HTML.Indexed as HH
 import SlamData.Config (workspaceUrl)
 import SlamData.FileSystem.Resource as R
 import SlamData.FileSystem.Routing (parentURL)
-import SlamData.Quasar.Data (save) as Quasar
 import SlamData.Workspace.AccessType as AT
 import SlamData.Workspace.Action as WA
 import SlamData.Workspace.Card.CardId (CardId(..), _CardId)
@@ -83,7 +82,6 @@ import SlamData.Workspace.Deck.DeckId (DeckId)
 import SlamData.Workspace.Deck.DeckLevel as DL
 import SlamData.Workspace.Deck.Dialog.Component as Dialog
 import SlamData.Workspace.Deck.Indicator.Component as Indicator
-import SlamData.Workspace.Deck.Model (deckIndex)
 import SlamData.Workspace.Deck.Model as Model
 import SlamData.Workspace.Deck.Slider as Slider
 import SlamData.Workspace.Model as WM
@@ -717,8 +715,7 @@ saveDeck { accessType, wiring } coord = do
         Left _ → void $ WM.setRoot index st.id
         Right _ → pure unit
 
-    putDeck st.id model wiring.decks
-    Quasar.save (deckIndex st.path st.id) (Model.encode model) >>= case _ of
+    putDeck st.path st.id model wiring.decks >>= case _ of
       Left err → do
         -- TODO: do something to notify the user saving failed
         pure unit
@@ -736,8 +733,7 @@ saveDeck { accessType, wiring } coord = do
       Right deck → do
         let cards = deck.cards <#> \c → if c.cardId == card.cardId then card else c
             model = deck { cards = cards }
-        putDeck deckId model wiring.decks
-        void $ Quasar.save (deckIndex st.path deckId) $ Model.encode model
+        void $ putDeck st.path deckId model wiring.decks
 
 setDeckState ∷ DCS.State → DeckDSL Unit
 setDeckState newState =

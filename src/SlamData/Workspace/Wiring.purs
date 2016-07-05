@@ -24,6 +24,7 @@ module SlamData.Workspace.Wiring
   , makeWiring
   , makeCache
   , putDeck
+  , putDeck'
   , getDeck
   , putCache
   , getCache
@@ -36,6 +37,7 @@ import Control.Monad.Aff.AVar (AVar, makeVar', takeVar, putVar, modifyVar)
 import Control.Monad.Aff.Bus as Bus
 import Control.Monad.Aff.Free (class Affable, fromAff)
 import Control.Monad.Aff.Promise (Promise, wait, defer)
+import Control.Monad.Eff.Exception (message)
 
 import Data.Map as Map
 
@@ -44,7 +46,7 @@ import SlamData.Quasar.Data as Quasar
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.Port (Port)
-import SlamData.Workspace.Deck.Model (Deck, deckIndex, decode)
+import SlamData.Workspace.Deck.Model (Deck, deckIndex, decode, encode)
 import SlamData.Workspace.Deck.DeckId (DeckId)
 
 import Utils.Path (DirPath)
@@ -95,16 +97,30 @@ makeCache = fromAff (makeVar' mempty)
 putDeck
   ∷ ∀ m
   . (Affable SlamDataEffects m)
+  ⇒ DirPath
+  → DeckId
+  → Deck
+  → Cache DeckId DeckRef
+  → m (Either String Deck)
+putDeck path deckId deck cache = fromAff do
+  ref ← defer do
+    res ← Quasar.save (deckIndex path deckId) $ encode deck
+    when (isLeft res) do
+      modifyVar (Map.delete deckId) cache
+    pure $ bimap message (const deck) res
+  modifyVar (Map.insert deckId ref) cache
+  wait ref
+
+putDeck'
+  ∷ ∀ m
+  . (Affable SlamDataEffects m)
   ⇒ DeckId
   → Deck
   → Cache DeckId DeckRef
   → m Unit
-putDeck deckId deck cache = fromAff do
-  let ref = pure (Right deck)
-  modifyVar (Map.insert deckId ref) cache
+putDeck' deckId deck =
+  putCache deckId (pure (Right deck))
 
--- | Loads from Quasar if missing from the cache so that only one request for
--- | a deck is ever out at a given time.
 getDeck
   ∷ ∀ m
   . (Affable SlamDataEffects m)

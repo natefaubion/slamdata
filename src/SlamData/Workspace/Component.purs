@@ -25,6 +25,7 @@ import SlamData.Prelude
 import Control.Monad.Maybe.Trans (MaybeT(..), runMaybeT)
 import Control.UI.Browser (setHref, locationObject)
 
+import Data.Array as Array
 import Data.Lens ((^.), (.~), (?~))
 import Data.List as List
 import Data.Map as Map
@@ -52,6 +53,7 @@ import SlamData.Workspace.Action as WA
 import SlamData.Workspace.AccessType as AT
 import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.Draftboard.Common as DBC
+import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Component.ChildSlot (ChildQuery, ChildSlot, ChildState, cpDeck, cpHeader)
 import SlamData.Workspace.Component.Query (QueryP, Query(..), fromWorkspace, fromDeck, toWorkspace, toDeck)
 import SlamData.Workspace.Component.State (State, _accessType, _initialDeckId, _loaded, _path, _version, _stateMode, _globalVarMap, initialState)
@@ -64,7 +66,7 @@ import SlamData.Workspace.Deck.Model as DM
 import SlamData.Workspace.Model as Model
 import SlamData.Workspace.Routing (mkWorkspaceHash)
 import SlamData.Workspace.StateMode (StateMode(..))
-import SlamData.Workspace.Wiring (Wiring)
+import SlamData.Workspace.Wiring (Wiring, putDeck, getCache, putCardEval)
 
 import Utils.Path as UP
 
@@ -77,7 +79,7 @@ comp wiring =
   H.lifecycleParentComponent
     { render: render wiring
     , eval: eval wiring
-    , peek: Just (peek ∘ H.runChildF)
+    , peek: Just (peek wiring ∘ H.runChildF)
     , initializer: Just $ Init unit
     , finalizer: Nothing
     }
@@ -205,10 +207,9 @@ eval _ (Load path deckId accessType next) = do
 rootDeck ∷ UP.DirPath → WorkspaceDSL (Either String DeckId)
 rootDeck path = Model.getRoot (path </> Pathy.file "index")
 
-peek ∷ ∀ a. ChildQuery a → WorkspaceDSL Unit
-peek = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
+peek ∷ ∀ a. Wiring → ChildQuery a → WorkspaceDSL Unit
+peek wiring = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
   where
-  peekDeck (Deck.DoAction Deck.Mirror _) = pure unit
   peekDeck (Deck.DoAction (Deck.Unwrap decks) _) = void $ runMaybeT do
     state ← lift H.get
     path ← MaybeT $ pure state.path
@@ -227,7 +228,7 @@ peek = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
             >>= flip bind DM.decode
             >>> traverse_ \parentDeck → void do
               let cards = DBC.replacePointer oldId newId cardId parentDeck.cards
-              Quasar.save (DM.deckIndex path deckId) $ DM.encode parentDeck { cards = cards }
+              putDeck path deckId (parentDeck { cards = cards }) wiring.decks
           let deckHash = mkWorkspaceHash (Deck.deckPath' path newId) (WA.Load state.accessType) state.globalVarMap
           H.fromEff $ locationObject >>= Location.setHash deckHash
         Nothing -> do
@@ -236,9 +237,7 @@ peek = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
 
   peekDeck (Deck.DoAction Deck.Wrap _) = void $ runMaybeT do
     path ← MaybeT $ H.gets _.path
-
     let index = path </> Pathy.file "index"
-
     parent ← lift $ join <$> queryDeck (H.request Deck.GetParent)
     oldId ← MaybeT $ queryDeck (H.request Deck.GetId)
     newId ← lift $ H.fromEff freshDeckId
@@ -253,12 +252,13 @@ peek = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
             ]
 
     lift case parent of
-      Just (Tuple deckId cardId) →
+      Just (Tuple deckId cardId) → do
         Quasar.load (DM.deckIndex path deckId)
           >>= flip bind DM.decode
           >>> traverse_ \parentDeck → void do
             let cards = DBC.replacePointer oldId newId cardId parentDeck.cards
-            Quasar.save (DM.deckIndex path deckId) $ DM.encode parentDeck { cards = cards }
+            putDeck path deckId (parentDeck { cards = cards }) wiring.decks
+            for_ cards (unsafeUpdateCachedDraftboard wiring deckId)
             transitionDeck $ (wrappedDeck defaultPosition oldId) { parent = parent }
       Nothing → void do
         transitionDeck $ wrappedDeck defaultPosition oldId
@@ -271,7 +271,79 @@ peek = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
         -- TODO: do something to notify the user deleting failed
         Left err → pure unit
         Right _ → void $ H.fromEff $ setHref $ parentURL $ Left path
+  peekDeck (Deck.DoAction Deck.Mirror _) = void $ runMaybeT do
+    state ← lift H.get
+    path ← MaybeT $ pure state.path
+    newIdShared ← lift $ H.fromEff freshDeckId
+    newIdMirror ← lift $ H.fromEff freshDeckId
+    newIdParent ← lift $ H.fromEff freshDeckId
+    oldId ← MaybeT $ queryDeck (H.request Deck.GetId)
+    oldModel ← MaybeT $ queryDeck (H.request Deck.GetModel)
+    let
+      index = path </> Pathy.file "index"
+      freshCard = CID.CardId 0
+      parentRef = Just (newIdParent × freshCard)
+      wrappedDeck = DM.emptyDeck
+        { parent = oldModel.parent
+        , cards = pure
+          { cardId: freshCard
+          , model: Card.Draftboard
+            { decks: Map.fromFoldable
+              [ oldId × defaultPosition
+              , newIdMirror × defaultPosition
+                  { y = defaultPosition.y + defaultPosition.height + 1.0 }
+              ]
+            }
+          }
+        }
+    if Array.null oldModel.cards
+      then do
+        let mirrored = oldModel { parent = parentRef }
+        putDeck path oldId mirrored wiring.decks
+        putDeck path newIdMirror mirrored wiring.decks
+      else do
+        let
+          mirrored ∷ DM.Deck -- Needed because of some sort of constraint-generalization bug?
+          mirrored = oldModel
+            { parent = parentRef
+            , mirror = oldModel.mirror <> map (Tuple newIdShared ∘ _.cardId) oldModel.cards
+            , cards = mempty
+            , name = oldModel.name
+            }
+        putDeck path oldId mirrored wiring.decks
+        putDeck path newIdMirror (mirrored { name = "" }) wiring.decks
+        putDeck path newIdShared (oldModel { name = "" }) wiring.decks
+    putDeck path newIdParent wrappedDeck wiring.decks
+    lift case oldModel.parent of
+      Just (Tuple deckId cardId) →
+        Quasar.load (DM.deckIndex path deckId)
+          >>= flip bind DM.decode
+          >>> traverse_ \parentDeck → void do
+            let cards = DBC.replacePointer oldId newIdParent cardId parentDeck.cards
+            putDeck path deckId (parentDeck { cards = cards }) wiring.decks
+            for_ cards (unsafeUpdateCachedDraftboard wiring deckId)
+      Nothing →
+        void $ Model.setRoot index newIdParent
+    let deckHash = mkWorkspaceHash (Deck.deckPath' path newIdParent) (WA.Load state.accessType) state.globalVarMap
+    H.fromEff $ locationObject >>= Location.setHash deckHash
+
   peekDeck _ = pure unit
+
+-- | This shouldn't be done in general, but since draftboards have no inputs or
+-- | outputs it's OK to just swap out the model for the cached card eval.
+unsafeUpdateCachedDraftboard
+  ∷ Wiring
+  → DeckId
+  → Card.Model
+  → WorkspaceDSL Unit
+unsafeUpdateCachedDraftboard wiring deckId model =
+  case model of
+    { cardId, model: Card.Draftboard db } → do
+      let coord = deckId × cardId
+      getCache coord wiring.cards >>= traverse_ \ce → do
+        let card = map (_ { model = Card.Draftboard db }) ce.card
+        putCardEval (ce { card = card }) wiring.cards
+    _ → pure unit
 
 queryDeck ∷ ∀ a. Deck.Query a → WorkspaceDSL (Maybe a)
 queryDeck = H.query' cpDeck unit ∘ right
