@@ -20,6 +20,7 @@ module SlamData.Workspace.Card.Draftboard.Common
   , childDeckIds
   , deleteGraph
   , replacePointer
+  , unsafeUpdateCachedDraftboard
   ) where
 
 import SlamData.Prelude
@@ -39,12 +40,14 @@ import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as Pathy
 import Data.Set as Set
 
+import SlamData.Effects (SlamDataEffects)
 import SlamData.Quasar.Aff (QEff)
 import SlamData.Quasar.Data as Quasar
 import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.Model as CM
 import SlamData.Workspace.Deck.DeckId (DeckId, deckIdToString)
 import SlamData.Workspace.Deck.Model as DM
+import SlamData.Workspace.Wiring (Wiring, getCache, putCardEval)
 
 import Utils.AffableProducer (produce)
 import Utils.Path (DirPath)
@@ -153,3 +156,21 @@ replacePointer from to cid = map replace
         decks
           # Map.delete from
           # Map.insert to rect
+
+-- | This shouldn't be done in general, but since draftboards have no inputs or
+-- | outputs it's OK to just swap out the model for the cached card eval.
+unsafeUpdateCachedDraftboard
+  ∷ ∀ m
+  . (Monad m, Affable SlamDataEffects m)
+  ⇒ Wiring
+  → DeckId
+  → CM.Model
+  → m Unit
+unsafeUpdateCachedDraftboard wiring deckId model =
+  case model of
+    { cardId, model: CM.Draftboard db } → do
+      let coord = deckId × cardId
+      getCache coord wiring.cards >>= traverse_ \ce → do
+        let card = map (_ { model = CM.Draftboard db }) ce.card
+        putCardEval (ce { card = card }) wiring.cards
+    _ → pure unit

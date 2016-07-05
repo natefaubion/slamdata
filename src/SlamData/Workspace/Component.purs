@@ -66,7 +66,7 @@ import SlamData.Workspace.Deck.Model as DM
 import SlamData.Workspace.Model as Model
 import SlamData.Workspace.Routing (mkWorkspaceHash)
 import SlamData.Workspace.StateMode (StateMode(..))
-import SlamData.Workspace.Wiring (Wiring, getDeck, putDeck, getCache, putCardEval)
+import SlamData.Workspace.Wiring (Wiring, getDeck, putDeck)
 
 import Utils.Path as UP
 
@@ -254,7 +254,7 @@ peek wiring = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
         getDeck path deckId wiring.decks >>= traverse_ \parentDeck → void do
           let cards = DBC.replacePointer oldId newId cardId parentDeck.cards
           putDeck path deckId (parentDeck { cards = cards }) wiring.decks
-          for_ cards (unsafeUpdateCachedDraftboard wiring deckId)
+          for_ cards (DBC.unsafeUpdateCachedDraftboard wiring deckId)
           transitionDeck $ (wrappedDeck defaultPosition oldId) { parent = parent }
       Nothing → void do
         transitionDeck $ wrappedDeck defaultPosition oldId
@@ -315,29 +315,13 @@ peek wiring = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
         getDeck path deckId wiring.decks >>= traverse_ \parentDeck → void do
           let cards = DBC.replacePointer oldId newIdParent cardId parentDeck.cards
           putDeck path deckId (parentDeck { cards = cards }) wiring.decks
-          for_ cards (unsafeUpdateCachedDraftboard wiring deckId)
+          for_ cards (DBC.unsafeUpdateCachedDraftboard wiring deckId)
       Nothing →
         void $ Model.setRoot index newIdParent
     let deckHash = mkWorkspaceHash (Deck.deckPath' path newIdParent) (WA.Load state.accessType) state.globalVarMap
     H.fromEff $ locationObject >>= Location.setHash deckHash
 
   peekDeck _ = pure unit
-
--- | This shouldn't be done in general, but since draftboards have no inputs or
--- | outputs it's OK to just swap out the model for the cached card eval.
-unsafeUpdateCachedDraftboard
-  ∷ Wiring
-  → DeckId
-  → Card.Model
-  → WorkspaceDSL Unit
-unsafeUpdateCachedDraftboard wiring deckId model =
-  case model of
-    { cardId, model: Card.Draftboard db } → do
-      let coord = deckId × cardId
-      getCache coord wiring.cards >>= traverse_ \ce → do
-        let card = map (_ { model = Card.Draftboard db }) ce.card
-        putCardEval (ce { card = card }) wiring.cards
-    _ → pure unit
 
 queryDeck ∷ ∀ a. Deck.Query a → WorkspaceDSL (Maybe a)
 queryDeck = H.query' cpDeck unit ∘ right

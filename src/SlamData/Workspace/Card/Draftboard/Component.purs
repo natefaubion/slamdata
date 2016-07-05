@@ -52,7 +52,7 @@ import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Common (CardOptions)
 import SlamData.Workspace.Card.Component as CC
-import SlamData.Workspace.Card.Draftboard.Common (deleteGraph)
+import SlamData.Workspace.Card.Draftboard.Common (deleteGraph, unsafeUpdateCachedDraftboard)
 import SlamData.Workspace.Card.Draftboard.Component.CSS as CCSS
 import SlamData.Workspace.Card.Draftboard.Component.Query (Query(..), QueryP, QueryC)
 import SlamData.Workspace.Card.Draftboard.Component.State (State, DeckPosition, initialState, encode, decode, _moving, _inserting, _grouping, modelFromState)
@@ -511,38 +511,53 @@ groupDecks ∷ CardOptions → DeckId → DeckId → DraftboardDSL Unit
 groupDecks { cardId, deckId, deck } deckFrom deckTo = do
   st ← H.get
   for_ (Map.lookup deckFrom st.decks) \rectFrom →
-  for_ (Map.lookup deckTo st.decks) \rectTo → do
-    let
-      rectTo' = rectTo { x = 1.0, y = 1.0 }
-      rectFrom' = rectFrom { x = 1.0, y = rectTo.height + 2.0 }
-      newDeck = DM.emptyDeck
-        { parent = Just (deckId × cardId)
-        , cards = pure
-          { cardId: CID.CardId 0
-          , model: Card.Draftboard
-            { decks: Map.fromFoldable
-              [ deckTo × rectTo'
-              , deckFrom × rectFrom'
-              ]
-            }
-          }
-        }
-    newId ← H.fromEff freshDeckId
-    putDeck deck.path newId newDeck deck.wiring.decks >>= case _ of
-      Left err → do
-        -- TODO: do something to notify the user saving failed
-        pure unit
-      Right _ → void do
-        H.modify \s → s
-          { decks
-              = Map.insert newId rectTo
-              $ Map.delete deckFrom
-              $ Map.delete deckTo
-              $ s.decks
-          }
-        queryDeck newId
+  for_ (Map.lookup deckTo st.decks) \rectTo →
+    queryDeck deckTo (H.request DCQ.GetModelCards) >>= case _ of
+      Just [ deckId' × { cardId, model: Card.Draftboard { decks } } ] → void do
+        let
+          rectFrom' =
+            reallyAccomodateDeck (Map.toList decks) $
+              rectFrom { x = 1.0, y = 1.0 }
+          decks' = Map.insert deckFrom rectFrom' decks
+          card = { cardId, model: Card.Draftboard { decks: decks' } }
+        unsafeUpdateCachedDraftboard deck.wiring deckId' card
+        H.modify \s → s { decks = Map.delete deckFrom s.decks }
+        queryDeck deckTo
           $ H.action
-          $ DCQ.Load deck.path newId (DL.succ deck.level)
+          $ DCQ.SetModelCards [ deckId' × card ]
+
+      _ → do
+        let
+          rectTo' = rectTo { x = 1.0, y = 1.0 }
+          rectFrom' = rectFrom { x = 1.0, y = rectTo.height + 2.0 }
+          newDeck = DM.emptyDeck
+            { parent = Just (deckId × cardId)
+            , cards = pure
+              { cardId: CID.CardId 0
+              , model: Card.Draftboard
+                { decks: Map.fromFoldable
+                  [ deckTo × rectTo'
+                  , deckFrom × rectFrom'
+                  ]
+                }
+              }
+            }
+        newId ← H.fromEff freshDeckId
+        putDeck deck.path newId newDeck deck.wiring.decks >>= case _ of
+          Left err → do
+            -- TODO: do something to notify the user saving failed
+            pure unit
+          Right _ → void do
+            H.modify \s → s
+              { decks
+                  = Map.insert newId rectTo
+                  $ Map.delete deckFrom
+                  $ Map.delete deckTo
+                  $ s.decks
+              }
+            queryDeck newId
+              $ H.action
+              $ DCQ.Load deck.path newId (DL.succ deck.level)
 
 queryDeck ∷ ∀ a. DeckId → DCQ.Query a → DraftboardDSL (Maybe a)
 queryDeck deckId = H.query deckId ∘ right
