@@ -66,7 +66,7 @@ import SlamData.Workspace.Deck.Model as DM
 import SlamData.Workspace.Model as Model
 import SlamData.Workspace.Routing (mkWorkspaceHash)
 import SlamData.Workspace.StateMode (StateMode(..))
-import SlamData.Workspace.Wiring (Wiring, putDeck, getCache, putCardEval)
+import SlamData.Workspace.Wiring (Wiring, getDeck, putDeck, getCache, putCardEval)
 
 import Utils.Path as UP
 
@@ -224,11 +224,9 @@ peek wiring = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
 
       case parent of
         Just parentCoord@(Tuple deckId cardId) → do
-          Quasar.load (DM.deckIndex path deckId)
-            >>= flip bind DM.decode
-            >>> traverse_ \parentDeck → void do
-              let cards = DBC.replacePointer oldId newId cardId parentDeck.cards
-              putDeck path deckId (parentDeck { cards = cards }) wiring.decks
+          getDeck path deckId wiring.decks >>= traverse_ \parentDeck → void do
+            let cards = DBC.replacePointer oldId newId cardId parentDeck.cards
+            putDeck path deckId (parentDeck { cards = cards }) wiring.decks
           let deckHash = mkWorkspaceHash (Deck.deckPath' path newId) (WA.Load state.accessType) state.globalVarMap
           H.fromEff $ locationObject >>= Location.setHash deckHash
         Nothing -> do
@@ -253,13 +251,11 @@ peek wiring = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
 
     lift case parent of
       Just (Tuple deckId cardId) → do
-        Quasar.load (DM.deckIndex path deckId)
-          >>= flip bind DM.decode
-          >>> traverse_ \parentDeck → void do
-            let cards = DBC.replacePointer oldId newId cardId parentDeck.cards
-            putDeck path deckId (parentDeck { cards = cards }) wiring.decks
-            for_ cards (unsafeUpdateCachedDraftboard wiring deckId)
-            transitionDeck $ (wrappedDeck defaultPosition oldId) { parent = parent }
+        getDeck path deckId wiring.decks >>= traverse_ \parentDeck → void do
+          let cards = DBC.replacePointer oldId newId cardId parentDeck.cards
+          putDeck path deckId (parentDeck { cards = cards }) wiring.decks
+          for_ cards (unsafeUpdateCachedDraftboard wiring deckId)
+          transitionDeck $ (wrappedDeck defaultPosition oldId) { parent = parent }
       Nothing → void do
         transitionDeck $ wrappedDeck defaultPosition oldId
         Model.setRoot index newId
@@ -316,12 +312,10 @@ peek wiring = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
     putDeck path newIdParent wrappedDeck wiring.decks
     lift case oldModel.parent of
       Just (Tuple deckId cardId) →
-        Quasar.load (DM.deckIndex path deckId)
-          >>= flip bind DM.decode
-          >>> traverse_ \parentDeck → void do
-            let cards = DBC.replacePointer oldId newIdParent cardId parentDeck.cards
-            putDeck path deckId (parentDeck { cards = cards }) wiring.decks
-            for_ cards (unsafeUpdateCachedDraftboard wiring deckId)
+        getDeck path deckId wiring.decks >>= traverse_ \parentDeck → void do
+          let cards = DBC.replacePointer oldId newIdParent cardId parentDeck.cards
+          putDeck path deckId (parentDeck { cards = cards }) wiring.decks
+          for_ cards (unsafeUpdateCachedDraftboard wiring deckId)
       Nothing →
         void $ Model.setRoot index newIdParent
     let deckHash = mkWorkspaceHash (Deck.deckPath' path newIdParent) (WA.Load state.accessType) state.globalVarMap
