@@ -77,6 +77,7 @@ insertableCardTypes =
   , DownloadOptions
   , ChartOptions
   , Chart
+  , Draftboard
   , Troubleshoot
   , Cache
   ]
@@ -161,7 +162,7 @@ cardName =
     Cache → "Cache"
     Open → "Open"
     DownloadOptions → "Setup Download"
-    Draftboard → "Draftboard"
+    Draftboard → "Setup Draftboard"
     ErrorCard → "Error"
     PendingCard → "Pending"
 
