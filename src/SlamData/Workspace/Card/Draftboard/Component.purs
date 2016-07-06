@@ -451,21 +451,23 @@ unwrapDeck
   → DeckId
   → Map.Map DeckId (DeckPosition × DM.Deck)
   → DraftboardDSL Unit
-unwrapDeck { deckId, cardId, deck } oldId decks = void $ runMaybeT do
+unwrapDeck { deckId, cardId, deck: opts } oldId decks = void $ runMaybeT do
   -- sort the decks here so they are ordered by position, this ensures that if
   -- decks need to be accomodated when broken out, the decks in the top left
   -- corner will maintain their position and the others will be accomodated.
   let deckList = List.sortBy (compare `on` toCoords) $ Map.toList decks
   let coord = deckId × cardId
-  let level' = DL.succ deck.level
+  let level' = DL.succ opts.level
   offset ← MaybeT $ H.gets (Map.lookup oldId ∘ _.decks)
   lift do
     H.modify \s →
       s { decks = foldl (reinsert offset) (Map.delete oldId s.decks) deckList }
     for_ deckList \(deckId × (_ × deck)) → do
       let deck' = deck { parent = Just coord }
-      queryDeck deckId $ H.action $ DCQ.SetModel deckId deck' level'
-      queryDeck deckId $ H.action $ DCQ.Save Nothing
+      putDeck opts.path deckId deck' opts.wiring.decks
+      queryDeck deckId
+        $ H.action
+        $ DCQ.Load opts.path deckId level'
   where
   reinsert offset acc (deckId × (pos × deck)) =
     Map.insert deckId (updatePos (Map.toList acc) offset pos) acc
