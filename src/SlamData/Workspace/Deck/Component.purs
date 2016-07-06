@@ -400,7 +400,8 @@ updateBackSide ∷ DeckDSL Unit
 updateBackSide = do
   state ← H.get
   let ty = DCS.activeCardType state
-  void $ H.query' cpBackSide unit $ H.action $ Back.UpdateCardType ty
+  let tys = Card.modelCardType ∘ _.model ∘ snd <$> state.displayCards
+  void $ H.query' cpBackSide unit $ H.action $ Back.UpdateCardType ty tys
 
   -- For an unwrap to be at all possible the current deck must only have one
   -- card, which is a board card

@@ -44,7 +44,7 @@ import SlamData.Workspace.Deck.Model (Deck)
 data Query a
   = UpdateFilter String a
   | DoAction BackAction a
-  | UpdateCardType (Maybe CT.CardType) a
+  | UpdateCardType (Maybe CT.CardType) (Array CT.CardType) a
   | Init a
   -- TODO: this is a bit of a hack, we probably instead want a way of
   -- customising the available and enabled actions based on card type & state
@@ -80,13 +80,14 @@ allBackActions state =
     , Mirror
     , Wrap
     ]
-  ⊕ (guard (state.cardType == Just CT.Draftboard) $> Unwrap state.unwrappableDecks)
+  ⊕ (guard (state.activeCardType == Just CT.Draftboard) $> Unwrap state.unwrappableDecks)
 
 type DeckMap = Map.Map DeckId (DeckPosition × Deck)
 
 type State =
   { filterString ∷ String
-  , cardType ∷ Maybe CT.CardType
+  , activeCardType ∷ Maybe CT.CardType
+  , cardTypes ∷ Array CT.CardType
   , saved ∷ Boolean
   , isLogged ∷ Boolean
   , unwrappableDecks ∷ DeckMap
@@ -95,7 +96,8 @@ type State =
 initialState ∷ State
 initialState =
   { filterString: ""
-  , cardType: Nothing
+  , activeCardType: Nothing
+  , cardTypes: mempty
   , saved: false
   , isLogged: false
   , unwrappableDecks: Map.empty
@@ -129,11 +131,12 @@ keywordsAction = case _ of
 
 actionEnabled ∷ State → BackAction → Boolean
 actionEnabled st a =
-  case st.cardType, a of
+  case st.activeCardType, a of
     Just CT.ErrorCard, Trash → false
     Just CT.NextAction, Trash → false
     Nothing, Trash → false
     _, Unwrap _ → not Map.isEmpty st.unwrappableDecks
+    _, Mirror | F.elem CT.Draftboard st.cardTypes → false
     _, _ → true
 
 actionGlyph ∷ BackAction → HTML
@@ -230,8 +233,8 @@ eval ∷ Query ~> DSL
 eval (DoAction _ next) = pure next
 eval (UpdateFilter str next) =
   H.modify (_ { filterString = str }) $> next
-eval (UpdateCardType cty next) =
-  H.modify (_ { cardType = cty, unwrappableDecks = Map.empty :: DeckMap }) $> next
+eval (UpdateCardType cty ctys next) =
+  H.modify (_ { activeCardType = cty, cardTypes = ctys, unwrappableDecks = Map.empty :: DeckMap }) $> next
 eval (Init next) = next <$ do
   isLogged ← map isJust $ H.fromEff retrieveIdToken
   H.modify (_ { isLogged = isLogged })
