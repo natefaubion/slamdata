@@ -57,7 +57,7 @@ import SlamData.Workspace.Card.Draftboard.Component.CSS as CCSS
 import SlamData.Workspace.Card.Draftboard.Component.Query (Query(..), QueryP, QueryC)
 import SlamData.Workspace.Card.Draftboard.Component.State (State, DeckPosition, initialState, encode, decode, _moving, _inserting, _grouping, modelFromState)
 import SlamData.Workspace.Card.Model as Card
-import SlamData.Workspace.Deck.Common (wrappedDeck, defaultPosition)
+import SlamData.Workspace.Deck.Common (wrappedDeck, defaultPosition, DeckOptions)
 import SlamData.Workspace.Deck.Component.Nested.Query as DNQ
 import SlamData.Workspace.Deck.Component.Nested.State as DNS
 import SlamData.Workspace.Deck.Component.Query as DCQ
@@ -406,9 +406,7 @@ addDeckAt { deck: opts, deckId: parentId, cardId } deck deckPos = do
         { decks = Map.insert deckId deckPos s.decks
         , inserting = false
         }
-      queryDeck deckId
-        $ H.action
-        $ DCQ.Load opts.path deckId (DL.succ opts.level)
+      loadAndFocus opts deckId
 
 deleteDeck ∷ CardOptions → DeckId → DraftboardDSL Unit
 deleteDeck { deck } deckId = do
@@ -442,9 +440,7 @@ wrapDeck { cardId, deckId: parentId, deck } oldId = do
               $ Map.delete oldId
               $ s.decks
           }
-        queryDeck newId
-          $ H.action
-          $ DCQ.Load deck.path newId (DL.succ deck.level)
+        loadAndFocus deck newId
 
 unwrapDeck
   ∷ CardOptions
@@ -557,9 +553,14 @@ groupDecks { cardId, deckId, deck } deckFrom deckTo = do
                   $ Map.delete deckTo
                   $ s.decks
               }
-            queryDeck newId
-              $ H.action
-              $ DCQ.Load deck.path newId (DL.succ deck.level)
+            loadAndFocus deck newId
 
 queryDeck ∷ ∀ a. DeckId → DCQ.Query a → DraftboardDSL (Maybe a)
 queryDeck deckId = H.query deckId ∘ right
+
+loadAndFocus ∷ DeckOptions → DeckId → DraftboardDSL Unit
+loadAndFocus opts deckId =
+  traverse_ (queryDeck deckId ∘ H.action)
+    [ DCQ.Load opts.path deckId (DL.succ opts.level)
+    , DCQ.Focus
+    ]
