@@ -31,6 +31,7 @@ import Ace.Types (Completion)
 
 import Halogen (query, action, gets, request, fromEff, modify)
 
+import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Ace.Component as AceCard
 import SlamData.Workspace.Card.Ace.Component.State (Status(..), _status, isNew)
 import SlamData.Workspace.Card.Eval.CardEvalT as CET
@@ -78,6 +79,7 @@ queryEval info = do
       for_ mbEditor setSelectEmpty
 
     modify $ _status .~ Ready
+    CC.raiseUpdatedP CC.EvalModelUpdate
   where
   setSelectEmpty editor = do
     void $ query unit $ action $ Ace.SetText ("SELECT \"Hello World!\"")
