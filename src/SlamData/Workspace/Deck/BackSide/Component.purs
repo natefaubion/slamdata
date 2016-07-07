@@ -18,7 +18,6 @@ module SlamData.Workspace.Deck.BackSide.Component where
 
 import SlamData.Prelude
 
-import Data.Array as Arr
 import Data.Foldable as F
 import Data.String as Str
 import Data.Map as Map
@@ -186,24 +185,11 @@ render state =
                         [ glyph B.glyphiconRemove ]
                     ]
                 ]
-            , HH.ul_
-                $ map (backsideAction true) actions.enabledActions
-                ⊕ map (backsideAction false) actions.disabledActions
+            , HH.ul_ $ map backsideAction (allBackActions state)
             ]
         ]
     ]
   where
-
-  actions ∷ {enabledActions ∷ Array BackAction, disabledActions ∷ Array BackAction}
-  actions =
-    foldl
-      (\{enabledActions, disabledActions} action →
-         if backActionConforms action
-           then { enabledActions: Arr.snoc enabledActions action, disabledActions }
-           else { enabledActions, disabledActions: Arr.snoc disabledActions action }
-      )
-      {enabledActions: [], disabledActions: []}
-      (allBackActions state)
 
   backActionConforms ∷ BackAction → Boolean
   backActionConforms ba =
@@ -212,8 +198,8 @@ render state =
         (isJust ∘ Str.stripPrefix (Str.trim $ Str.toLower state.filterString))
         (keywordsAction ba)
 
-  backsideAction ∷ Boolean → BackAction → HTML
-  backsideAction enabled action =
+  backsideAction ∷ BackAction → HTML
+  backsideAction action =
     HH.li_
       [ HH.button attrs
           [ icon
@@ -228,6 +214,7 @@ render state =
         , HP.buttonType HP.ButtonButton
         ] ⊕ if enabled then [ HE.onClick (HE.input_ (DoAction action)) ] else [ ]
 
+      enabled = backActionConforms action
       lbl = labelAction action ⊕ if enabled then "" else " disabled"
       icon = actionGlyph action
 
