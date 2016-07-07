@@ -162,7 +162,7 @@ render state =
                     [ HH.input
                         [ HP.value state.filterString
                         , HE.onValueInput (HE.input UpdateFilter)
-                        , ARIA.label "Filter actions"
+                        , ARIA.label "Filter deck and card actions"
                         , HP.placeholder "Filter actions"
                         ]
                     , HH.button

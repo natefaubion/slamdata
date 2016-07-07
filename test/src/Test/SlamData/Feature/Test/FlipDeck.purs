@@ -70,17 +70,17 @@ test = do
     mkTwoCardTestDeck
     Interact.flipDeck
     Expect.backsideMenuPresented
-    Interact.filterActions "rem"
+    Interact.filterDeckAndCardActions "delete c"
     Expect.onlyTrashActionPresented
-    sequence $ Actions.sendBackspaces 5
+    sequence $ Actions.sendBackspaces 8
     Expect.backsideMenuPresented
-    sequence $ Actions.sendBackspaces 5
+    sequence $ Actions.sendBackspaces 8
     Expect.backsideMenuPresented
-    Interact.filterActions "emb"
+    Interact.filterDeckAndCardActions "emb"
     Expect.onlyEmbedActionPresented
     sequence $ Actions.sendBackspaces 5
     Expect.backsideMenuPresented
-    Interact.filterActions "p"
+    Interact.filterDeckAndCardActions "ub"
     Expect.onlyPublishActionPresented
     sequence $ Actions.sendBackspaces 5
     successMsg "Successfully filtered backside actions"

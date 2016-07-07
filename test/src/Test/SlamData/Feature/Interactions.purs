@@ -367,9 +367,13 @@ publishDeck ∷ SlamFeature Unit
 publishDeck =
   Feature.click $ XPath.anywhere $ XPath.anyWithExactAriaLabel "Publish deck"
 
-filterActions ∷ String → SlamFeature Unit
-filterActions =
-  Feature.provideFieldValue (XPath.anywhere $ XPath.anyWithExactAriaLabel "Filter actions")
+filterDeckAndCardActions ∷ String → SlamFeature Unit
+filterDeckAndCardActions =
+  Feature.provideFieldValue (XPath.anywhere $ XPath.anyWithExactAriaLabel "Filter deck and card actions")
+
+filterNextActions ∷ String → SlamFeature Unit
+filterNextActions =
+  Feature.provideFieldValue (XPath.anywhere $ XPath.anyWithExactAriaLabel "Filter next actions")
 
 confirmDeckAction ∷ SlamFeature Unit
 confirmDeckAction =
