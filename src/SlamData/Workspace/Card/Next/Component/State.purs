@@ -14,7 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 
-module SlamData.Workspace.Card.Next.Component.State where
+module SlamData.Workspace.Card.Next.Component.State
+  ( State
+  , initialState
+  , _input
+  , _filterString
+  ) where
 
 import SlamData.Prelude
 
@@ -23,11 +28,18 @@ import Data.Lens (LensP, lens)
 import SlamData.Workspace.Card.Port (Port)
 
 type State =
-  { input :: Maybe Port
+  { input ∷ Maybe Port
+  , filterString ∷ String
   }
 
-_input :: ∀ a r. LensP {input :: a |r} a
-_input = lens _.input (_{input = _})
-
 initialState :: State
-initialState = { input: Nothing }
+initialState =
+  { input: Nothing
+  , filterString: ""
+  }
+
+_input ∷ ∀ a r. LensP { input ∷ a | r } a
+_input = lens _.input (_ { input = _ })
+
+_filterString ∷ ∀ a r. LensP { filterString ∷ a | r } a
+_filterString = lens _.filterString (_ { filterString = _ })

@@ -115,19 +115,6 @@ labelAction = case _ of
   Unwrap _ → "Collapse board"
   Unshare → "Unshare deck"
 
-keywordsAction ∷ BackAction → Array String
-keywordsAction = case _ of
-  Trash → ["remove", "delete", "trash"]
-  Rename → ["rename", "title"]
-  Share → ["share"]
-  Embed → ["embed"]
-  Publish → ["publish", "presentation", "view"]
-  DeleteDeck → ["remove", "delete", "trash"]
-  Mirror → ["mirror", "copy", "duplicate", "shallow"]
-  Wrap → ["wrap", "pin", "card"]
-  Unwrap _ → ["collapse", "unwrap", "breakout", "remove", "merge"]
-  Unshare → ["unshare", "manage"]
-
 actionEnabled ∷ State → BackAction → Boolean
 actionEnabled st a =
   case st.activeCardType, a of
@@ -191,12 +178,8 @@ render state =
     ]
   where
 
-  backActionConforms ∷ BackAction → Boolean
-  backActionConforms ba =
-    actionEnabled state ba &&
-      F.any
-        (isJust ∘ Str.stripPrefix (Str.trim $ Str.toLower state.filterString))
-        (keywordsAction ba)
+  filterString ∷ String
+  filterString = Str.toLower state.filterString
 
   backsideAction ∷ BackAction → HTML
   backsideAction action =
@@ -214,7 +197,7 @@ render state =
         , HP.buttonType HP.ButtonButton
         ] ⊕ if enabled then [ HE.onClick (HE.input_ (DoAction action)) ] else [ ]
 
-      enabled = backActionConforms action
+      enabled = Str.contains filterString (Str.toLower $ labelAction action)
       lbl = labelAction action ⊕ if enabled then "" else " disabled"
       icon = actionGlyph action
 
