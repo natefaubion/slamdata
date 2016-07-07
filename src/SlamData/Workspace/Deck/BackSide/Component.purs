@@ -180,8 +180,10 @@ render state =
                         , HP.placeholder "Filter actions"
                         ]
                     , HH.button
-                          [ HP.buttonType HP.ButtonButton ]
-                          [ glyph B.glyphiconRemove ]
+                        [ HP.buttonType HP.ButtonButton
+                        , HE.onClick (HE.input_ (UpdateFilter ""))
+                        ]
+                        [ glyph B.glyphiconRemove ]
                     ]
                 ]
             , HH.ul_
