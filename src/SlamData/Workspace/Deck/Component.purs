@@ -89,7 +89,7 @@ import SlamData.Workspace.Deck.Slider as Slider
 import SlamData.Workspace.Model as WM
 import SlamData.Workspace.Routing (mkWorkspaceHash, mkWorkspaceURL)
 import SlamData.Workspace.StateMode (StateMode(..))
-import SlamData.Workspace.Wiring (Wiring, CardEval, Cache, DeckMessage(..), getDeck, putDeck, putCardEval, getCache, makeCache)
+import SlamData.Workspace.Wiring (Wiring, CardEval, Cache, DeckMessage(..), getDeck, putDeck, putCardEval, putCache, getCache, makeCache)
 import SlamData.Workspace.Deck.AdditionalSource (AdditionalSource(..))
 
 import Utils.DOM (getBoundingClientRect)
@@ -151,8 +151,7 @@ eval opts@{ wiring } = case _ of
     pure next
   -- TODO: How can we get rid of this? What is it's purpose? It smells.
   Reset path next → do
-    st ← H.get
-    setDeckState $
+    H.modify \st →
       (DCS.initialDeck path st.id)
         { stateMode = Ready
         , displayCards = [ st.id × nextActionCard ]
@@ -240,6 +239,7 @@ eval opts@{ wiring } = case _ of
   StopSlidingAndSnap mouseEvent next → do
     Slider.stopSlidingAndSnap mouseEvent
     updateIndicator
+    updateActiveState wiring
     pure next
   UpdateSliderPosition mouseEvent next →
     Slider.updateSliderPosition mouseEvent $> next
@@ -307,7 +307,6 @@ peekBackSide opts (Back.DoAction action _) =
           ({ deckPath, caches: [], sources: [] })
           (fold additionalSources)
 
-
   in case action of
     Back.Trash → do
       state ← H.get
@@ -318,7 +317,7 @@ peekBackSide opts (Back.DoAction action _) =
           H.fromAff ∘ runPar ∘ traverse_ (Par ∘ DBC.deleteGraph state.path)
         H.set $ snd rem
         triggerSave Nothing
-        updateActiveCardAndIndicator
+        updateActiveCardAndIndicator opts.wiring
         H.modify $ DCS._displayMode .~ DCS.Normal
         DCS.activeCardCoord (snd rem)
           # maybe (runCardUpdates opts state.id L.Nil) (queuePendingCard opts.wiring)
@@ -390,18 +389,19 @@ queryCardEval ∷ ∀ a. DeckId × CardId → CQ.CardQuery a → DeckDSL (Maybe 
 queryCardEval cid =
   H.query' cpCard (CardSlot cid) ∘ left
 
-updateActiveCardAndIndicator ∷ DeckDSL Unit
-updateActiveCardAndIndicator = do
-  activeCardIndex ← H.gets _.activeCardIndex
-  case activeCardIndex of
+updateActiveCardAndIndicator ∷ Wiring → DeckDSL Unit
+updateActiveCardAndIndicator wiring = do
+  st ← H.get
+  case st.activeCardIndex of
     Nothing → do
-      H.modify $ \st →
-        let
-          lastCardIndex = max 0 $ Array.length st.displayCards - 1
-          lastRealCardIndex = DCS.findLastRealCardIndex st
-        in st { activeCardIndex = Just $ fromMaybe lastCardIndex lastRealCardIndex }
+      let
+        lastCardIndex = max 0 $ Array.length st.displayCards - 1
+        lastRealCardIndex = DCS.findLastRealCardIndex st
+        cardIndex = fromMaybe lastCardIndex lastRealCardIndex
+      H.modify $ DCS._activeCardIndex .~ Just cardIndex
     Just _ → pure unit
   updateIndicator
+  updateActiveState wiring
 
 updateIndicator ∷ DeckDSL Unit
 updateIndicator = do
@@ -412,6 +412,12 @@ updateIndicator = do
     $ map (Card.modelCardType ∘ _.model ∘ snd) cards
   vid ← H.gets $ fromMaybe 0 ∘ _.activeCardIndex
   void $ H.query' cpIndicator unit $ H.action $ Indicator.UpdateActiveId vid
+
+updateActiveState ∷ Wiring → DeckDSL Unit
+updateActiveState wiring = do
+  st ← H.get
+  for_ st.activeCardIndex \cardIndex →
+    putCache st.id { cardIndex } wiring.activeState
 
 updateBackSide ∷ DeckDSL Unit
 updateBackSide = do
@@ -448,7 +454,7 @@ createCard ∷ Wiring → CT.CardType → DeckDSL Unit
 createCard wiring cardType = do
   deckId ← H.gets _.id
   (st × newCardId) ← H.gets ∘ DCS.addCard' $ Card.cardModelOfType cardType
-  setDeckState st
+  H.set st
   queuePendingCard wiring (deckId × newCardId)
   triggerSave $ Just (deckId × newCardId)
 
@@ -627,6 +633,15 @@ runCardUpdates opts source steps = do
     H.fromAff $ Pr.wait $
       updateCards st { steps: updateSteps, cards: mempty, updates: mempty }
 
+  -- Cleanup initial presentation. Note, we do this here to eliminate jank.
+  -- Doing it at the end results in cards jumping around as renders are flushed
+  -- when we apply the child updates.
+  when (st.stateMode == Preparing) do
+    activeCardIndex ← map _.cardIndex <$> getCache st.id opts.wiring.activeState
+    lastIndex ← H.gets DCS.findLastRealCardIndex
+    H.modify
+      $ (DCS._stateMode .~ Ready)
+      ∘ (DCS._activeCardIndex .~ (activeCardIndex <|> lastIndex))
 
   -- Splice in the new display cards and run their updates.
   for_ (Array.head updateResult.displayCards) \card → do
@@ -641,14 +656,7 @@ runCardUpdates opts source steps = do
     for_ updateResult.updates $
       updateCard st source pendingId loadedCards
 
-  -- Final cleanup
-  when (st.stateMode == Preparing) do
-    lastIndex ← H.gets DCS.findLastRealCardIndex
-    H.modify
-      $ (DCS._stateMode .~ Ready)
-      ∘ (DCS._activeCardIndex .~ lastIndex)
-
-  updateActiveCardAndIndicator
+  updateActiveCardAndIndicator opts.wiring
 
   where
   updateCards ∷ DCS.State → UpdateAccum → Pr.Promise UpdateResult
@@ -777,11 +785,6 @@ saveDeck { accessType, wiring } coord = do
             model = deck { cards = cards }
         void $ putDeck st.path deckId model wiring.decks
 
-setDeckState ∷ DCS.State → DeckDSL Unit
-setDeckState newState =
-  H.modify \oldState →
-    newState { cardElementWidth = oldState.cardElementWidth }
-
 loadDeck ∷ DeckOptions → DirPath → DeckId → DeckDSL Unit
 loadDeck opts path deckId = do
   H.modify
@@ -828,17 +831,13 @@ setModel
     , name ∷ String
     }
   → DeckDSL Unit
-setModel opts model =
+setModel opts model = do
+  H.modify
+    $ (DCS._stateMode .~ Preparing)
+    ∘ DCS.fromModel model
   case Array.head model.modelCards of
-    Just pending → do
-      st ← DCS.fromModel model <$>
-        H.gets (DCS._stateMode .~ Preparing)
-      setDeckState st
-      runInitialEval opts.wiring
-    Nothing → do
-      st ← DCS.fromModel model <$> H.get
-      setDeckState st
-      runCardUpdates opts model.id L.Nil
+    Just _ → runInitialEval opts.wiring
+    Nothing → runCardUpdates opts model.id L.Nil
 
 getModelCards ∷ DeckDSL (Array (DeckId × Card.Model))
 getModelCards = do
