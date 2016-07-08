@@ -77,6 +77,10 @@ eval ∷ AceConfig → CC.CardEvalQuery ~> DSL
 eval cfg (CC.EvalCard info output next) = do
   cfg.eval info
   pure next
+eval cfg (CC.Activate next) = do
+  mbEditor ← H.query unit $ H.request GetEditor
+  for_ (join mbEditor) $ H.fromEff ∘ Editor.focus
+  pure next
 eval cfg (CC.Save k) = do
   status ← H.gets _.status
   content ← fromMaybe "" <$> H.query unit (H.request GetText)

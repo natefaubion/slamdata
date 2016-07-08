@@ -79,6 +79,8 @@ cardEval ∷ Natural CC.CardEvalQuery DSL
 cardEval = case _ of
   CC.EvalCard input output next →
     pure next
+  CC.Activate next →
+    pure next
   CC.Save k → do
     input ← H.gets _.searchString
     pure ∘ k $ Card.Search input

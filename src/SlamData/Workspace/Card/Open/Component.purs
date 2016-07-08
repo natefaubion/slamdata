@@ -152,6 +152,8 @@ cardEval ∷ CC.CardEvalQuery ~> DSL
 cardEval = case _ of
   CC.EvalCard info output next →
     pure next
+  CC.Activate next →
+    pure next
   CC.Save k → do
     mbRes ← H.gets _.selected
     k ∘ Card.Open <$>

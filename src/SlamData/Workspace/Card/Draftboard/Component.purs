@@ -139,6 +139,8 @@ evalCard ∷ Natural CC.CardEvalQuery DraftboardDSL
 evalCard = case _ of
   CC.EvalCard _ _ next →
     pure next
+  CC.Activate next →
+    pure next
   CC.SetDimensions _ next →
     pure next
   CC.Save k →

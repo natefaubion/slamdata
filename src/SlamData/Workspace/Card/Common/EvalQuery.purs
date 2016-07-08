@@ -44,6 +44,8 @@ import SlamData.Workspace.Card.Port as Port
 -- |   evaluator. The card cannot return a new port value, it's eval is only
 -- |   allowed to update the card component state.
 -- |
+-- | - `Activate` is sent when the card component becomes the active card.
+-- |
 -- | - `Save` requests the current model value for the card, used when
 -- |   serialising model and when running the cards in a deck.
 -- |
@@ -59,6 +61,7 @@ import SlamData.Workspace.Card.Port as Port
 -- |   peek the query and know that the deck needs saving/evaluating.
 data CardEvalQuery a
   = EvalCard CardEvalInput (Maybe Port.Port) a
+  | Activate a
   | Save (AnyCardModel → a)
   | Load AnyCardModel a
   | SetDimensions { width ∷ Number, height ∷ Number } a

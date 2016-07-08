@@ -133,6 +133,9 @@ makeCardComponentPart def render =
   eval (CQ.UpdateCard input output next) = do
     void $ H.query unit (left (H.action (CQ.EvalCard input output)))
     pure next
+  eval (CQ.ActivateCard next) = do
+    void $ H.query unit (left (H.action CQ.Activate))
+    pure next
   eval (CQ.SaveCard cardId cardType k) = do
     model ← fromMaybe (Card.cardModelOfType cardType) <$> H.query unit (left (H.request CQ.Save))
     pure $ k { cardId, model }

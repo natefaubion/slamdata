@@ -57,6 +57,8 @@ eval ∷ CC.CardEvalQuery ~> DSL
 eval = case _ of
   CC.EvalCard info output next ->
     pure next
+  CC.Activate next →
+    pure next
   CC.Save k →
     H.query unit (H.request (FB.GetItems ⋙ left)) <#>
       maybe [] L.fromList
@@ -73,7 +75,8 @@ eval = case _ of
     pure next
   CC.ModelUpdated _ next →
     pure next
-  CC.ZoomIn next → pure next
+  CC.ZoomIn next →
+    pure next
 
 peek ∷ ∀ x. FB.QueryP x → DSL Unit
 peek = const (pure unit) ⨁ peekItemQuery ∘ H.runChildF

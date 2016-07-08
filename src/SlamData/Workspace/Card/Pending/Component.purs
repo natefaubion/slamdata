@@ -60,6 +60,8 @@ cardEval q =
   case q of
     CC.EvalCard _ _ next → do
       pure next
+    CC.Activate next →
+      pure next
     CC.Save k →
       pure $ k Card.PendingCard
     CC.Load _ next →

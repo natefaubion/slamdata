@@ -87,6 +87,8 @@ cardEval = case _ of
           ∘ (_confirmedPath ?~ resource)
       _ → pure unit
     pure next
+  CC.Activate next →
+    pure next
   CC.Save k →
     k ∘ Card.Cache ∘ map Path.printPath <$> H.gets _.confirmedPath
   CC.Load card next → do

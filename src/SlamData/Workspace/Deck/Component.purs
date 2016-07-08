@@ -416,8 +416,10 @@ updateIndicator = do
 updateActiveState ∷ Wiring → DeckDSL Unit
 updateActiveState wiring = do
   st ← H.get
-  for_ st.activeCardIndex \cardIndex →
+  for_ st.activeCardIndex \cardIndex → do
     putCache st.id { cardIndex } wiring.activeState
+    for_ (DCS.cardCoordFromIndex cardIndex st) \coord →
+      void $ queryCardEval coord $ H.action CQ.ActivateCard
 
 updateBackSide ∷ DeckDSL Unit
 updateBackSide = do

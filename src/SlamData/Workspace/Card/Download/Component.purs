@@ -89,6 +89,8 @@ cardEval = case _ of
   CC.EvalCard info output next → do
     for_ (info.input ^? Lens._Just ∘ Port._DownloadOptions) handleDownloadPort
     pure next
+  CC.Activate next →
+    pure next
   CC.Save k →
     pure (k Card.Download)
   CC.Load json next →

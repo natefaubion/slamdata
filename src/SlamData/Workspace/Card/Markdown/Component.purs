@@ -112,6 +112,8 @@ evalCEQ = case _ of
       H.modify (_ { input = Just sd })
       void $ H.query unit $ H.action (SD.SetDocument sd)
     pure next
+  CC.Activate next →
+    pure next
   CC.Save k → do
     input ← fromMaybe mempty <$> H.gets _.input
     state ← fromMaybe SM.empty <$> H.query unit (H.request SD.GetFormState)

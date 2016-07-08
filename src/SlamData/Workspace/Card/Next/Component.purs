@@ -109,6 +109,8 @@ cardEval ∷ CC.CardEvalQuery ~> NextDSL
 cardEval = case _ of
   CC.EvalCard value output next →
     H.modify (_input .~ value.input) $> next
+  CC.Activate next →
+    pure next
   CC.Save k →
     pure $ k Card.NextAction
   CC.Load _ next →

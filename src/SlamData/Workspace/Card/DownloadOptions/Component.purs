@@ -140,6 +140,8 @@ cardEval = case _ of
   CC.EvalCard info output next → do
     H.modify $ _source .~ info.input ^? Lens._Just ∘ Port._Resource
     pure next
+  CC.Activate next →
+    pure next
   CC.Save k →
     map (k ∘ Card.DownloadOptions) H.get
   CC.Load card next → do

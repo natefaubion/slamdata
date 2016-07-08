@@ -82,6 +82,8 @@ evalCard = case _ of
     for (info.input >>= Lens.preview Port._VarMap) \varMap →
       H.modify (_ { varMap = varMap })
     pure next
+  CC.Activate next →
+    pure next
   CC.Save k →
     pure $ k Card.Troubleshoot
   CC.Load _ next →

@@ -271,6 +271,8 @@ cardEval = case _ of
         then H.modify (VCS._availableChartTypes .~ Set.empty)
         else H.modify (VCS._sample .~ analyzeJArray sample) *> configure
     pure next
+  CC.Activate next →
+    pure next
   CC.Save k → do
     st ← H.get
     config ← H.query st.chartType $ left $ H.request Form.GetConfiguration

@@ -62,7 +62,10 @@ evalCard = case _ of
   CC.EvalCard info output next → do
     for_ info.input $ CEQ.runCardEvalT_ ∘ runTable
     pure next
-  CC.Save k → pure ∘ k =<< H.gets (Card.Table ∘ JTS.toModel)
+  CC.Activate next →
+    pure next
+  CC.Save k →
+    pure ∘ k =<< H.gets (Card.Table ∘ JTS.toModel)
   CC.Load card next → do
     case card of
       Card.Table model → H.set $ JTS.fromModel model

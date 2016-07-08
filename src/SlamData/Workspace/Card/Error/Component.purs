@@ -67,6 +67,8 @@ cardEval = case _ of
   CC.EvalCard {input} output next → do
     H.modify ∘ Lens.set ECS._message $ input ^? Lens._Just ∘ Port._CardError
     pure next
+  CC.Activate next →
+    pure next
   CC.SetDimensions _ next →
     pure next
   CC.Save k →

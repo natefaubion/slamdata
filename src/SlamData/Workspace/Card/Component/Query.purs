@@ -81,6 +81,7 @@ import SlamData.Workspace.Card.ChartOptions.Component.Query as ChartOptions
 data CardQuery a
   = UpdateCard CardEvalInput (Maybe Port) a
   | SaveCard CardId CardType (Card.Model → a)
+  | ActivateCard a
   | LoadCard Card.Model a
   | UpdateDimensions a
   | SetHTMLElement (Maybe HTMLElement) a
