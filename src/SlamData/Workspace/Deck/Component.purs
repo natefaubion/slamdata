@@ -209,7 +209,7 @@ eval opts@{ wiring } = case _ of
   GrabDeck _ next →
     pure next
   UpdateCardSize next → do
-    H.queryAll' cpCard $ left $ H.action UpdateDimensions
+    updateCardSize
     pure next
   ResizeDeck _ next →
     pure next
@@ -674,6 +674,7 @@ runCardUpdates opts source steps = do
       updateCard st source pendingId loadedCards
 
   updateActiveCardAndIndicator opts.wiring
+  updateCardSize
 
   where
   updateCards ∷ DCS.State → UpdateAccum → Pr.Promise UpdateResult
@@ -916,3 +917,7 @@ getSharingInput = do
 
   pure
     $ foldl foldChildren thisDeckSharingInput childrenInput
+
+updateCardSize ∷ DeckDSL Unit
+updateCardSize =
+  void $ H.queryAll' cpCard $ left $ H.action UpdateDimensions
