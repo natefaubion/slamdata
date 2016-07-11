@@ -111,6 +111,8 @@ eval _ (CC.SetDimensions dims next) = do
   H.modify
     $ _levelOfDetails
     .~ if dims.width < 240.0 then Low else High
+  mbEditor ← H.query unit $ H.request GetEditor
+  for_ (join mbEditor) $ H.fromEff ∘ Editor.resize Nothing
   pure next
 eval _ (CC.ModelUpdated _ next) =
   pure next

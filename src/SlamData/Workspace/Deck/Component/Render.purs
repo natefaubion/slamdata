@@ -91,7 +91,6 @@ renderDeck opts deckComponent st =
 deckProperties ∷ ∀ r. Array (HP.IProp (HP.InteractiveEvents (HP.GlobalProperties r)) (Query Unit))
 deckProperties =
   [ HP.key "deck-container"
-  , HE.onMouseUp (HE.input_ UpdateCardSize)
   , HE.onMouseDown \_ → HEH.stopPropagation $> Just (H.action Focus)
   , HP.ref (H.action ∘ SetCardElement)
   ]

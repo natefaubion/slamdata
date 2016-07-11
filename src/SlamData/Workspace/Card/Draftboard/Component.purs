@@ -201,6 +201,7 @@ evalBoard opts = case _ of
       Drag.Done _ → do
         stopDragging opts
         CC.raiseUpdatedP' CC.EvalModelUpdate
+    queryDeck deckId $ H.action DCQ.UpdateCardSize
     pure next
   SetElement el next → do
     H.modify _ { canvas = el }
