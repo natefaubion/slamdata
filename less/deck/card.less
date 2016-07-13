@@ -27,6 +27,7 @@
 .sd-card-header {
   .noselect;
   position: absolute;
+  overflow: hidden;
   left: 0;
   top: 0;
   width: 100%;
@@ -40,6 +41,7 @@
 .sd-card-header img {
   height: calc(2 * @grid-size);
   width: calc(2 * @grid-size);
+  margin-bottom: 1rem;
 }
 
 .sd-card-slider > .sd-fade-in > div > .sd-deck-card > .sd-card-header {
@@ -76,4 +78,25 @@
 
 .sd-deck-card {
   position: relative;
+}
+
+.sd-deck > .sd-card-slider > .sd-card > div > .sd-deck-card > .sd-card-header .sd-card-name {
+  .sd-size-xsmall > & {
+    font-size: 1rem;
+  }
+  .sd-size-small > & {
+    font-size: 1.5rem;
+  }
+  .sd-size-medium > & {
+    font-size: 2rem;
+  }
+  .sd-size-large > & {
+    font-size: 2.5rem;
+  }
+  .sd-size-xlarge > & {
+    font-size: 3rem;
+  }
+  .sd-size-xxlarge > & {
+    font-size: 3rem;
+  }
 }
