@@ -85,6 +85,7 @@ startSliding mouseEvent gDef = do
     $ (DCS._initialSliderX .~ Just mouseEvent.screenX)
     ∘ (DCS._initialSliderCardWidth .~ cardWidth)
     ∘ (DCS._sliderTransition .~ false)
+    ∘ (DCS._fadeTransition .~ DCS.FadeIn)
     ∘ (DCS._displayMode .~ DCS.Normal)
     ∘ (DCS._slidingTo ?~ gDef)
 
@@ -250,7 +251,12 @@ renderCard opts deckComponent st (deckId × card) index =
   where
   key = "card-" ⊕ DeckId.deckIdToString deckId ⊕ "-" ⊕ CardId.cardIdToString card.cardId
   classes =
-    [ ClassNames.card ]
+    [ ClassNames.card
+    , HH.className case st.fadeTransition of
+        DCS.FadeIn   → "sd-fade-in"
+        DCS.FadeOut  → "sd-fade-out"
+        DCS.FadeNone → "sd-fade-none"
+    ]
       ⊕ (guard (not $ isClick st.sliderTranslateX) $> ClassNames.cardSliding)
       ⊕ (guard (cardSelected st (deckId × card.cardId)) $> ClassNames.cardActive)
   coord = deckId × card.cardId

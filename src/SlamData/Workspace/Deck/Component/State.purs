@@ -19,6 +19,7 @@ module SlamData.Workspace.Deck.Component.State
   , State
   , DisplayMode(..)
   , ResponsiveSize(..)
+  , Fade(..)
   , CardDef
   , initialDeck
   , _id
@@ -44,6 +45,7 @@ module SlamData.Workspace.Deck.Component.State
   , _focused
   , _additionalSources
   , _responsiveSize
+  , _fadeTransition
   , addCard
   , addCard'
   , removeCard
@@ -118,6 +120,11 @@ data ResponsiveSize
 
 derive instance eqDisplayMode ∷ Eq DisplayMode
 
+data Fade
+  = FadeNone
+  | FadeIn
+  | FadeOut
+
 -- | The deck state. See the corresponding lenses for descriptions of
 -- | the fields.
 type State =
@@ -148,6 +155,7 @@ type State =
   , deckElement ∷ Maybe HTMLElement
   , additionalSources ∷ Map.Map (DeckId × CardId) (Set.Set AdditionalSource)
   , responsiveSize ∷ ResponsiveSize
+  , fadeTransition ∷ Fade
   }
 
 -- | A record used to represent card definitions in the deck.
@@ -183,6 +191,7 @@ initialDeck path deckId =
   , deckElement: Nothing
   , additionalSources: mempty
   , responsiveSize: XLarge
+  , fadeTransition: FadeNone
   }
 
 -- | The unique identifier of the deck.
@@ -283,6 +292,9 @@ _focused = lens _.focused _{focused = _}
 
 _responsiveSize ∷ ∀ a r. LensP {responsiveSize ∷ a|r} a
 _responsiveSize = lens _.responsiveSize _{responsiveSize = _}
+
+_fadeTransition ∷ ∀ a r. LensP {fadeTransition ∷ a|r} a
+_fadeTransition = lens _.fadeTransition _{fadeTransition = _}
 
 addCard ∷ Card.AnyCardModel → State → State
 addCard card st = fst $ addCard' card st

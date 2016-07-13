@@ -42,14 +42,14 @@
   width: calc(2 * @grid-size);
 }
 
-.sd-focused > .sd-deck > .sd-card-slider .sd-card-sliding > div > .sd-deck-card > .sd-card-header {
+.sd-card-slider > .sd-fade-in > div > .sd-deck-card > .sd-card-header {
   animation-name: fadeIn;
   animation-duration: 0.25s;
   z-index: 5000;
   opacity: 1;
 }
 
-.sd-focused > .sd-deck > .sd-card-slider > .sd-card-active:not(.sd-card-sliding) > div > .sd-deck-card > .sd-card-header {
+.sd-card-slider > .sd-fade-out > div > .sd-deck-card > .sd-card-header {
   opacity: 0;
   animation-name: fadeOut;
   z-index: 5000;
