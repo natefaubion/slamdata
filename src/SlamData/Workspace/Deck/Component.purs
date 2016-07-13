@@ -250,9 +250,7 @@ eval opts@{ wiring } = case _ of
   StopSliderTransition next → do
     sliderTransition ← H.gets _.sliderTransition
     when sliderTransition $
-      H.modify
-        $ (DCS._sliderTransition .~ false)
-        ∘ (DCS._fadeTransition .~ DCS.FadeOut)
+      H.modify $ DCS._sliderTransition .~ false
     pure next
   DoAction _ next → pure next
   Focus next → do

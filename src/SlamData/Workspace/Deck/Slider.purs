@@ -114,6 +114,7 @@ stopSliding =
   (DCS._initialSliderX .~ Nothing)
   ∘ (DCS._sliderTranslateX .~ 0.0)
   ∘ (DCS._slidingTo .~ Nothing)
+  ∘ (DCS._fadeTransition .~ DCS.FadeOut)
   ∘ startTransition
 
 clickBound ∷ Number
