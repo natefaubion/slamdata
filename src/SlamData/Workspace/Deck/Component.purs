@@ -88,6 +88,7 @@ import SlamData.Workspace.Deck.Indicator.Component as Indicator
 import SlamData.Workspace.Deck.Model as Model
 import SlamData.Workspace.Deck.Slider as Slider
 import SlamData.Workspace.Model as WM
+import SlamData.Workspace.Notification as Notify
 import SlamData.Workspace.Routing (mkWorkspaceHash, mkWorkspaceURL)
 import SlamData.Workspace.StateMode (StateMode(..))
 import SlamData.Workspace.Wiring (Wiring, CardEval, Cache, DeckMessage(..), getDeck, putDeck, putCardEval, putCache, getCache, makeCache)
@@ -791,9 +792,8 @@ saveDeck { accessType, wiring } coord = do
         Right _ → pure unit
 
     putDeck st.path st.id model wiring.decks >>= case _ of
-      Left err → do
-        -- TODO: do something to notify the user saving failed
-        pure unit
+      Left err →
+        Notify.saveDeckFail err wiring.notify
       Right _ → do
         when (st.level ≡ DL.root) $ do
           path' ← H.gets DCS.deckPath
@@ -803,9 +803,8 @@ saveDeck { accessType, wiring } coord = do
 
   saveMirroredCard st (deckId × card) =
     getDeck st.path deckId wiring.decks >>= case _ of
-      Left err → do
-        -- TODO: do something to notify the user saving failed
-        pure unit
+      Left err →
+        Notify.saveMirrorFail err wiring.notify
       Right deck → do
         let cards = deck.cards <#> \c → if c.cardId == card.cardId then card else c
             model = deck { cards = cards }

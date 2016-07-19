@@ -23,6 +23,8 @@ module SlamData.Workspace.Component
 import SlamData.Prelude
 
 import Control.Monad.Aff.Bus as Bus
+import Control.Monad.Aff.Free (class Affable)
+import Control.Monad.Eff.Exception as Exn
 import Control.Monad.Eff.Ref as Ref
 import Control.Monad.Maybe.Trans (MaybeT(..), runMaybeT)
 import Control.UI.Browser (setHref, locationObject)
@@ -46,10 +48,10 @@ import Halogen.HTML.Indexed as HH
 import Halogen.HTML.Properties.Indexed as HP
 import Halogen.Themes.Bootstrap3 as B
 
-import SlamData.Effects (Slam)
+import SlamData.Effects (Slam, SlamDataEffects)
 import SlamData.FileSystem.Routing (parentURL)
 import SlamData.Header.Component as Header
-import SlamData.Notification.Component as Notify
+import SlamData.Notification.Component as NC
 import SlamData.Quasar.Data as Quasar
 import SlamData.SignIn.Component as SignIn
 import SlamData.Workspace.Action as WA
@@ -67,6 +69,7 @@ import SlamData.Workspace.Deck.DeckId (DeckId, freshDeckId)
 import SlamData.Workspace.Deck.DeckLevel as DL
 import SlamData.Workspace.Deck.Model as DM
 import SlamData.Workspace.Model as Model
+import SlamData.Workspace.Notification as Notify
 import SlamData.Workspace.Routing (mkWorkspaceHash)
 import SlamData.Workspace.StateMode (StateMode(..))
 import SlamData.Workspace.Wiring (Wiring, DeckMessage(..), putDeck, getDeck)
@@ -101,8 +104,8 @@ render wiring state =
   notifications ∷ Array WorkspaceHTML
   notifications =
     pure $ HH.slot' cpNotify unit \_ →
-      { component: Notify.comp (wiring.notify)
-      , initialState: Notify.initialState
+      { component: NC.comp (wiring.notify)
+      , initialState: NC.initialState
       }
 
   header ∷ Array WorkspaceHTML
@@ -219,9 +222,12 @@ peek wiring = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
 
       case parent of
         Just parentCoord@(Tuple deckId cardId) → do
-          getDeck path deckId wiring.decks >>= traverse_ \parentDeck → void do
-            let cards = DBC.replacePointer oldId newId cardId parentDeck.cards
-            putDeck path deckId (parentDeck { cards = cards }) wiring.decks
+          getDeck path deckId wiring.decks >>= case _ of
+            Left err → Notify.loadParentFail err wiring.notify
+            Right parentDeck → void do
+              let cards = DBC.replacePointer oldId newId cardId parentDeck.cards
+              notifyWith Notify.saveDeckFail wiring.notify
+                $ putDeck path deckId (parentDeck { cards = cards }) wiring.decks
           varMaps ← H.fromEff $ Ref.readRef wiring.urlVarMaps
           let deckHash = mkWorkspaceHash (Deck.deckPath' path newId) (WA.Load state.accessType) varMaps
           H.fromEff $ locationObject >>= Location.setHash deckHash
@@ -247,21 +253,24 @@ peek wiring = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
 
     lift case parent of
       Just (Tuple deckId cardId) → do
-        getDeck path deckId wiring.decks >>= traverse_ \parentDeck → void do
-          let cards = DBC.replacePointer oldId newId cardId parentDeck.cards
-          putDeck path deckId (parentDeck { cards = cards }) wiring.decks
-          for_ cards (DBC.unsafeUpdateCachedDraftboard wiring deckId)
-          transitionDeck $ (wrappedDeck defaultPosition oldId) { parent = parent }
+        getDeck path deckId wiring.decks >>= case _ of
+          Left err → Notify.loadParentFail err wiring.notify
+          Right parentDeck → void do
+            let cards = DBC.replacePointer oldId newId cardId parentDeck.cards
+            notifyWith Notify.saveDeckFail wiring.notify
+              $ putDeck path deckId (parentDeck { cards = cards }) wiring.decks
+            for_ cards (DBC.unsafeUpdateCachedDraftboard wiring deckId)
+            transitionDeck $ (wrappedDeck defaultPosition oldId) { parent = parent }
       Nothing → void do
         transitionDeck $ wrappedDeck defaultPosition oldId
-        Model.setRoot index newId
+        notifyWith Notify.setRootFail wiring.notify
+          $ Model.setRoot index newId
   peekDeck (Deck.DoAction Deck.DeleteDeck _) = do
     st ← H.get
     for_ st.path \path → do
       res ← Quasar.delete $ Left path
       case res of
-        -- TODO: do something to notify the user deleting failed
-        Left err → pure unit
+        Left err → Notify.deleteDeckFail (Exn.message err) wiring.notify
         Right _ → void $ H.fromEff $ setHref $ parentURL $ Left path
   peekDeck (Deck.DoAction Deck.Mirror _) = void $ runMaybeT do
     state ← lift H.get
@@ -291,8 +300,10 @@ peek wiring = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
     if Array.null oldModel.cards
       then do
         let mirrored = oldModel { parent = parentRef }
-        putDeck path oldId mirrored wiring.decks
-        putDeck path newIdMirror mirrored wiring.decks
+        traverse_ (notifyWith Notify.saveDeckFail wiring.notify)
+          [ putDeck path oldId mirrored wiring.decks
+          , putDeck path newIdMirror mirrored wiring.decks
+          ]
       else do
         let
           mirrored = oldModel
@@ -301,16 +312,22 @@ peek wiring = ((const $ pure unit) ⨁ peekDeck) ⨁ (const $ pure unit)
             , cards = []
             , name = oldModel.name
             }
-        putDeck path oldId mirrored wiring.decks
-        putDeck path newIdMirror (mirrored { name = "" }) wiring.decks
-        putDeck path newIdShared (oldModel { name = "" }) wiring.decks
-    putDeck path newIdParent wrappedDeck wiring.decks
+        traverse_ (notifyWith Notify.saveDeckFail wiring.notify)
+          [ putDeck path oldId mirrored wiring.decks
+          , putDeck path newIdMirror (mirrored { name = "" }) wiring.decks
+          , putDeck path newIdShared (oldModel { name = "" }) wiring.decks
+          ]
+    notifyWith Notify.saveDeckFail wiring.notify
+      $ putDeck path newIdParent wrappedDeck wiring.decks
     lift case oldModel.parent of
       Just (Tuple deckId cardId) →
-        getDeck path deckId wiring.decks >>= traverse_ \parentDeck → void do
-          let cards = DBC.replacePointer oldId newIdParent cardId parentDeck.cards
-          putDeck path deckId (parentDeck { cards = cards }) wiring.decks
-          for_ cards (DBC.unsafeUpdateCachedDraftboard wiring deckId)
+        getDeck path deckId wiring.decks >>= case _ of
+          Left err → Notify.loadParentFail err wiring.notify
+          Right parentDeck → void do
+            let cards = DBC.replacePointer oldId newIdParent cardId parentDeck.cards
+            notifyWith Notify.saveDeckFail wiring.notify
+              $ putDeck path deckId (parentDeck { cards = cards }) wiring.decks
+            for_ cards (DBC.unsafeUpdateCachedDraftboard wiring deckId)
       Nothing →
         void $ Model.setRoot index newIdParent
     varMaps ← H.fromEff $ Ref.readRef wiring.urlVarMaps
@@ -330,3 +347,15 @@ querySignIn =
     ∘ H.ChildF (injSlot Header.cpSignIn unit)
     ∘ injQuery Header.cpSignIn
     ∘ left
+
+notifyWith
+  ∷ ∀ m a
+  . (Affable SlamDataEffects m, Monad m)
+  ⇒ Notify.DetailedError
+  → Bus.BusRW Notify.NotificationOptions
+  → m (Either String a)
+  → m Unit
+notifyWith notify bus action =
+  action >>= case _ of
+    Left err → notify err bus
+    Right _  → pure unit

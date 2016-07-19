@@ -65,6 +65,7 @@ import SlamData.Workspace.Deck.Component.State as DCS
 import SlamData.Workspace.Deck.DeckId (DeckId, deckIdToString, freshDeckId)
 import SlamData.Workspace.Deck.DeckLevel as DL
 import SlamData.Workspace.Deck.Model as DM
+import SlamData.Workspace.Notification as Notify
 import SlamData.Workspace.Wiring (putDeck)
 
 import Utils.CSS (zIndex)
@@ -417,8 +418,7 @@ addDeckAt { deck: opts, deckId: parentId, cardId } deck deckPos = do
   putDeck opts.path deckId deck' opts.wiring.decks >>= case _ of
     Left err → do
       H.modify $ _inserting .~ false
-      -- TODO: do something to notify the user saving failed
-      pure unit
+      Notify.saveDeckFail err opts.wiring.notify
     Right _ → void do
       H.modify \s → s
         { decks = Map.insert deckId deckPos s.decks
@@ -431,8 +431,7 @@ deleteDeck { deck } deckId = do
   res ← deleteGraph deck.path deckId
   case res of
     Left err →
-      -- TODO: do something to notify the user deleting failed
-      pure unit
+      Notify.deleteDeckFail err deck.wiring.notify
     Right _ →
       H.modify \s → s { decks = Map.delete deckId s.decks }
 
@@ -444,9 +443,8 @@ wrapDeck { cardId, deckId: parentId, deck } oldId = do
       newDeck = (wrappedDeck deckPos' oldId) { parent = Just (parentId × cardId) }
     newId ← H.fromEff freshDeckId
     putDeck deck.path newId newDeck deck.wiring.decks >>= case _ of
-      Left err → do
-        -- TODO: do something to notify the user saving failed
-        pure unit
+      Left err →
+        Notify.saveDeckFail err deck.wiring.notify
       Right _ → void do
         traverse_ (queryDeck oldId ∘ H.action)
           [ DCQ.SetParent (newId × CID.CardId 0)
@@ -509,9 +507,8 @@ mirrorDeck opts oldId = do
             }
         newId ← H.fromEff freshDeckId
         putDeck opts.deck.path newId newDeck opts.deck.wiring.decks >>= case _ of
-          Left _ →
-            -- TODO: do something to notify the user saving failed
-            pure unit
+          Left err →
+            Notify.saveDeckFail err opts.deck.wiring.notify
           Right _ → do
             let modelCards'' = modelCards'.init <> map (lmap (const newId)) modelCards'.rest
             queryDeck oldId $ H.action $ DCQ.SetModelCards modelCards''
@@ -560,9 +557,8 @@ groupDecks { cardId, deckId, deck } deckFrom deckTo = do
             }
         newId ← H.fromEff freshDeckId
         putDeck deck.path newId newDeck deck.wiring.decks >>= case _ of
-          Left err → do
-            -- TODO: do something to notify the user saving failed
-            pure unit
+          Left err →
+            Notify.saveDeckFail err deck.wiring.notify
           Right _ → void do
             H.modify \s → s
               { decks

@@ -69,11 +69,12 @@ setRoot
   . (Monad m, Affable (QEff eff) m)
   ⇒ FilePath
   → DeckId
-  → m (Either Exn.Error Unit)
+  → m (Either String Unit)
 setRoot file root =
-  QD.save file
-    $ encode
-    $ { root: Just root }
+  map (lmap Exn.message)
+    $ QD.save file
+        $ encode
+        $ { root: Just root }
 
 liftExn ∷ ∀ m a. (Monad m) ⇒ m (Either String a) → ExceptT Exn.Error m a
 liftExn = withExceptT Exn.error ∘ ExceptT
