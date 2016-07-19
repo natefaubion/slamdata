@@ -17,6 +17,7 @@ limitations under the License.
 module SlamData.Notification.Component
   ( State
   , Query(..)
+  , NotificationItem
   , comp
   , initialState
   ) where
@@ -42,9 +43,16 @@ import Halogen.HTML.Properties.Indexed as HP
 
 type State =
   { tick ∷ Int
-  , queue ∷ Array ((AVar Unit) × N.NotificationOptions)
-  , current ∷ Maybe ((AVar Unit) × N.Notification)
-  , dismissed ∷ Maybe ((AVar Unit) × N.Notification)
+  , queue ∷ Array NotificationItem
+  , current ∷ Maybe NotificationItem
+  , dismissed ∷ Maybe NotificationItem
+  }
+
+type NotificationItem =
+  { id ∷ Int
+  , dismiss ∷ AVar Unit
+  , options ∷ N.NotificationOptions
+  , expanded ∷ Boolean
   }
 
 initialState ∷ State
@@ -58,7 +66,8 @@ initialState =
 data Query a
   = Init a
   | Push N.NotificationOptions a
-  | Dismiss (AVar Unit) a
+  | ToggleDetail a
+  | Dismiss a
 
 data Status
   = Current
@@ -89,31 +98,43 @@ render st =
     ]
 
   where
-  renderNotification status = maybe (HH.text "") \(dismiss × n) →
+  renderNotification status = maybe (HH.text "") \n →
     HH.div
       [ HP.class_ (HH.className "sd-notification-spacer")
-      , notificationKey status
+      , HP.key (show n.id)
       ]
       [ HH.div
-          [ HP.classes (notificationClasses status n) ]
+          [ HP.classes (notificationClasses status n.options.notification) ]
           [ HH.div
               [ HP.class_ (HH.className "sd-notification-text") ]
-              [ HH.text (notificationText n) ]
+              [ HH.text (notificationText n.options.notification)
+              , renderDetail n
+              ]
           , HH.div
               [ HP.class_ (HH.className "sd-notification-buttons") ]
               [ HH.button
                   [ HP.class_ (HH.className "sd-notification-dismiss")
                   , HP.buttonType HP.ButtonButton
-                  , HE.onClick (HE.input_ (Dismiss dismiss))
+                  , HE.onClick (HE.input_ Dismiss)
                   ]
                   [ HH.text "×" ]
               ]
           ]
       ]
 
-  notificationKey = case _ of
-    Current → HP.key $ "current-" ⊕ show st.tick
-    Dismissed → HP.key $ "dismissed-" ⊕ show st.tick
+  renderDetail n = n.options.detail # maybe (HH.text "") \d →
+    HH.div
+      [ HP.class_ (HH.className "sd-notification-detail") ]
+      [ HH.button
+          [ HP.class_ (HH.className "sd-notification-toggle-detail")
+          , HP.buttonType HP.ButtonButton
+          , HE.onClick (HE.input_ ToggleDetail)
+          ]
+          [ HH.text if n.expanded then "Hide detail" else "Show detail" ]
+      , if n.expanded
+          then HH.p_ [ HH.text d ]
+          else HH.text ""
+      ]
 
   notificationClasses status n =
     [ HH.className "sd-notification"
@@ -138,14 +159,30 @@ eval
 eval bus = case _ of
   Init next →
     forever (raise <<< H.action <<< Push =<< H.fromAff (Bus.read bus))
-  Push opts next → do
+  Push options next → do
+    st ← H.get
     dismiss ← H.fromAff makeVar
-    H.modify \s → s { queue = Array.snoc s.queue (dismiss × opts) }
-    current ← H.gets _.current
-    when (isNothing current) drainQueue
+    let item =
+          { id: st.tick
+          , dismiss
+          , options
+          , expanded: false
+          }
+    H.modify _
+      { tick = st.tick + 1
+      , queue = Array.snoc st.queue item
+      }
+    when (isNothing st.current) drainQueue
     pure next
-  Dismiss dismiss next → do
-    H.fromAff $ putVar dismiss unit
+  Dismiss next → do
+    current ← H.gets _.current
+    for_ current \{ dismiss } →
+      H.fromAff $ putVar dismiss unit
+    pure next
+  ToggleDetail next → do
+    current ← H.gets _.current
+    for_ current \curr →
+      H.modify _ { current = Just curr { expanded = not curr.expanded } }
     pure next
 
 drainQueue ∷ NotifyDSL Unit
@@ -154,20 +191,18 @@ drainQueue = do
   case Array.uncons st.queue of
     Nothing → do
       H.modify _
-        { tick = st.tick + 1
-        , current = Nothing
+        { current = Nothing
         , dismissed = st.current
         }
-    Just { head: dismiss × opts, tail } → do
+    Just { head, tail } → do
       H.modify _
         { queue = tail
-        , tick = st.tick + 1
-        , current = Just (dismiss × opts.notification)
+        , current = Just head
         , dismissed = st.current
         }
 
-      for_ opts.timeout \(Milliseconds ms) →
-        H.fromAff $ forkAff $ later' (Int.floor ms) (putVar dismiss unit)
+      for_ head.options.timeout \(Milliseconds ms) →
+        H.fromAff $ forkAff $ later' (Int.floor ms) (putVar head.dismiss unit)
 
-      H.fromAff $ takeVar dismiss
+      H.fromAff $ takeVar head.dismiss
       drainQueue

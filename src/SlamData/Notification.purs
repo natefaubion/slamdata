@@ -38,6 +38,7 @@ data Notification
 
 type NotificationOptions =
   { notification ∷ Notification
+  , detail ∷ Maybe String
   , timeout ∷ Maybe Milliseconds
   }
 
@@ -45,16 +46,18 @@ notify_
   ∷ ∀ r m eff
   . (Affable (avar ∷ AVAR | eff) m)
   ⇒ Notification
+  → Maybe String
   → Maybe Milliseconds
   → Bus (write ∷ Cap | r) NotificationOptions
   → m Unit
-notify_ notification timeout bus =
-  fromAff $ write { notification, timeout } bus
+notify_ notification detail timeout bus =
+  fromAff $ write { notification, detail, timeout } bus
 
 info_
   ∷ ∀ r m eff
   . (Affable (avar ∷ AVAR | eff) m)
   ⇒ String
+  → Maybe String
   → Maybe Milliseconds
   → Bus (write ∷ Cap | r) NotificationOptions
   → m Unit
@@ -64,6 +67,7 @@ warn_
   ∷ ∀ r m eff
   . (Affable (avar ∷ AVAR | eff) m)
   ⇒ String
+  → Maybe String
   → Maybe Milliseconds
   → Bus (write ∷ Cap | r) NotificationOptions
   → m Unit
@@ -73,6 +77,7 @@ error_
   ∷ ∀ r m eff
   . (Affable (avar ∷ AVAR | eff) m)
   ⇒ String
+  → Maybe String
   → Maybe Milliseconds
   → Bus (write ∷ Cap | r) NotificationOptions
   → m Unit
