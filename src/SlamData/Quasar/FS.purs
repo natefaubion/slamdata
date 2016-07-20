@@ -23,6 +23,7 @@ module SlamData.Quasar.FS
   , delete
   , messageIfFileNotFound
   , dirNotAccessible
+  , fileNotAccessible
   ) where
 
 import SlamData.Prelude
@@ -297,4 +298,18 @@ dirNotAccessible path =
   handleResult (Left (QF.Error e)) = Just $ Exn.message e
   handleResult (Left QF.NotFound) = Just "Target directory does not exist."
   handleResult (Left QF.Forbidden) = Just "Your browser isn't currently permitted to access that directory."
+  handleResult (Right _) = Nothing
+
+fileNotAccessible
+  ∷ ∀ eff m
+  . (Monad m, Affable (QEff eff) m)
+  ⇒ FilePath
+  → m (Maybe String)
+fileNotAccessible path =
+  handleResult <$> runQuasarF (QF.fileMetadata path)
+  where
+  handleResult ∷ ∀ a. Either QF.QError a → Maybe String
+  handleResult (Left (QF.Error e)) = Just $ Exn.message e
+  handleResult (Left QF.NotFound) = Just "Target file does not exist."
+  handleResult (Left QF.Forbidden) = Just "Your browser isn't currently permitted to access that file."
   handleResult (Right _) = Nothing

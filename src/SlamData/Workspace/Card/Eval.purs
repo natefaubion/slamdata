@@ -173,7 +173,9 @@ evalQuery info sql varMap = do
   compileResult ← lift $ QQ.compile backendPath sql varMap'
   case compileResult of
     Left err → EC.throwError $ "Error compiling query: " ⊕ Exn.message err
-    Right {inputs} → CET.addSources inputs
+    Right { inputs } → do
+      validateResources inputs
+      CET.addSources inputs
   liftQ do
     QQ.viewQuery backendPath resource sql varMap'
     QFS.messageIfFileNotFound resource "Requested collection doesn't exist"
@@ -205,7 +207,9 @@ evalSearch info queryText resource = do
   compileResult ← lift $ QQ.compile (Right resource) sql SM.empty
   case compileResult of
     Left err → EC.throwError $ "Error compiling query: " ⊕ Exn.message err
-    Right {inputs} → CET.addSources inputs
+    Right { inputs } → do
+      validateResources inputs
+      CET.addSources inputs
 
   liftQ do
     QQ.viewQuery (Right resource) outputResource template SM.empty
@@ -227,3 +231,15 @@ runEvalCard
 runEvalCard input =
   CET.runCardEvalT ∘
     evalCard input
+
+-- TODO: This really needs to be parallel, but we need `MonadPar`.
+validateResources
+  ∷ ∀ m f
+  . (Monad m, Affable SlamDataEffects m, Foldable f)
+  ⇒ f FilePath
+  → CET.CardEvalT m Unit
+validateResources =
+  traverse_ \path → do
+    noAccess ← lift $ QFS.fileNotAccessible path
+    for_ noAccess \reason →
+      EC.throwError $ "Resource unavailable: `" ⊕ Path.printPath path ⊕ "`. " ⊕ reason
