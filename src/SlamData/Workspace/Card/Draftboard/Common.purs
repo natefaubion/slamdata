@@ -137,7 +137,7 @@ deleteGraph path parentId = fromAff $ runExceptT do
 
 replacePointer
   ∷ DeckId
-  → DeckId
+  → Maybe DeckId
   → CardId
   → Array (CM.Model)
   → Array (CM.Model)
@@ -155,7 +155,7 @@ replacePointer from to cid = map replace
       Just rect →
         decks
           # Map.delete from
-          # Map.insert to rect
+          # maybe id (flip Map.insert rect) to
 
 -- | This shouldn't be done in general, but since draftboards have no inputs or
 -- | outputs it's OK to just swap out the model for the cached card eval.

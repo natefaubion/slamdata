@@ -128,7 +128,7 @@ putDeck
   → DeckId
   → Deck
   → Cache DeckId DeckRef
-  → m (Either String Deck)
+  → m (Either String Unit)
 putDeck path deckId deck cache = fromAff do
   ref ← defer do
     res ← Quasar.save (deckIndex path deckId) $ encode deck
@@ -136,7 +136,7 @@ putDeck path deckId deck cache = fromAff do
       modifyVar (Map.delete deckId) cache
     pure $ bimap message (const deck) res
   modifyVar (Map.insert deckId ref) cache
-  wait ref
+  rmap (const unit) <$> wait ref
 
 putDeck'
   ∷ ∀ m

@@ -200,7 +200,7 @@ render state =
         , HP.buttonType HP.ButtonButton
         ] ⊕ if enabled then [ HE.onClick (HE.input_ (DoAction action)) ] else [ ]
 
-      enabled = Str.contains filterString (Str.toLower $ labelAction action)
+      enabled = Str.contains filterString (Str.toLower $ labelAction action) && actionEnabled state action
       lbl = labelAction action ⊕ if enabled then "" else " disabled"
       icon = actionGlyph action
 
