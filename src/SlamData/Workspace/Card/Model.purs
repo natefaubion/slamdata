@@ -19,7 +19,6 @@ module SlamData.Workspace.Card.Model
   , AnyCardModel(..)
   , encode
   , decode
-  , modelToEval
   , cardModelOfType
   , modelCardType
   ) where
@@ -31,7 +30,6 @@ import Data.Argonaut as J
 
 import SlamData.FileSystem.Resource as R
 
-import SlamData.Workspace.Card.Eval as Eval
 import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Ace.Model as Ace
@@ -218,21 +216,3 @@ cardModelOfType =
     CT.ErrorCard → ErrorCard
     CT.NextAction → NextAction
     CT.PendingCard → PendingCard
-
-modelToEval
-  ∷ AnyCardModel
-  → Either String Eval.Eval
-modelToEval =
-  case _ of
-    Ace CT.SQLMode model → pure $ Eval.Query $ fromMaybe "" $ _.text <$> model
-    Ace CT.MarkdownMode model → pure $ Eval.Markdown $ fromMaybe "" $ _.text <$> model
-    Markdown model → pure $ Eval.MarkdownForm model
-    Search txt → pure $ Eval.Search txt
-    Cache fp → pure $ Eval.Cache fp
-    Open (Just res) → pure $ Eval.Open res
-    Open _ → Left $ "Open model missing resource"
-    Variables model → pure $ Eval.Variables model
-    ChartOptions model → pure $ Eval.ChartOptions model
-    DownloadOptions model → pure $ Eval.DownloadOptions model
-    Draftboard _ → pure Eval.Draftboard
-    _ → pure Eval.Pass

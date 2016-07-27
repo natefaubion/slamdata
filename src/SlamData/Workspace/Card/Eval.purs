@@ -35,6 +35,7 @@ import SlamData.FileSystem.Resource as R
 import SlamData.Quasar.FS as QFS
 import SlamData.Quasar.Query as QQ
 import SlamData.Workspace.Card.Cache.Eval as Cache
+import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.ChartOptions.Eval as ChartE
 import SlamData.Workspace.Card.ChartOptions.Model as ChartOptions
 import SlamData.Workspace.Card.DownloadOptions.Component.State as DO
@@ -42,6 +43,7 @@ import SlamData.Workspace.Card.Eval.CardEvalT as CET
 import SlamData.Workspace.Card.Markdown.Component.State.Core as MDS
 import SlamData.Workspace.Card.Markdown.Eval as MDE
 import SlamData.Workspace.Card.Markdown.Model as MD
+import SlamData.Workspace.Card.Model as CM
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Search.Interpret as Search
 import SlamData.Workspace.Card.Variables.Eval as VariablesE
@@ -243,3 +245,21 @@ validateResources =
     noAccess ← lift $ QFS.fileNotAccessible path
     for_ noAccess \reason →
       EC.throwError $ "Resource unavailable: `" ⊕ Path.printPath path ⊕ "`. " ⊕ reason
+
+modelToEval
+  ∷ CM.AnyCardModel
+  → Either String Eval
+modelToEval =
+  case _ of
+    CM.Ace CT.SQLMode model → pure $ Query $ fromMaybe "" $ _.text <$> model
+    CM.Ace CT.MarkdownMode model → pure $ Markdown $ fromMaybe "" $ _.text <$> model
+    CM.Markdown model → pure $ MarkdownForm model
+    CM.Search txt → pure $ Search txt
+    CM.Cache fp → pure $ Cache fp
+    CM.Open (Just res) → pure $ Open res
+    CM.Open _ → Left $ "Open model missing resource"
+    CM.Variables model → pure $ Variables model
+    CM.ChartOptions model → pure $ ChartOptions model
+    CM.DownloadOptions model → pure $ DownloadOptions model
+    CM.Draftboard _ → pure Draftboard
+    _ → pure Pass

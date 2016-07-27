@@ -645,7 +645,7 @@ evalCard bus path urlVarMaps input card = do
   output ← H.fromAff $ Pr.defer do
     input' ← for input Pr.wait
     let model = (snd card).model
-    case Card.modelToEval model of
+    case Eval.modelToEval model of
       Left err → do
         AE.track (AE.ErrorInCardEval $ Card.modelCardType model) bus
         pure $ (Port.CardError $ "Could not evaluate card: " <> err) × mempty
