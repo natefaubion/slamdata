@@ -23,7 +23,6 @@ module SlamData.Workspace.Card.Eval.CardEvalT
   , addCaches
   , additionalSources
   , runCardEvalT
-  , runCardEvalT_
   , temporaryOutputResource
   ) where
 
@@ -107,14 +106,6 @@ runCardEvalT
 runCardEvalT (CardEvalT m) =
   RWS.runRWST (ET.runExceptT m) Port.Blocked CM.ErrorCard <#> \(RWS.RWSResult _ r ms) →
     (either Port.CardError id r) × ms
-
--- TODO: Remove this function, it makes no sense.
-runCardEvalT_
-  ∷ ∀ m
-  . Functor m
-  ⇒ CardEvalT m Unit → m Unit
-runCardEvalT_ (CardEvalT m) =
-  RWS.runRWST (ET.runExceptT m) Port.Blocked CM.ErrorCard <#> \(RWS.RWSResult _ x _) → either (const unit) id x
 
 addSource
   ∷ ∀ m

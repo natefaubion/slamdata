@@ -24,6 +24,7 @@ import SlamData.Prelude
 
 import Control.Monad.Eff.Exception as Exn
 import Control.Monad.Error.Class (throwError)
+import Control.Monad.Except.Trans (ExceptT, runExceptT)
 
 import Data.Argonaut.Core as JSON
 import Data.Int as Int
@@ -34,7 +35,6 @@ import Halogen as H
 import SlamData.Effects (Slam)
 import SlamData.Quasar.Query as Quasar
 import SlamData.Workspace.Card.CardType as CT
-import SlamData.Workspace.Card.Common.EvalQuery as CEQ
 import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Table.Component.Query (QueryP, PageStep(..), Query(..))
 import SlamData.Workspace.Card.Table.Component.Render (render)
@@ -60,7 +60,7 @@ tableComponent =
 evalCard ∷ CC.CardEvalQuery ~> DSL
 evalCard = case _ of
   CC.EvalCard info output next → do
-    for_ info.input $ CEQ.runCardEvalT_ ∘ runTable
+    for_ info.input $ runExceptT ∘ runTable
     pure next
   CC.Activate next →
     pure next
@@ -85,7 +85,7 @@ evalCard = case _ of
 
 runTable
   ∷ Port.Port
-  → CC.CardEvalT (H.ComponentDSL JTS.State QueryP Slam) Unit
+  → ExceptT String (H.ComponentDSL JTS.State QueryP Slam) Unit
 runTable =
   case _ of
     Port.TaggedResource trp → updateTable trp
@@ -93,7 +93,7 @@ runTable =
 
 updateTable
   ∷ Port.TaggedResourcePort
-  → CC.CardEvalT (H.ComponentDSL JTS.State QueryP Slam) Unit
+  → ExceptT String (H.ComponentDSL JTS.State QueryP Slam) Unit
 updateTable { resource, tag } = do
   oldInput ← lift $ H.gets _.input
   when (((oldInput <#> _.resource) ≠ pure resource) || ((oldInput >>= _.tag) ≠ tag))
@@ -147,5 +147,5 @@ refresh ∷ DSL Unit
 refresh = do
   input ← H.gets _.input
   for_ input \{ resource, tag } →
-    CEQ.runCardEvalT_ $ updateTable { resource, tag }
+    runExceptT $ updateTable { resource, tag }
   CC.raiseUpdatedC' CC.StateOnlyUpdate
