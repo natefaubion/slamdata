@@ -16,6 +16,8 @@ limitations under the License.
 
 module SlamData.Workspace.Card.Eval.CardEvalT
   ( CardEvalInput
+  , CardEvalMeta(..)
+  , CardEvalResult
   , CardEvalT
   , addSource
   , addCache
@@ -24,6 +26,7 @@ module SlamData.Workspace.Card.Eval.CardEvalT
   , additionalSources
   , runCardEvalT
   , temporaryOutputResource
+  , evalInput
   ) where
 
 import SlamData.Prelude
@@ -56,7 +59,15 @@ type CardEvalInput =
   , urlVarMaps ∷ Map.Map DID.DeckId Port.URLVarMap
   }
 
-type CardEvalTP m = ET.ExceptT String (RWS.RWST Port.Port (Set.Set AdditionalSource) CM.AnyCardModel m)
+newtype CardEvalMeta = CardEvalMeta CardEvalInput
+
+type CardEvalResult =
+  { sources ∷ Set.Set AdditionalSource
+  , output ∷ Port.Port
+  , model ∷ CM.AnyCardModel
+  }
+
+type CardEvalTP m = ET.ExceptT String (RWS.RWST CardEvalMeta (Set.Set AdditionalSource) CM.AnyCardModel m)
 
 newtype CardEvalT m a = CardEvalT (CardEvalTP m a)
 
@@ -80,7 +91,7 @@ instance monadCardEvalT ∷ Monad m ⇒ Monad (CardEvalT m)
 instance monadTransCardEvalT ∷ MonadTrans CardEvalT where
   lift = lift ⋙ lift ⋙ CardEvalT
 
-instance monadReaderCardEvalT ∷ Monad m ⇒ RC.MonadReader Port.Port (CardEvalT m) where
+instance monadReaderCardEvalT ∷ Monad m ⇒ RC.MonadReader CardEvalMeta (CardEvalT m) where
   ask = CardEvalT RC.ask
   local f = getCardEvalT ⋙ RC.local f ⋙ CardEvalT
 
@@ -96,16 +107,19 @@ instance monadErrorCardEvalT ∷ Monad m ⇒ EC.MonadError String (CardEvalT m) 
   throwError = EC.throwError ⋙ CardEvalT
   catchError (CardEvalT m) = CardEvalT ∘ EC.catchError m ∘ (getCardEvalT ∘ _)
 
--- TODO: Take previous model state
--- TODO: Take Port environment
 runCardEvalT
   ∷ ∀ m
   . Functor m
-  ⇒ CardEvalT m Port.Port
-  → m (Port.Port × (Set.Set AdditionalSource))
-runCardEvalT (CardEvalT m) =
-  RWS.runRWST (ET.runExceptT m) Port.Blocked CM.ErrorCard <#> \(RWS.RWSResult _ r ms) →
-    (either Port.CardError id r) × ms
+  ⇒ CardEvalInput
+  → CM.AnyCardModel
+  → CardEvalT m Port.Port
+  → m CardEvalResult
+runCardEvalT input model (CardEvalT m) =
+  RWS.runRWST (ET.runExceptT m) (CardEvalMeta input) model <#> \(RWS.RWSResult s r ms) →
+    { sources: ms
+    , output: either Port.CardError id r
+    , model: s
+    }
 
 addSource
   ∷ ∀ m
@@ -151,3 +165,11 @@ temporaryOutputResource { path, cardCoord: deckId × cardId } =
     </> Path.dir ".tmp"
     </> Path.dir (DID.deckIdToString deckId)
     </> Path.file ("out" ⊕ CID.cardIdToString cardId)
+
+evalInput
+  ∷ ∀ m
+  . (RC.MonadReader CardEvalMeta m)
+  ⇒ m CardEvalInput
+evalInput = do
+  CardEvalMeta input ← RC.ask
+  pure input

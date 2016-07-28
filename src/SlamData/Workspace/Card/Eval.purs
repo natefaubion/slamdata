@@ -26,7 +26,6 @@ import Control.Monad.Error.Class as EC
 import Data.Lens ((^?))
 import Data.Path.Pathy as Path
 import Data.StrMap as SM
-import Data.Set as Set
 
 import Quasar.Types (SQL, FilePath)
 
@@ -48,7 +47,6 @@ import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Search.Interpret as Search
 import SlamData.Workspace.Card.Variables.Eval as VariablesE
 import SlamData.Workspace.Card.Variables.Model as Variables
-import SlamData.Workspace.Deck.AdditionalSource (AdditionalSource)
 
 import Text.SlamSearch as SS
 import Text.Markdown.SlamDown as SD
@@ -87,11 +85,11 @@ instance showEval ∷ Show Eval where
 evalCard
   ∷ ∀ m
   . (Monad m, Affable SlamDataEffects m)
-  ⇒ CET.CardEvalInput
-  → Eval
+  ⇒ Eval
   → CET.CardEvalT m Port.Port
-evalCard input =
-  case _, input.input of
+evalCard eval = do
+  input ← CET.evalInput
+  case eval, input.input of
     Error msg, _ →
       pure $ Port.CardError msg
     _, Just Port.Blocked →
@@ -228,11 +226,11 @@ runEvalCard
   ∷ ∀ m
   . (Monad m, Affable SlamDataEffects m)
   ⇒ CET.CardEvalInput
+  → CM.AnyCardModel
   → Eval
-  → m (Port.Port × (Set.Set AdditionalSource))
-runEvalCard input =
-  CET.runCardEvalT ∘
-    evalCard input
+  → m CET.CardEvalResult
+runEvalCard input model =
+  CET.runCardEvalT input model ∘ evalCard
 
 -- TODO: This really needs to be parallel, but we need `MonadPar`.
 validateResources

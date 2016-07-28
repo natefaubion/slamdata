@@ -593,7 +593,7 @@ runPendingCards opts source pendingCard pendingCards = do
 
   for_ pendingCards \cards → do
     input ← join <$> for prevCard (flip getCache opts.wiring.cards)
-    steps ← resume st (input >>= _.output <#> map fst) cards
+    steps ← resume st (input >>= _.result <#> map _.output) cards
     runCardUpdates opts source steps
 
   where
@@ -609,7 +609,7 @@ runPendingCards opts source pendingCard pendingCards = do
             putCardEval ev pendingCards
             putCardEval ev opts.wiring.cards
             pure ev
-      go (L.Cons step steps) (map (map fst) step.output) cs
+      go (L.Cons step steps) (map (map _.output) step.result) cs
 
 -- | When we initially eval a deck we want to use whatever is in the main cache.
 -- | If we were to just queuePendingCard then everything would get freshly
@@ -642,25 +642,32 @@ evalCard
   → DeckId × Card.Model
   → DeckDSL CardEval
 evalCard bus path urlVarMaps input card = do
-  output ← H.fromAff $ Pr.defer do
+  result ← H.fromAff $ Pr.defer do
     input' ← for input Pr.wait
     let model = (snd card).model
     case Eval.modelToEval model of
       Left err → do
         AE.track (AE.ErrorInCardEval $ Card.modelCardType model) bus
-        pure $ (Port.CardError $ "Could not evaluate card: " <> err) × mempty
-      Right cmd → do
-        out@(Tuple p _) ← flip Eval.runEvalCard cmd
-          { path
-          , urlVarMaps
-          , cardCoord: DCS.coordModelToCoord card
-          , input: input'
+        pure
+          { sources: mempty ∷ Set.Set AdditionalSource
+          , output: Port.CardError $ "Could not evaluate card: " <> err
+          , model
           }
-        case p of
+      Right cmd → do
+        res ←
+          Eval.runEvalCard
+            { path
+            , urlVarMaps
+            , cardCoord: DCS.coordModelToCoord card
+            , input: input'
+            }
+            model
+            cmd
+        case res.output of
           Port.CardError _ → AE.track (AE.ErrorInCardEval $ Card.modelCardType model) bus
           _ → pure unit
-        pure out
-  pure { input, card, output: Just output }
+        pure res
+  pure { input, card, result: Just result }
 
 -- | Interprets a list of pending card evaluations into updates for the
 -- | display cards. Takes care of the pending card, next action card and
@@ -674,8 +681,8 @@ runCardUpdates opts source steps = do
     pendingCm = st.id × pendingEvalCard
     nextActionStep =
       { card: st.id × nextActionCard
-      , input: map (map fst) <$> _.output =<< L.last steps
-      , output: Nothing
+      , input: map (map _.output) <$> _.result =<< L.last steps
+      , result: Nothing
       }
     updateSteps =
       if AT.isEditable opts.accessType
@@ -720,13 +727,13 @@ runCardUpdates opts source steps = do
         , updates: L.reverse updates
         }
     { steps: L.Cons x xs, cards, updates } → do
-      output ← sequence x.output
+      result ← sequence x.result
       let cards' = L.Cons x.card cards
           updates' = L.Cons x updates
-      updateCards st $ case output of
-        Just ((Port.CardError err) × _) →
+      updateCards st $ case result of
+        Just { output: Port.CardError err } →
           let errorCard' = st.id × errorCard
-              errorStep  = { input: map (map fst) $ x.output, output: Nothing, card: errorCard' }
+              errorStep  = { input: map _.output <$> x.result, result: Nothing, card: errorCard' }
           in
               { steps: L.Nil
               , cards: L.Cons errorCard' cards'
@@ -746,12 +753,12 @@ runCardUpdates opts source steps = do
     → DeckDSL Unit
   updateCard st source loadedCards step = void do
     input ← for step.input (H.fromAff ∘ Pr.wait)
-    output ← for step.output (H.fromAff ∘ Pr.wait)
+    result ← for step.result (H.fromAff ∘ Pr.wait)
     urlVarMaps ← H.fromEff $ Ref.readRef opts.wiring.urlVarMaps
     let
       cardCoord = DCS.coordModelToCoord step.card
       evalInput = { path: st.path, urlVarMaps, input, cardCoord }
-      newSet = foldMap snd output
+      newSet = foldMap _.sources result
 
     H.modify $ DCS._additionalSources %~ Map.insert cardCoord newSet
 
@@ -760,7 +767,7 @@ runCardUpdates opts source steps = do
     when (not (Set.member cardCoord loadedCards) || st.id ≠ source) $ void do
       queryCardEval cardCoord $ H.action $ LoadCard (snd step.card)
 
-    queryCardEval cardCoord $ H.action $ UpdateCard evalInput (map fst output)
+    queryCardEval cardCoord $ H.action $ UpdateCard evalInput (_.output <$> result)
 
 -- | Enqueues the card with the specified ID in the set of cards that are
 -- | pending to run and enqueues a debounced query to trigger the cards to

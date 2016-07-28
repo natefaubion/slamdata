@@ -42,26 +42,25 @@ import Control.Monad.Eff.Exception (message)
 import Control.Monad.Eff.Ref (Ref, newRef)
 
 import Data.Map as Map
-import Data.Set as Set
 
 import SlamData.Analytics.Event as AE
 import SlamData.Effects (SlamDataEffects)
 import SlamData.Notification as N
 import SlamData.Quasar.Data as Quasar
+import SlamData.Workspace.Card.Eval.CardEvalT as CET
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.Port (Port)
 import SlamData.Workspace.Card.Port.VarMap as Port
 import SlamData.Workspace.Deck.Model (Deck, deckIndex, decode, encode)
 import SlamData.Workspace.Deck.DeckId (DeckId)
-import SlamData.Workspace.Deck.AdditionalSource (AdditionalSource)
 
 import Utils.Path (DirPath)
 
 type CardEval =
   { card ∷ DeckId × Card.Model
   , input ∷ Maybe (Promise Port)
-  , output ∷ Maybe (Promise (Port × (Set.Set AdditionalSource)))
+  , result ∷ Maybe (Promise CET.CardEvalResult)
   }
 
 type DeckRef = Promise (Either String Deck)
