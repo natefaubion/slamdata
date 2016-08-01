@@ -56,10 +56,10 @@ markdownEval
   ∷ ∀ m
   . (Monad m, AffF.Affable SlamDataEffects m)
   ⇒ CET.CardEvalInput
-  → String
+  → Maybe String
   → CET.CardEvalT m Port.Port
 markdownEval { input, path } str =
-  case SDP.parseMd str of
+  case SDP.parseMd (fromMaybe "" str) of
     Left e → Err.throwError e
     Right sd → do
       let

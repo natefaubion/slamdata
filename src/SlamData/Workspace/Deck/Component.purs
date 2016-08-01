@@ -569,13 +569,12 @@ queuePendingCard
   → DeckDSL Unit
 queuePendingCard wiring (pendingCoord@(deckId × cardId)) = do
   st ← H.get
-  cm ← runMaybeT do
-    card ← MaybeT $ pure $ snd <$> find (DCS.eqCoordModel pendingCoord) st.modelCards
-    MaybeT $ queryCardEval pendingCoord $ H.request (SaveCard cardId $ Card.modelCardType card.model)
-  for_ cm \pendingCard →
+  for_ (find (DCS.eqCoordModel pendingCoord) st.modelCards) \(_ × card) → do
+    latest ← queryCardEval pendingCoord $ H.request (SaveCard cardId $ Card.modelCardType card.model)
+    let pendingCard = deckId × fromMaybe card latest
     H.fromAff do
       cards ← makeCache
-      Bus.write { source: st.id, pendingCard: deckId × pendingCard, cards } wiring.pending
+      Bus.write { source: st.id, pendingCard, cards } wiring.pending
     -- TODO: Probably save here with new model instead of debouncing elsewhere?
 
 runPendingCards
@@ -584,30 +583,32 @@ runPendingCards
   → DeckId × Card.Model
   → Cache (DeckId × CardId) CardEval
   → DeckDSL Unit
-runPendingCards opts source pendingCard pendingCards = do
+runPendingCards opts source pendingCard pendingCache = do
   st ← H.get
   let
     pendingCoord = DCS.coordModelToCoord pendingCard
     splitCards = L.span (not ∘ DCS.eqCoordModel pendingCoord) $ L.fromFoldable st.modelCards
     prevCard = DCS.coordModelToCoord <$> L.last splitCards.init
-    pendingCards = L.Cons pendingCard <$> L.tail splitCards.rest
 
-  for_ pendingCards \cards → do
-    input ← join <$> for prevCard (flip getCache opts.wiring.cards)
-    steps ← resume st (input >>= _.result <#> map _.output) cards
-    runCardUpdates opts source steps
+  input ← join <$> for prevCard (flip getCache opts.wiring.cards)
+  steps ← resume st (input >>= _.result <#> map _.output) splitCards.rest
+  runCardUpdates opts source steps
 
   where
   resume st = go L.Nil where
     go steps input L.Nil = pure $ L.reverse steps
     go steps input (L.Cons c cs) = do
+      let coord = DCS.coordModelToCoord c
       step ←
-        getCache (DCS.coordModelToCoord c) pendingCards >>= case _ of
+        getCache coord pendingCache >>= case _ of
           Just ev → pure ev
           Nothing → do
             urlVarMaps ← H.fromEff $ Ref.readRef opts.wiring.urlVarMaps
             ev ← evalCard opts.wiring.analytics st.path urlVarMaps input c
-            putCardEval ev pendingCards
+              if coord ≡ DCS.coordModelToCoord pendingCard
+                then Eval.Eval (snd pendingCard).model
+                else Eval.Eval (snd c).model
+            putCardEval ev pendingCache
             putCardEval ev opts.wiring.cards
             pure ev
       go (L.Cons step steps) (map (map _.output) step.result) cs
@@ -641,20 +642,20 @@ evalCard
   → Map.Map DeckId Port.URLVarMap
   → Maybe (Pr.Promise Port)
   → DeckId × Card.Model
+  → Eval.Eval
   → DeckDSL CardEval
-evalCard bus path urlVarMaps input card = do
+evalCard bus path urlVarMaps input card evalModel = do
   result ← H.fromAff $ Pr.defer do
     input' ← for input Pr.wait
-    let model = (snd card).model
-    res ←
-      Eval.runEvalCard
+    let
+      model = (snd card).model
+      env =
         { path
         , urlVarMaps
         , cardCoord: DCS.coordModelToCoord card
         , input: input'
         }
-        model
-        (Eval.modelToEval model)
+    res ← Eval.runEvalCard env model evalModel
     case res.output of
       Port.CardError _ → AE.track (AE.ErrorInCardEval $ Card.modelCardType model) bus
       _ → pure unit

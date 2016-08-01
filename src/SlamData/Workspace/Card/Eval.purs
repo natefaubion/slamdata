@@ -22,6 +22,7 @@ import Control.Monad.Eff as Eff
 import Control.Monad.Aff.Free (class Affable, fromEff)
 import Control.Monad.Eff.Exception as Exn
 import Control.Monad.Error.Class as EC
+import Control.Monad.State.Class as SC
 
 import Data.Lens ((^?))
 import Data.Path.Pathy as Path
@@ -36,8 +37,6 @@ import SlamData.Quasar.Query as QQ
 import SlamData.Workspace.Card.Cache.Eval as Cache
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.ChartOptions.Eval as ChartE
-import SlamData.Workspace.Card.ChartOptions.Model as ChartOptions
-import SlamData.Workspace.Card.DownloadOptions.Component.State as DO
 import SlamData.Workspace.Card.Eval.CardEvalT as CET
 import SlamData.Workspace.Card.Markdown.Component.State.Core as MDS
 import SlamData.Workspace.Card.Markdown.Eval as MDE
@@ -46,84 +45,88 @@ import SlamData.Workspace.Card.Model as CM
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Search.Interpret as Search
 import SlamData.Workspace.Card.Variables.Eval as VariablesE
-import SlamData.Workspace.Card.Variables.Model as Variables
 
 import Text.SlamSearch as SS
 import Text.Markdown.SlamDown as SD
 import Text.Markdown.SlamDown.Halogen.Component.State as SDH
 
-data Eval
-  = Pass
-  | Query SQL
-  | Search String
-  | Cache (Maybe String)
-  | Error String
-  | Markdown String
-  | MarkdownForm MD.Model
-  | Open (Maybe R.Resource)
-  | Variables Variables.Model
-  | ChartOptions ChartOptions.Model
-  | DownloadOptions DO.State
-  | Draftboard
-
-instance showEval ∷ Show Eval where
-  show =
-    case _ of
-      Pass → "Pass"
-      Query str → "Query " <> show str
-      Search str → "Search " <> show str
-      Cache str → "Cache " <> show str
-      Error str → "Error " <> show str
-      Markdown str → "Markdown " <> show str
-      Open res → "Open " <> show res
-      MarkdownForm m → "MarkdownForm"
-      ChartOptions m → "ChartOptions"
-      Variables m → "Variables" -- TODO: I don't have time to write these show instances -js
-      DownloadOptions m → "DownloadOptions"
-      Draftboard → "Draftboard"
+newtype Eval = Eval CM.AnyCardModel
 
 evalCard
   ∷ ∀ m
   . (Monad m, Affable SlamDataEffects m)
   ⇒ Eval
   → CET.CardEvalT m Port.Port
-evalCard eval = do
+evalCard (Eval eval) = do
+  -- TODO: Move to individial evals
+  SC.put eval
   input ← CET.evalInput
   case eval, input.input of
-    Error msg, _ →
-      pure $ Port.CardError msg
+    _, Just (Port.CardError err) →
+      pure $ Port.CardError err
+
     _, Just Port.Blocked →
       pure Port.Blocked
-    Pass, Nothing →
-      EC.throwError "Card expected an input value"
-    Pass, Just port →
+
+    CM.ErrorCard, _ →
+      pure Port.Blocked
+
+    CM.NextAction, _ →
+      pure Port.Blocked
+
+    CM.PendingCard, _ →
+      pure Port.Blocked
+
+    CM.Chart, Just port →
       pure port
-    Draftboard, _ →
+
+    CM.Download, Just port →
+      pure port
+
+    CM.Troubleshoot, Just port →
+      pure port
+
+    CM.Table _, Just port →
+      pure port
+
+    CM.Draftboard _, _ →
       pure Port.Draftboard
-    Query sql, Just (Port.VarMap varMap) →
-      Port.TaggedResource <$> evalQuery input sql varMap
-    Query sql, _ →
-      Port.TaggedResource <$> evalQuery input sql Port.emptyVarMap
-    Markdown txt, _ →
-      MDE.markdownEval input txt
-    MarkdownForm model, (Just (Port.SlamDown doc)) →
+
+    CM.Ace CT.SQLMode ace, Just (Port.VarMap varMap) →
+      Port.TaggedResource <$> evalQuery input (_.text <$> ace) varMap
+
+    CM.Ace CT.SQLMode ace, _ →
+      Port.TaggedResource <$> evalQuery input (_.text <$> ace) Port.emptyVarMap
+
+    CM.Ace CT.MarkdownMode ace, _ →
+      MDE.markdownEval input (_.text <$> ace)
+
+    CM.Markdown model, Just (Port.SlamDown doc) →
       lift $ Port.VarMap <$> evalMarkdownForm doc model
-    Search query, Just (Port.TaggedResource { resource }) →
+
+    CM.Search query, Just (Port.TaggedResource { resource }) →
       Port.TaggedResource <$> evalSearch input query resource
-    Cache pathString, Just (Port.TaggedResource { resource }) →
+
+    CM.Cache pathString, Just (Port.TaggedResource { resource }) →
       Port.TaggedResource <$> Cache.eval input pathString resource
-    Open Nothing, _ →
-      EC.throwError "No resource is selected"
-    Open (Just res), _ →
+
+    CM.Open Nothing, _ →
+      EC.throwError "No resource selected"
+
+    CM.Open (Just res), _ →
       Port.TaggedResource <$> evalOpen input res
-    ChartOptions model, _ →
+
+    CM.ChartOptions model, _ →
       Port.Chart <$> ChartE.eval input model
-    Variables model, _ →
+
+    CM.Variables model, _ →
       pure $ Port.VarMap $ VariablesE.eval (fst input.cardCoord) input.urlVarMaps model
-    DownloadOptions { compress, options }, Just (Port.TaggedResource { resource }) →
+
+    CM.DownloadOptions { compress, options }, Just (Port.TaggedResource { resource }) →
       pure $ Port.DownloadOptions { resource, compress, options }
-    e, i →
-      EC.throwError $ "Card received unexpected input type; " <> show e <> " | " <> show i
+
+    _, _ →
+      EC.throwError $ "Card received unexpected input type"
 
 evalMarkdownForm
   ∷ ∀ m
@@ -145,7 +148,7 @@ evalOpen
   → R.Resource
   → CET.CardEvalT m Port.TaggedResourcePort
 evalOpen info res = do
-   filePath ← maybe (EC.throwError "No resource is selected") pure $ res ^? R._filePath
+   filePath ← maybe (EC.throwError "No resource selected") pure $ res ^? R._filePath
    msg ←
      QFS.messageIfFileNotFound
        filePath
@@ -164,11 +167,12 @@ evalQuery
   ∷ ∀ m
   . (Monad m, Affable SlamDataEffects m)
   ⇒ CET.CardEvalInput
-  → SQL
+  → Maybe SQL
   → Port.VarMap
   → CET.CardEvalT m Port.TaggedResourcePort
-evalQuery info sql varMap = do
+evalQuery info mbSql varMap = do
   let
+    sql = fromMaybe "" mbSql
     varMap' = Port.renderVarMapValue <$> varMap
     resource = CET.temporaryOutputResource info
     backendPath = Left $ fromMaybe Path.rootDir (Path.parentDir resource)
@@ -245,19 +249,3 @@ validateResources =
     noAccess ← lift $ QFS.fileNotAccessible path
     for_ noAccess \reason →
       EC.throwError $ "Resource unavailable: `" ⊕ Path.printPath path ⊕ "`. " ⊕ reason
-
-modelToEval
-  ∷ CM.AnyCardModel
-  → Eval
-modelToEval = case _ of
-  CM.Ace CT.SQLMode model → Query $ fromMaybe "" $ _.text <$> model
-  CM.Ace CT.MarkdownMode model → Markdown $ fromMaybe "" $ _.text <$> model
-  CM.Markdown model → MarkdownForm model
-  CM.Search txt → Search txt
-  CM.Cache fp → Cache fp
-  CM.Open res → Open res
-  CM.Variables model → Variables model
-  CM.ChartOptions model → ChartOptions model
-  CM.DownloadOptions model → DownloadOptions model
-  CM.Draftboard _ → Draftboard
-  _ → Pass
