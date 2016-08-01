@@ -60,7 +60,7 @@ data Eval
   | Error String
   | Markdown String
   | MarkdownForm MD.Model
-  | Open R.Resource
+  | Open (Maybe R.Resource)
   | Variables Variables.Model
   | ChartOptions ChartOptions.Model
   | DownloadOptions DO.State
@@ -112,7 +112,9 @@ evalCard eval = do
       Port.TaggedResource <$> evalSearch input query resource
     Cache pathString, Just (Port.TaggedResource { resource }) →
       Port.TaggedResource <$> Cache.eval input pathString resource
-    Open res, _ →
+    Open Nothing, _ →
+      EC.throwError "No resource is selected"
+    Open (Just res), _ →
       Port.TaggedResource <$> evalOpen input res
     ChartOptions model, _ →
       Port.Chart <$> ChartE.eval input model
@@ -246,18 +248,16 @@ validateResources =
 
 modelToEval
   ∷ CM.AnyCardModel
-  → Either String Eval
-modelToEval =
-  case _ of
-    CM.Ace CT.SQLMode model → pure $ Query $ fromMaybe "" $ _.text <$> model
-    CM.Ace CT.MarkdownMode model → pure $ Markdown $ fromMaybe "" $ _.text <$> model
-    CM.Markdown model → pure $ MarkdownForm model
-    CM.Search txt → pure $ Search txt
-    CM.Cache fp → pure $ Cache fp
-    CM.Open (Just res) → pure $ Open res
-    CM.Open _ → Left $ "Open model missing resource"
-    CM.Variables model → pure $ Variables model
-    CM.ChartOptions model → pure $ ChartOptions model
-    CM.DownloadOptions model → pure $ DownloadOptions model
-    CM.Draftboard _ → pure Draftboard
-    _ → pure Pass
+  → Eval
+modelToEval = case _ of
+  CM.Ace CT.SQLMode model → Query $ fromMaybe "" $ _.text <$> model
+  CM.Ace CT.MarkdownMode model → Markdown $ fromMaybe "" $ _.text <$> model
+  CM.Markdown model → MarkdownForm model
+  CM.Search txt → Search txt
+  CM.Cache fp → Cache fp
+  CM.Open res → Open res
+  CM.Variables model → Variables model
+  CM.ChartOptions model → ChartOptions model
+  CM.DownloadOptions model → DownloadOptions model
+  CM.Draftboard _ → Draftboard
+  _ → Pass

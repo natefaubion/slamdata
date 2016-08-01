@@ -193,12 +193,9 @@ eval opts@{ wiring } = case _ of
       runPendingCards opts source pendingCard cards
     pure next
   QueuePendingCard next → do
-    H.gets _.pendingCard >>= traverse_ \pending → do
-      modelCards ← getModelCards
-      H.modify
-        $ (DCS._modelCards .~ modelCards)
-        ∘ (DCS._pendingCard .~ Nothing)
-      queuePendingCard wiring pending
+    H.gets _.pendingCard >>= traverse_ \pendingCard → do
+      H.modify $ DCS._pendingCard .~ Nothing
+      queuePendingCard wiring pendingCard
     pure next
   GetVarMaps k → do
     deckPath ← H.gets DCS.deckPath
@@ -570,12 +567,16 @@ queuePendingCard
   ∷ Wiring
   → DeckId × CardId
   → DeckDSL Unit
-queuePendingCard wiring pendingCoord = do
+queuePendingCard wiring (pendingCoord@(deckId × cardId)) = do
   st ← H.get
-  for_ (find (DCS.eqCoordModel pendingCoord) st.modelCards) \pendingCard →
+  cm ← runMaybeT do
+    card ← MaybeT $ pure $ snd <$> find (DCS.eqCoordModel pendingCoord) st.modelCards
+    MaybeT $ queryCardEval pendingCoord $ H.request (SaveCard cardId $ Card.modelCardType card.model)
+  for_ cm \pendingCard →
     H.fromAff do
       cards ← makeCache
-      Bus.write { source: st.id, pendingCard, cards } wiring.pending
+      Bus.write { source: st.id, pendingCard: deckId × pendingCard, cards } wiring.pending
+    -- TODO: Probably save here with new model instead of debouncing elsewhere?
 
 runPendingCards
   ∷ DeckOptions
@@ -645,28 +646,19 @@ evalCard bus path urlVarMaps input card = do
   result ← H.fromAff $ Pr.defer do
     input' ← for input Pr.wait
     let model = (snd card).model
-    case Eval.modelToEval model of
-      Left err → do
-        AE.track (AE.ErrorInCardEval $ Card.modelCardType model) bus
-        pure
-          { sources: mempty ∷ Set.Set AdditionalSource
-          , output: Port.CardError $ "Could not evaluate card: " <> err
-          , model
-          }
-      Right cmd → do
-        res ←
-          Eval.runEvalCard
-            { path
-            , urlVarMaps
-            , cardCoord: DCS.coordModelToCoord card
-            , input: input'
-            }
-            model
-            cmd
-        case res.output of
-          Port.CardError _ → AE.track (AE.ErrorInCardEval $ Card.modelCardType model) bus
-          _ → pure unit
-        pure res
+    res ←
+      Eval.runEvalCard
+        { path
+        , urlVarMaps
+        , cardCoord: DCS.coordModelToCoord card
+        , input: input'
+        }
+        model
+        (Eval.modelToEval model)
+    case res.output of
+      Port.CardError _ → AE.track (AE.ErrorInCardEval $ Card.modelCardType model) bus
+      _ → pure unit
+    pure res
   pure { input, card, result: Just result }
 
 -- | Interprets a list of pending card evaluations into updates for the
