@@ -165,6 +165,7 @@ renderHighLOD cfg state =
         [ HP.class_ (HH.className "sd-ace-toolbar") ]
         [ HH.button
             [ HP.class_ (HH.className "sd-ace-run")
+            , HP.disabled (not state.dirty)
             , HP.title "Run Query"
             , ARIA.label "Run query"
             , HE.onClick (HE.input_ (CC.ModelUpdated CC.EvalModelUpdate))
