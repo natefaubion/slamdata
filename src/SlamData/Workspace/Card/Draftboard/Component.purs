@@ -17,8 +17,10 @@ limitations under the License.
 module SlamData.Workspace.Card.Draftboard.Component where
 
 import SlamData.Prelude
+
 import Data.Array as Array
 import Data.Foldable (and, all, find)
+import Data.Int as Int
 import Data.Lens ((.~), (?~))
 import Data.List (List(..), (:))
 import Data.List as List
@@ -40,12 +42,12 @@ import SlamData.Workspace.Card.Draftboard.Orientation as Orn
 import SlamData.Workspace.Card.Draftboard.Pane as Pane
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.Common (CardOptions)
-import SlamData.Workspace.Card.Draftboard.Common (deleteGraph, clearDeckId)
+import SlamData.Workspace.Card.Draftboard.Common (deleteGraph, clearDeckId, unsafeUpdateCachedDraftboard)
 import SlamData.Workspace.Card.Draftboard.Component.Common (DraftboardDSL)
 import SlamData.Workspace.Card.Draftboard.Component.Query (Query(..))
 import SlamData.Workspace.Card.Draftboard.Component.Render (render)
-import SlamData.Workspace.Card.Draftboard.Component.State (initialState, modelFromState, childSlots, updateRect, updateLayout)
-import SlamData.Workspace.Deck.Common (DeckOptions, wrappedDeck)
+import SlamData.Workspace.Card.Draftboard.Component.State (MoveLocation(..), initialState, modelFromState, childSlots, updateRect, updateLayout)
+import SlamData.Workspace.Deck.Common (DeckOptions, wrappedDeck, splitDeck)
 import SlamData.Workspace.Deck.Component.Nested.Query as DNQ
 import SlamData.Workspace.Deck.Component.Query as DCQ
 import SlamData.Workspace.Deck.Component.State as DCS
@@ -163,9 +165,12 @@ evalBoard opts = case _ of
       Drag.Done _ → do
         let
           result = do
+            opts ← st.splitOpts
             loc ← st.splitLocation
             guard loc.valid
-            Layout.insertSplit (Pane.Cell Nothing) loc.orientation loc.ratio loc.bias loc.cursor st.layout
+            if opts.root
+              then pure (Layout.insertRootSplit (Pane.Cell Nothing) loc.orientation loc.ratio loc.bias st.layout)
+              else Layout.insertSplit (Pane.Cell Nothing) loc.orientation loc.ratio loc.bias loc.cursor st.layout
         H.modify
           $ updateLayout (fromMaybe st.layout result)
           ∘ _ { splitOpts = Nothing, splitLocation = Nothing }
@@ -256,14 +261,32 @@ evalBoard opts = case _ of
           y = d.y - st.rootRect.top
         case overlapping x y st.cellLayout of
           Just cell@{ value: Nothing } →
-            H.modify _ { movingLocation = Just (Right cell) }
+            H.modify _ { moveLocation = Just (Move cell) }
+          Just cell@{ value: (Just deckId'), rect } | deckId /= deckId' → do
+            let
+              relX = Int.floor (x - rect.left) % Int.floor rect.width
+              relY = Int.floor (y - rect.top) % Int.floor rect.height
+              move = case relX < 1%2, relY < 1%2 of
+                xa, ya | xa && ya && relY < relX   → Group cell Orn.Vertical Layout.SideA
+                xa, ya | xa && ya                  → Group cell Orn.Horizontal Layout.SideA
+                xa, ya | xa && one - relY < relX   → Group cell Orn.Vertical Layout.SideB
+                xa, ya | xa                        → Group cell Orn.Horizontal Layout.SideA
+                xa, ya | ya && relY < one - relX   → Group cell Orn.Vertical Layout.SideA
+                xa, ya | ya                        → Group cell Orn.Horizontal Layout.SideB
+                xa, ya | one - relY < one - relX   → Group cell Orn.Vertical Layout.SideB
+                _ , _                              → Group cell Orn.Horizontal Layout.SideB
+            H.modify _ { moveLocation = Just move }
           _ →
-            H.modify _ { movingLocation = Just (Left (x × y)) }
+            H.modify _ { moveLocation = Just (Floating x y) }
       Drag.Done _ → do
-        for_ st.movingLocation case _ of
-          Left _ →
-            H.modify _ { movingLocation = Nothing }
-          Right cell → do
+        for_ st.moveLocation case _ of
+          Floating _ _ →
+            H.modify _ { moveLocation = Nothing }
+          Group cell orn bias →
+            for_ cell.value \deckId' → do
+              H.modify _ { moveLocation = Nothing }
+              groupDecks opts orn bias (deckId × cursor) (deckId' × cell.cursor)
+          Move cell → do
             let
               result =
                 pure st.layout
@@ -271,9 +294,8 @@ evalBoard opts = case _ of
                   >>= Pane.modifyAt (const (Pane.Cell (Just deckId))) cell.cursor
             H.modify
               $ updateLayout (fromMaybe st.layout result)
-              ∘ _ { movingLocation = Nothing }
-            H.queryAll (right (H.action DCQ.UpdateCardSize))
-            CC.raiseUpdatedP' CC.EvalModelUpdate
+              ∘ _ { moveLocation = Nothing }
+        CC.raiseUpdatedP' CC.EvalModelUpdate
     pure next
   LoadDeck deckId next → do
     queryDeck deckId (H.action (DCQ.Load opts.deck.path deckId))
@@ -308,7 +330,8 @@ peek opts (H.ChildF deckId q) = coproduct (const (pure unit)) peekDeck q
     st ← H.get
     for_ (Map.lookup deckId st.cursors) \cursor →
       case q of
-        DCQ.GrabDeck ev _ → startDragging ev (Grabbing (deckId × cursor))
+        DCQ.GrabDeck ev _ → do
+          startDragging ev (Grabbing (deckId × cursor))
         DCQ.DoAction DCQ.DeleteDeck _ → do
           SA.track (SA.Delete deckId)
           deleteDeck opts deckId
@@ -491,6 +514,51 @@ mirrorDeck opts oldId cursor = do
         layout = Layout.insertSplit (Pane.Cell (Just deckId)) orn (1%2) Layout.SideB cursor' st.layout
       H.modify (updateLayout (fromMaybe st.layout layout))
       loadAndFocus opts.deck deckId
+
+groupDecks
+  ∷ CardOptions
+  → Orn.Orientation
+  → Layout.SplitBias
+  → (DeckId × Pane.Cursor)
+  → (DeckId × Pane.Cursor)
+  → DraftboardDSL Unit
+groupDecks opts orn bias (deckFrom × cursorFrom) (deckTo × cursorTo) = do
+  st ← H.get
+  queryDeck deckTo (H.request DCQ.GetModelCards) >>= case _ of
+    Just [ deckId' × { cardId, model: Card.Draftboard { layout } } ] → void do
+      let
+        layout' = Layout.insertRootSplit (Pane.Cell (Just deckFrom)) orn (1%2) bias layout
+        card = { cardId, model: Card.Draftboard { layout: layout' } }
+      H.liftH $ H.liftH $ unsafeUpdateCachedDraftboard deckId' card
+      H.modify \s →
+        let
+          result =
+            Pane.modifyAt (const (Pane.Cell Nothing)) cursorFrom st.layout
+        in updateLayout (fromMaybe s.layout result) s
+      queryDeck deckTo
+        $ H.action
+        $ DCQ.SetModelCards [ deckId' × card ]
+
+    _ → do
+      let
+        splits =
+          List.fromFoldable case bias of
+            Layout.SideA → [ deckFrom, deckTo ]
+            Layout.SideB → [ deckTo, deckFrom ]
+        newDeck = (splitDeck orn splits) { parent = Just (opts.deckId × opts.cardId) }
+      newId ← H.fromEff freshDeckId
+      putDeck opts.deck.path newId newDeck >>= case _ of
+        Left err →
+          Notify.saveDeckFail err
+        Right _ → void do
+          H.modify \s →
+            let
+              result =
+                pure s.layout
+                  >>= Pane.modifyAt (const (Pane.Cell Nothing)) cursorFrom
+                  >>= Pane.modifyAt (const (Pane.Cell (Just newId))) cursorTo
+            in updateLayout (fromMaybe s.layout result) s
+          loadAndFocus opts.deck newId
 
 loadDecks ∷ DraftboardDSL Unit
 loadDecks =

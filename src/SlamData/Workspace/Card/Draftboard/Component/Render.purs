@@ -41,7 +41,7 @@ import SlamData.Workspace.Card.Common (CardOptions)
 import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Draftboard.Component.Common (DraftboardHTML)
 import SlamData.Workspace.Card.Draftboard.Component.Query (Query(..))
-import SlamData.Workspace.Card.Draftboard.Component.State (State, SplitLocation)
+import SlamData.Workspace.Card.Draftboard.Component.State (State, MoveLocation(..), SplitLocation)
 import SlamData.Workspace.Card.Draftboard.Layout as Layout
 import SlamData.Workspace.Card.Draftboard.Pane as Pane
 import SlamData.Workspace.Card.Draftboard.Orientation as Orn
@@ -81,7 +81,7 @@ render opts st =
             ]
             [ renderLayout opts st st.cellLayout st.edgeLayout
             , maybe (HH.text "") renderGuide st.splitLocation
-            , maybe (HH.text "") renderMoving st.movingLocation
+            , maybe (HH.text "") renderMoving st.moveLocation
             ]
     ]
 
@@ -132,30 +132,49 @@ renderGuideLabel ratio =
     ]
     [ HH.text (show (Ratio.numerator ratio') <> "/" <> show (Ratio.denominator ratio')) ]
 
-renderMoving ∷ Either (Number × Number) (Layout.Cell (Maybe DeckId) Number) → DraftboardHTML
-renderMoving m =
-  case m of
-    Left (x × y) →
-      HH.div
-        [ HP.classes
-            [ HH.className "sd-draftboard-moving-icon"
-            , HH.className "invalid"
-            ]
-        , HC.style do
-            C.left (C.px x)
-            C.top (C.px y)
-        ]
-        [ ]
-    Right { rect } →
-      HH.div
-        [ HP.classes [ HH.className "sd-draftboard-moving-icon" ]
-        , HC.style do
-            C.top (C.px rect.top)
-            C.left (C.px rect.left)
-            C.width (C.px rect.width)
-            C.height (C.px rect.height)
-        ]
-        [ ]
+renderMoving ∷ MoveLocation → DraftboardHTML
+renderMoving = case _ of
+  Floating x y →
+    HH.div
+      [ HP.classes
+          [ HH.className "sd-draftboard-moving-icon"
+          , HH.className "floating"
+          ]
+      , HC.style do
+          C.left (C.px x)
+          C.top (C.px y)
+      ]
+      [ ]
+  Move { rect } →
+    HH.div
+      [ HP.classes
+          [ HH.className "sd-draftboard-moving-icon"
+          , HH.className "move"
+          ]
+      , HC.style do
+          C.top (C.px rect.top)
+          C.left (C.px rect.left)
+          C.width (C.px rect.width)
+          C.height (C.px rect.height)
+      ]
+      [ ]
+  Group { rect } orn side →
+    HH.div
+      [ HP.classes
+          [ HH.className "sd-draftboard-moving-icon"
+          , HH.className "group"
+          , HH.className (Orn.toString orn)
+          , HH.className case side of
+              Layout.SideA → "side-a"
+              Layout.SideB → "side-b"
+          ]
+      , HC.style do
+          C.top (C.px rect.top)
+          C.left (C.px rect.left)
+          C.width (C.px rect.width)
+          C.height (C.px rect.height)
+      ]
+      [ ]
 
 renderLayout ∷ CardOptions → State → List (Layout.Cell (Maybe DeckId) Number) → List (Layout.Edge Number) → DraftboardHTML
 renderLayout opts st cells edges =

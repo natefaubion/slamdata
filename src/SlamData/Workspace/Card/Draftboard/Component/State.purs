@@ -20,6 +20,7 @@ module SlamData.Workspace.Card.Draftboard.Component.State
   , SplitOpts
   , SplitLocation
   , ResizeLocation
+  , MoveLocation(..)
   , initialState
   , initialRect
   , modelFromState
@@ -51,18 +52,23 @@ import SlamData.Workspace.Deck.DeckId (DeckId)
 
 type StateP = H.ParentState State DNS.State QueryC DNQ.QueryP Slam DeckId
 
+data MoveLocation
+  = Floating Number Number
+  | Move (Cell (Maybe DeckId) Number)
+  | Group (Cell (Maybe DeckId) Number) Orientation SplitBias
+
 type State =
   { layout ∷ Pane (Maybe DeckId)
   , splitOpts ∷ Maybe SplitOpts
   , splitLocation ∷ Maybe SplitLocation
   , resizeLocation ∷ Maybe ResizeLocation
+  , moveLocation ∷ Maybe MoveLocation
   , root ∷ Maybe HTMLElement
   , rootRect ∷ Rect Number
   , cellLayout ∷ List.List (Cell (Maybe DeckId) Number)
   , edgeLayout ∷ List.List (Edge Number)
   , cursors ∷ Map.Map DeckId Cursor
   , inserting ∷ Boolean
-  , movingLocation ∷ Maybe (Either (Number × Number) (Cell (Maybe DeckId) Number))
   }
 
 type SplitOpts =
@@ -97,13 +103,13 @@ initialState =
   , splitOpts: Nothing
   , splitLocation: Nothing
   , resizeLocation: Nothing
+  , moveLocation: Nothing
   , root: Nothing
   , rootRect: initialRect
   , cellLayout: mempty
   , edgeLayout: mempty
   , cursors: mempty
   , inserting: false
-  , movingLocation: Nothing
   }
 
 initialRect ∷ Rect Number
@@ -123,7 +129,11 @@ stateFromModel { layout } = initialState { layout = layout }
 childSlots ∷ State → List.List DeckId
 childSlots = Map.keys ∘ _.cursors
 
-recalc ∷ Rect Number → Pane (Maybe DeckId) → State → State
+recalc
+  ∷ Rect Number
+  → Pane (Maybe DeckId)
+  → State
+  → State
 recalc rect layout = _
   { rootRect = rect
   , layout = layout

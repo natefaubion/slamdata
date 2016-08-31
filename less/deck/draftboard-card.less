@@ -423,16 +423,44 @@
   cursor: -webkit-grabbing;
   cursor: -moz-grabbing;
   border-radius: 4px;
-  transition: all .1s linear;
   pointer-events: auto;
+  z-index: 9;
 
-  &.invalid {
+  &.floating {
     width: 10rem;
     height: 6rem;
     margin-top: -3rem;
     margin-left: -5rem;
     z-index: 9999;
     transition: none;
+  }
+
+  &.group {
+    &:before {
+      content: "";
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      right: 5px;
+      bottom: 5px;
+      background-color: rgba(20,120,255,.4);
+    }
+
+    &.horizontal.side-a:before {
+      right: 50%;
+    }
+
+    &.horizontal.side-b:before {
+      left: 50%;
+    }
+
+    &.vertical.side-a:before {
+      bottom: 50%;
+    }
+
+    &.vertical.side-b:before {
+      top: 50%;
+    }
   }
 }
 

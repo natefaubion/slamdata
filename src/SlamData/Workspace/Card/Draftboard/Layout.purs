@@ -27,6 +27,7 @@ module SlamData.Workspace.Card.Draftboard.Layout
   , edges
   , findSplit
   , insertSplit
+  , insertRootSplit
   , resizeEdge
   , resizeEdge'
   , deleteCell
@@ -204,6 +205,21 @@ insertSplit pane orn ratio side = runCursor split defaultMerge
         List.reverse pre
         <> splice off r p
         <> ps
+
+insertRootSplit
+  ∷ ∀ a
+  . Pane a
+  → Orientation
+  → Rational
+  → SplitBias
+  → Pane a
+  → Pane a
+insertRootSplit pane orn ratio side p =
+  let
+    ratio' = one - ratio
+  in Split orn case side of
+    SideA → assimilateOne orn ratio pane <> assimilateOne orn ratio' p
+    SideB → assimilateOne orn ratio p <> assimilateOne orn ratio' pane
 
 -- | Changes the location of an edge within a Split. If the new location is
 -- | passed the edges of adjacent Panes, then all Panes to that side will be
@@ -421,6 +437,15 @@ defaultMerge orn ps ix p =
   where
   assimilated ps' =
     fromMaybe ps (spliceAt (\(r × _) → assimilate orn r ps') ix ps)
+
+assimilateOne
+  ∷ ∀ a
+  . Orientation
+  → Rational
+  → Pane a
+  → List (Rational × Pane a)
+assimilateOne orn r p =
+  assimilate orn r (List.singleton (one × p))
 
 assimilate
   ∷ ∀ a
