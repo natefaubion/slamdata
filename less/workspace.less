@@ -5,10 +5,6 @@
   right: 0;
   bottom: 0;
 
-  .header-gripper {
-    z-index: 1;
-  }
-
   .sd-nav {
     z-index: 1;
   }
@@ -46,43 +42,35 @@ body.sd-workspace-page.sd-embedded {
 
   .sd-deck-level-1 > .sd-deck-container {
     > .sd-deck > .sd-card-slider {
-      height: 100%;
-    }
+      height: auto;
 
-    > .sd-deck > .sd-card-slider > .sd-card > div > .sd-deck-card {
-      // set the background colour for a published deck when the root card is a board
-      > div.sd-card-draftboard { background: #eee; }
-      // set the background colour for any other card (less specific selector)
-      > div { background: #fff; }
+      > .sd-card > div > .sd-deck-card {
+        // set the background colour for a published deck when the root card is a board
+        > div.sd-card-draftboard { background: #eee; }
+        // set the background colour for any other card (less specific selector)
+        > div { background: #fff; }
+      }
     }
 
     > .sd-deck-frame {
      display: none;
     }
 
-    > .sd-deck {
+    .sd-deck {
       top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+
+    .sd-card-slider {
+      top: 0;
+      left: 0;
+      right: 0;
       bottom: 0;
 
-      .sd-deck {
-        top: ~"calc(1.5rem - 1px)";
-        bottom: ~"calc(1.5rem - 1px)";
-
-        .sd-card-slider {
-          left: ~"calc(1.5rem - 1px)";
-          right: ~"calc(1.5rem - 1px)";
-        }
-      }
-
-      > .sd-card-slider {
-        left: 0;
-        top: 0;
-        right: 0;
-        bottom: 0;
-
-        > .sd-card {
-          background: none;
-        }
+      > .sd-card {
+        background: none;
       }
     }
   }
