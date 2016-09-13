@@ -47,6 +47,7 @@ data CardType
   | Chart
   | Markdown
   | Table
+  | PivotTable
   | Download
   | Variables
   | Troubleshoot
@@ -64,6 +65,7 @@ insertableCardTypes =
   , Open
   , Search
   , Table
+  , PivotTable
   , Variables
   , Ace MarkdownMode
   , Markdown
@@ -106,6 +108,7 @@ instance encodeJsonCardType ∷ EncodeJson CardType where
         Chart → "chart"
         Markdown → "markdown"
         Table → "table"
+        PivotTable → "pivot-table"
         Download → "download"
         Variables → "variables"
         Troubleshoot → "troubleshoot"
@@ -128,6 +131,7 @@ instance decodeJsonCardType ∷ DecodeJson CardType where
       "chart" → pure Chart
       "markdown" → pure Markdown
       "table" → pure Table
+      "pivot-table" → pure PivotTable
       "download" → pure Download
       "variables" → pure Variables
       "troubleshoot" → pure Troubleshoot
@@ -149,6 +153,7 @@ cardName =
     Chart → "Show Chart"
     Markdown → "Show Markdown"
     Table → "Show Table"
+    PivotTable → "Pivot Table"
     Download → "Show Download"
     Variables → "Setup Variables"
     Troubleshoot → "Troubleshoot"
@@ -173,6 +178,7 @@ darkCardGlyph =
     Chart → HH.img [ HP.src "img/cardsDark/showChart.svg" ]
     Markdown → HH.img [ HP.src "img/cardsDark/showMarkdown.svg" ]
     Table → HH.img [ HP.src "img/cardsDark/table.svg" ]
+    PivotTable → HH.img [ HP.src "img/cardsDark/table.svg" ]
     NextAction → HH.text ""
     Cache → HH.img [ HP.src "img/cardsDark/cache.svg" ]
     Open → HH.img [ HP.src "img/cardsDark/open.svg" ]
@@ -194,6 +200,7 @@ lightCardGlyph =
     Chart → HH.img [ HP.src "img/cardsLight/showChart.svg" ]
     Markdown → HH.img [ HP.src "img/cardsLight/showMarkdown.svg" ]
     Table → HH.img [ HP.src "img/cardsLight/table.svg" ]
+    PivotTable → HH.img [ HP.src "img/cardsLight/table.svg" ]
     NextAction → HH.text ""
     Cache → HH.img [ HP.src "img/cardsLight/cache.svg" ]
     Open → HH.img [ HP.src "img/cardsLight/open.svg" ]
@@ -211,6 +218,7 @@ cardClasses =
     Chart → [ H.className "sd-card-chart" ]
     Markdown → [ H.className "sd-card-markdown" ]
     Table → [ H.className "sd-card-table" ]
+    PivotTable → [ H.className "sd-card-pivot-table" ]
     Download → [ H.className "sd-card-download" ]
     DownloadOptions → [ H.className "sd-card-download-options" ]
     Variables → [ H.className "sd-card-variables" ]

@@ -24,6 +24,7 @@ module SlamData.Workspace.Card.Component.State
   , _MarkdownState
   , _SearchState
   , _TableState
+  , _PivotTableState
   , _ChartOptionsState
   , _ChartState
   , _DownloadState
@@ -59,6 +60,7 @@ import SlamData.Workspace.Card.Draftboard.Component.State as Draftboard
 import SlamData.Workspace.Card.Error.Component.State as Error
 import SlamData.Workspace.Card.Pending.Component.State as Pending
 import SlamData.Workspace.Card.Table.Component.State as Table
+import SlamData.Workspace.Card.PivotTable.Component.State as PivotTable
 import SlamData.Workspace.Card.Markdown.Component.State as Markdown
 import SlamData.Workspace.Card.Next.Component.State as Next
 import SlamData.Workspace.Card.Open.Component.State as Open
@@ -86,6 +88,7 @@ data AnyCardState
   | MarkdownState Markdown.StateP
   | SearchState Search.State
   | TableState Table.State
+  | PivotTableState PivotTable.StateP
   | ChartOptionsState ChartOptions.StateP
   | ChartState Chart.StateP
   | DownloadState Download.State
@@ -117,6 +120,11 @@ _SearchState = prism' SearchState \s → case s of
 _TableState ∷ PrismP AnyCardState Table.State
 _TableState = prism' TableState \s → case s of
   TableState s' → Just s'
+  _ → Nothing
+
+_PivotTableState ∷ PrismP AnyCardState PivotTable.StateP
+_PivotTableState = prism' PivotTableState \s → case s of
+  PivotTableState s' → Just s'
   _ → Nothing
 
 _ChartOptionsState ∷ PrismP AnyCardState ChartOptions.StateP

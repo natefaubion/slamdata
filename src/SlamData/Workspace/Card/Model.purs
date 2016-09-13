@@ -37,6 +37,7 @@ import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Ace.Model as Ace
 import SlamData.Workspace.Card.Variables.Model as Variables
 import SlamData.Workspace.Card.Table.Model as JT
+import SlamData.Workspace.Card.PivotTable.Model as PT
 import SlamData.Workspace.Card.Markdown.Model as MD
 import SlamData.Workspace.Card.ChartOptions.Model as ChartOptions
 import SlamData.Workspace.Card.Draftboard.Model as DB
@@ -52,6 +53,7 @@ data AnyCardModel
   | Chart
   | Markdown MD.Model
   | Table JT.Model
+  | PivotTable PT.Model
   | Download
   | Variables Variables.Model
   | Troubleshoot
@@ -72,6 +74,7 @@ instance arbitraryAnyCardModel ∷ SC.Arbitrary AnyCardModel where
       , pure Chart
       , Markdown <$> MD.genModel
       , Table <$> JT.genModel
+      , PivotTable <$> PT.genModel
       , pure Download
       , Variables <$> Variables.genModel
       , pure Troubleshoot
@@ -91,6 +94,7 @@ instance eqAnyCardModel ∷ Eq AnyCardModel where
       Chart, Chart → true
       Markdown x, Markdown y → MD.eqModel x y
       Table x, Table y → JT.eqModel x y
+      PivotTable x, PivotTable y → PT.eqModel x y
       Download, Download → true
       Variables x, Variables y → Variables.eqModel x y
       Troubleshoot, Troubleshoot → true
@@ -116,6 +120,7 @@ modelCardType =
     Chart → CT.Chart
     Markdown _ → CT.Markdown
     Table _ → CT.Table
+    PivotTable _ → CT.PivotTable
     Download → CT.Download
     Variables _ → CT.Variables
     Troubleshoot → CT.Troubleshoot
@@ -162,6 +167,7 @@ encodeCardModel =
     Chart → J.jsonEmptyObject
     Markdown model → MD.encode model
     Table model → JT.encode model
+    PivotTable model → PT.encode model
     Download → J.jsonEmptyObject
     Variables model → Variables.encode model
     Troubleshoot → J.jsonEmptyObject
@@ -185,6 +191,7 @@ decodeCardModel ty =
     CT.Chart → const $ pure Chart
     CT.Markdown → map Markdown ∘ MD.decode
     CT.Table → map Table ∘ JT.decode
+    CT.PivotTable → map PivotTable ∘ PT.decode
     CT.Download → const $ pure Download
     CT.Variables → map Variables ∘ Variables.decode
     CT.Troubleshoot → const $ pure Troubleshoot
@@ -208,6 +215,7 @@ cardModelOfType =
     CT.Chart → Chart
     CT.Markdown → Markdown MD.emptyModel
     CT.Table → Table JT.emptyModel
+    CT.PivotTable → PivotTable PT.emptyModel
     CT.Download → Download
     CT.Variables → Variables Variables.emptyModel
     CT.Troubleshoot → Troubleshoot

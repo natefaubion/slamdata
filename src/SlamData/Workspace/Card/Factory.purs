@@ -42,6 +42,7 @@ import SlamData.Workspace.Card.Pending.Component as Pending
 import SlamData.Workspace.Card.Query.Eval (queryEval)
 import SlamData.Workspace.Card.Search.Component (searchComponent)
 import SlamData.Workspace.Card.Table.Component (tableComponent)
+import SlamData.Workspace.Card.PivotTable.Component (pivotTableComponent)
 import SlamData.Workspace.Card.Troubleshoot.Component (troubleshootComponent)
 import SlamData.Workspace.Card.Variables.Component (variablesComponent)
 import SlamData.Workspace.Deck.DeckId (DeckId)
@@ -55,6 +56,7 @@ cardComponent deckId card opts =
     Card.Chart → chartComponent
     Card.Markdown _ → markdownComponent deckId opts
     Card.Table _ → tableComponent
+    Card.PivotTable _ → pivotTableComponent
     Card.Download → downloadComponent
     Card.Variables _ → variablesComponent
     Card.Troubleshoot → troubleshootComponent

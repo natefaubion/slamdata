@@ -25,6 +25,7 @@ module SlamData.Workspace.Card.Component.Query
   , _MarkdownQuery
   , _SearchQuery
   , _TableQuery
+  , _PivotTableQuery
   , _ChartOptionsQuery
   , _ChartQuery
   , _DownloadQuery
@@ -62,6 +63,7 @@ import SlamData.Workspace.Card.DownloadOptions.Component.Query as DOpts
 import SlamData.Workspace.Card.Draftboard.Component.Query as Draftboard
 import SlamData.Workspace.Card.Error.Component.Query as Error
 import SlamData.Workspace.Card.Table.Component.Query as Table
+import SlamData.Workspace.Card.PivotTable.Component.Query as PivotTable
 import SlamData.Workspace.Card.Markdown.Component.Query as Markdown
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.Next.Component.Query as Next
@@ -102,6 +104,7 @@ data AnyCardQuery a
   | MarkdownQuery (Markdown.QueryP a)
   | SearchQuery (Search.Query a)
   | TableQuery (Table.QueryP a)
+  | PivotTableQuery (PivotTable.QueryP a)
   | ChartOptionsQuery (ChartOptions.QueryP a)
   | ChartQuery (Chart.QueryP a)
   | DownloadQuery (Download.QueryP a)
@@ -133,6 +136,11 @@ _SearchQuery = prism' SearchQuery \q → case q of
 _TableQuery ∷ ∀ a. PrismP (AnyCardQuery a) (Table.QueryP a)
 _TableQuery = prism' TableQuery \q → case q of
   TableQuery q' → Just q'
+  _ → Nothing
+
+_PivotTableQuery ∷ ∀ a. PrismP (AnyCardQuery a) (PivotTable.QueryP a)
+_PivotTableQuery = prism' PivotTableQuery \q → case q of
+  PivotTableQuery q' → Just q'
   _ → Nothing
 
 _ChartOptionsQuery ∷ ∀ a. PrismP (AnyCardQuery a) (ChartOptions.QueryP a)

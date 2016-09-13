@@ -39,6 +39,7 @@ data InsertableCardType
   | ShowDownloadCard
   | ShowMarkdownCard
   | TableCard
+  | PivotTableCard
   | TroubleshootCard
 
 data InsertableCardIOType
@@ -68,6 +69,7 @@ inputs =
   , ShowDownloadCard × [ Download ]
   , ShowMarkdownCard × [ Markdown ]
   , TableCard × [ Data ]
+  , PivotTableCard × [ Data ]
   , TroubleshootCard × [ Variables, Data ]
   ]
 
@@ -86,6 +88,7 @@ outputs =
   , ShowDownloadCard × [ Download ]
   , ShowMarkdownCard × [ Markdown, Variables ]
   , TableCard × [ Data ]
+  , PivotTableCard × [ Data ]
   , TroubleshootCard × [ Markdown, Variables ]
   ]
 
@@ -235,6 +238,7 @@ toCardType =
     ShowDownloadCard → CardType.Download
     ShowMarkdownCard → CardType.Markdown
     TableCard → CardType.Table
+    PivotTableCard → CardType.PivotTable
     TroubleshootCard → CardType.Troubleshoot
 
 print ∷ InsertableCardType → String
@@ -279,6 +283,7 @@ printAction =
     ShowDownloadCard → Just "show"
     ShowMarkdownCard → Just "show"
     TableCard → Just "tabulate"
+    PivotTableCard → Just "tabulate"
     TroubleshootCard → Just "troubleshoot"
 
 fromCardType ∷ CardType → Maybe InsertableCardType
@@ -297,5 +302,6 @@ fromCardType =
     CardType.Download → Just ShowDownloadCard
     CardType.Markdown → Just ShowMarkdownCard
     CardType.Table → Just TableCard
+    CardType.PivotTable → Just PivotTableCard
     CardType.Troubleshoot → Just TroubleshootCard
     _ → Nothing
