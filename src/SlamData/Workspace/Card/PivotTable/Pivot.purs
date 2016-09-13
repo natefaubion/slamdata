@@ -1,4 +1,4 @@
-module Slamdata.Workspace.Card.PivotTable.Pivot
+module SlamData.Workspace.Card.PivotTable.Pivot
   ( Pivot
   , Dimension
   , classify

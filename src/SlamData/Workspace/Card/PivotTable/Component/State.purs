@@ -22,6 +22,7 @@ module SlamData.Workspace.Card.PivotTable.Component.State
   ) where
 
 import SlamData.Prelude
+import Data.Argonaut as J
 import Halogen as H
 import SlamData.Monad (Slam)
 import SlamData.Workspace.Card.PivotTable.Component.Query (QueryC)
@@ -29,10 +30,20 @@ import SlamData.Workspace.Card.PivotTable.Model (Model)
 
 type StateP = H.ParentState State Void QueryC (Const Void) Slam Void
 
-type State = {}
+type State =
+  { rows ∷ Array (J.Json)
+  , cursors ∷ Array J.JCursor
+  , dimensions ∷ Array J.JCursor
+  , columns ∷ Array J.JCursor
+  }
 
 initialState ∷ State
-initialState = {}
+initialState =
+  { rows: []
+  , cursors: []
+  , dimensions: []
+  , columns: []
+  }
 
 modelFromState ∷ State → Model
-modelFromState s = s
+modelFromState s = {}

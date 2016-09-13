@@ -24,7 +24,11 @@ import SlamData.Prelude
 import Halogen as H
 import SlamData.Workspace.Card.Common.EvalQuery (CardEvalQuery)
 
-data Query a = Noop a
+data Query a
+  = AddDimension Int a
+  | RemoveDimension Int a
+  | AddColumn Int a
+  | RemoveColumn Int a
 
 type QueryC = Coproduct CardEvalQuery Query
 
