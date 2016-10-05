@@ -119,7 +119,7 @@ data AnyCardState
   | TroubleshootState Troubleshoot.State
   | NextState Next.State
   | CacheState Cache.State
-  | OpenState Open.State
+  | OpenState Open.StateP
   | DownloadOptionsState DOpts.State
   | DraftboardState Draftboard.StateP
   | ErrorState Error.State
@@ -189,7 +189,7 @@ _CacheState = prism' CacheState case _ of
   CacheState s → Just s
   _ → Nothing
 
-_OpenState ∷ PrismP AnyCardState Open.State
+_OpenState ∷ PrismP AnyCardState Open.StateP
 _OpenState = prism' OpenState case _ of
   OpenState s → Just s
   _ → Nothing

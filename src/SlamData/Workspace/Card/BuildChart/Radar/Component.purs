@@ -88,13 +88,9 @@ renderPicker state = case state.picker of
               _ → ""
           , label: show
           , render: HH.text ∘ show
-          , weight: const 0.0
+          , values: groupJCursors (List.fromFoldable options)
           }
-      , initialState:
-          H.parentState
-            $ DPC.initialState
-            $ groupJCursors
-            $ List.fromFoldable options
+      , initialState: H.parentState DPC.initialState
       }
 
 renderCategory ∷ ST.State → HTML
@@ -232,8 +228,6 @@ peek = coproduct peekPicker (const (pure unit))
         _ → pure unit
       H.modify _ { picker = Nothing }
       raiseUpdate
-    _ →
-      pure unit
 
 loadModel ∷ M.RadarR → DSL Unit
 loadModel r =

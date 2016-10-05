@@ -86,13 +86,9 @@ renderPicker state = case state.picker of
               Q.Parallel _    → "Choose parallel"
           , label: show
           , render: HH.text ∘ show
-          , weight: const 0.0
+          , values: groupJCursors (List.fromFoldable options)
           }
-      , initialState:
-          H.parentState
-            $ DPC.initialState
-            $ groupJCursors
-            $ List.fromFoldable options
+      , initialState: H.parentState DPC.initialState
       }
 
 renderDimension ∷ ST.State → HTML
@@ -220,8 +216,6 @@ peek = coproduct peekPicker (const (pure unit))
         Q.Parallel _  → H.modify (ST._parallel ∘ _value ?~ value')
       H.modify _ { picker = Nothing }
       raiseUpdate
-    _ →
-      pure unit
 
 synchronizeChildren ∷ DSL Unit
 synchronizeChildren = void do
@@ -272,4 +266,3 @@ loadModel r =
     , series = fromSelected r.series
     , parallel = fromSelected r.parallel
     }
-

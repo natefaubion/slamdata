@@ -9,65 +9,6 @@
   right: 0;
   bottom: 3rem;
   overflow: auto;
-
-  ul {
-    list-style-type: none;
-    padding: 0;
-  }
-
-  li {
-    float: left;
-    position: relative;
-
-    button {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: ~"calc(100% - 1px)";
-      height: ~"calc(100% - 1px)";
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      background: #999;
-      border: none;
-      margin: 0;
-      padding: 0;
-      color: #fff;
-
-      &:hover {
-        background: #337ab7;
-      }
-    }
-
-    &.selected button {
-      background: #337ab7;
-    }
-
-    .sd-size-xxlarge & {
-      width: 16.66666%;
-      padding-bottom: 16.66666%;
-    }
-    .sd-size-xlarge & {
-      width: 20%;
-      padding-bottom: 20%;
-    }
-    .sd-size-large & {
-      width: 25%;
-      padding-bottom: 25%;
-    }
-    .sd-size-medium & {
-      width: 33.33333%;
-      padding-bottom: 33.33333%;
-    }
-    .sd-size-small & {
-      width: 50%;
-      padding-bottom: 50%;
-    }
-    .sd-size-xsmall & {
-      width: 100%;
-      padding-bottom: 100%;
-    }
-  }
 }
 
 .sd-dimension-picker-title {

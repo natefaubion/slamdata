@@ -106,9 +106,9 @@ renderHighLOD st =
               { title: "Choose column"
               , label: showColumn
               , render: HH.text ∘ showColumn
-              , weight: const 0.0
+              , values
               }
-          , initialState: H.parentState (DPC.initialState values)
+          , initialState: H.parentState DPC.initialState
           }
     Dim →
       let
@@ -122,9 +122,9 @@ renderHighLOD st =
               { title: "Choose dimension"
               , label: showJCursor
               , render: HH.text ∘ showJCursor
-              , weight: const 0.0
+              , values
               }
-          , initialState: H.parentState (DPC.initialState values)
+          , initialState: H.parentState DPC.initialState
           }
 
   renderedDimensions =
@@ -455,8 +455,6 @@ peek =
         , selecting = Nothing
         }
       CC.raiseUpdatedP' CC.EvalModelUpdate
-    _ →
-      pure unit
 
   peekSelectCol = case _ of
     DPC.Dismiss _ →
@@ -469,5 +467,3 @@ peek =
         , selecting = Nothing
         }
       CC.raiseUpdatedP' CC.EvalModelUpdate
-    _ →
-      pure unit

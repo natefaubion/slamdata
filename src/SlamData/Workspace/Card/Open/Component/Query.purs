@@ -18,10 +18,10 @@ module SlamData.Workspace.Card.Open.Component.Query where
 
 import SlamData.Prelude
 import SlamData.Workspace.Card.Common.EvalQuery (CardEvalQuery)
-import SlamData.FileSystem.Resource as R
+import SlamData.Workspace.MillerColumns.Component as MC
 
-data Query a
-  = ResourceSelected R.Resource a
-  | Init (Maybe R.Resource) a
+import Halogen (ChildF)
 
-type QueryP = Coproduct CardEvalQuery Query
+import Utils.Path (AnyPath)
+
+type QueryP = Coproduct CardEvalQuery (ChildF Unit (MC.Query AnyPath))

@@ -18,11 +18,7 @@ module SlamData.Workspace.Card.BuildChart.DimensionPicker.Component where
 
 import SlamData.Prelude
 
-import Control.Comonad.Cofree (Cofree)
-import Control.Comonad.Cofree as Cofree
-
-import Data.Array as Array
-import Data.List (List(..), (:))
+import Data.List (List, (:))
 import Data.List as List
 
 import Halogen as H
@@ -33,55 +29,85 @@ import Halogen.HTML.Properties.Indexed.ARIA as ARIA
 import Halogen.Themes.Bootstrap3 as B
 
 import SlamData.Monad (Slam)
+import SlamData.Workspace.MillerColumns.Component as MC
+import SlamData.Workspace.MillerColumns.TreeData as MCT
 
 data Query s a
-  = Choose (List Int) a
-  | Dismiss a
+  = Dismiss a
   | Confirm (List s) a
 
 type State s =
-  { values ∷ Cofree List s
-  , selection ∷ Maybe (List Int)
-  , cursor ∷ List Int
+  { selection ∷ Maybe (List s)
   }
 
-initialState ∷ ∀ s. Cofree List s → State s
-initialState values =
-  { values
-  , selection: Nothing
-  , cursor: Nil
+initialState ∷ ∀ s. State s
+initialState =
+  { selection: Nothing
   }
 
-type ChildState s = Void
+type ChildState s = MC.State s s
 
-type ChildQuery s = Const Void
+type ChildQuery s = MC.Query s
 
 type ChildSlot = Unit
 
-type StateP s = H.ParentState (State s) (ChildState s) (Query s) (ChildQuery s) Slam ChildSlot
+type StateP s =
+  H.ParentState
+    (State s)
+    (ChildState s)
+    (Query s)
+    (ChildQuery s)
+    Slam
+    ChildSlot
 
-type QueryP s = H.ParentQuery (Query s) (ChildQuery s) ChildSlot
+type QueryP s =
+  H.ParentQuery
+    (Query s)
+    (ChildQuery s)
+    ChildSlot
 
-type HTML s = H.ParentHTML (ChildState s) (Query s) (ChildQuery s) Slam ChildSlot
+type HTML s =
+  H.ParentHTML
+    (ChildState s)
+    (Query s)
+    (ChildQuery s)
+    Slam
+    ChildSlot
 
-type DSL s = H.ParentDSL (State s) (ChildState s) (Query s) (ChildQuery s) Slam ChildSlot
+type DSL s =
+  H.ParentDSL
+    (State s)
+    (ChildState s)
+    (Query s)
+    (ChildQuery s)
+    Slam
+    ChildSlot
 
 type PickerOptions s =
   { label  ∷ s → String
-  , render ∷ s → HTML s
-  , weight ∷ s → Number
+  , render ∷ s → MC.ItemHTML
   , title  ∷ String
+  , values ∷ MCT.Tree s
+  }
+
+pickerOptionsToItemSpec ∷ ∀ s. Eq s ⇒ PickerOptions s → MC.ItemSpec s s Slam
+pickerOptionsToItemSpec { label, render, values } =
+  { label: label
+  , render: render
+  , load: MCT.loadFromTree id values
+  , id: id
   }
 
 picker
   ∷ ∀ s
-  . PickerOptions s
+  . Eq s
+  ⇒ PickerOptions s
   → H.Component (StateP s) (QueryP s) Slam
-picker opts = H.parentComponent { render, eval, peek: Nothing }
+picker opts = H.parentComponent { render, eval, peek: Just (peek ∘ H.runChildF) }
   where
+  itemSpec = pickerOptionsToItemSpec opts
   render ∷ State s → HTML s
   render st =
-    let cof = snd <$> getCursor st.cursor st.values in
     HH.div
       [ HP.classes [ HH.className "sd-dimension-picker" ] ]
       [ HH.div
@@ -97,7 +123,11 @@ picker opts = H.parentComponent { render, eval, peek: Nothing }
           ]
       , HH.div
           [ HP.classes [ HH.className "sd-dimension-picker-content" ] ]
-          [ HH.ul_ (renderedValues cof) ]
+          [ HH.slot unit \_ →
+              { component: MC.component itemSpec Nothing
+              , initialState: MCT.initialStateFromTree itemSpec.id opts.values
+              }
+          ]
       , HH.div
           [ HP.classes [ HH.className "sd-dimension-picker-toolbar" ] ]
           [ HH.button
@@ -110,58 +140,21 @@ picker opts = H.parentComponent { render, eval, peek: Nothing }
               ([ HP.classes [ B.btn, B.btnPrimary ]
               , ARIA.label ""
               ] <>
-                case flip getCursor st.values =<< st.selection of
-                  Just (p × cof') → [ HE.onClick (HE.input_ (Confirm (List.snoc p (Cofree.head cof')))) ]
+                case st.selection of
+                  Just sel → [ HE.onClick (HE.input_ (Confirm (List.reverse sel))) ]
                   Nothing → [ HP.disabled true ])
               [ HH.text "Confirm" ]
           ]
       ]
-    where
-    renderedValues Nothing = []
-    renderedValues (Just parent) =
-      let
-        values =
-          Array.mapWithIndex
-            (\ix val → renderValue (ix : st.cursor) (opts.label val) (opts.render val))
-            (Array.fromFoldable
-              (Cofree.head <$> Cofree.tail parent))
-      in
-        maybe [] (pure ∘ renderBack) (List.tail st.cursor) <> values
-
-    renderValue cursor label html =
-      HH.li
-        [ HP.classes (HH.className "selected" <$ guard (Just cursor ≡ st.selection)) ]
-        [ HH.button
-            [ HP.title label
-            , ARIA.label label
-            , HE.onClick (HE.input_ (Choose cursor))
-            ]
-            [ html ]
-        ]
-
-    renderBack back =
-      renderValue back "Back" (HH.text "Back")
 
   eval ∷ Query s ~> DSL s
   eval = case _ of
-    Choose cursor next → do
-      st ← H.get
-      for_ (getCursor cursor st.values) \(p × cof) →
-        if List.null (Cofree.tail cof)
-          then H.modify _ { selection = Just cursor }
-          else H.modify _ { cursor = cursor, selection = Nothing }
-      pure next
-    Dismiss next →
-      pure next
-    Confirm _ next →
-      pure next
+    Dismiss next → pure next
+    Confirm _ next → pure next
 
-getCursor
-  ∷ ∀ a
-  . List Int
-  → Cofree List a
-  → Maybe (List a × Cofree List a)
-getCursor cursor = go Nil (List.reverse cursor)
-  where
-  go p Nil cof = Just (List.reverse p × cof)
-  go p (i : is) cof = go (Cofree.head cof : p) is =<< List.index (Cofree.tail cof) i
+  peek ∷ ∀ x. MC.Query s x -> DSL s Unit
+  peek = case _ of
+    MC.Populate sel _ →
+      H.modify (_ { selection = Just sel })
+    _ →
+      pure unit

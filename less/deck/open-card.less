@@ -1,114 +1,72 @@
 .sd-card-open {
 
-  @row-size: @grid-size * 2;
-
   height: 100%;
-  > div {
-    height: 100%;
-    > div { height: 100%; }
-  }
+  > div { height: 100%; }
 
-  a i {
-    margin: 0 1rem;
-  }
-  ul {
-      // box-shadow: inset 0px 0px 3px 0px @shade-tint;
-      height: ~"calc(100% - @{row-size})";
-      overflow: auto;
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      // border: 1px solid #ddd;
-      // border-top: none;
-      // border-bottom: none;
-  }
-  li {
-      .noselect;
-      height: @row-size;
-      line-height: @row-size;
-      padding: 0;
-      background: 0;
-      cursor: pointer;
-      border: 1px solid #ddd;
-      border-left: 0;
-      border-right: 0;
+  .sd-open-item {
+    span {
+      position: absolute;
+      left: 30px;
+      width: ~"calc(100% - 30px)";
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      color: #337ab7;
-      &:hover {
-          background: #d9edf7;
+    }
+
+    &.sd-open-item-node {
+      span {
+        width: ~"calc(100% - 50px)";
       }
-      &.active {
-          opacity: 1;
-          background: #337ab7;
-          color: white;
-          a {
-              color: white;
-          }
+
+      &::after {
+        position: absolute;
+        right: 6px;
+        top: 10px;
+
+        content: "\e080";
+        font-family: "Glyphicons Halflings";
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
-      &:first-child {
-          border-top: 0;
-      }
-      margin-bottom: -1px;
+    }
   }
-  div.open-card-menu {
-      height: @row-size;
-      border-bottom: 1px solid #ddd;
-      button {
-          border: 0;
-          border-radius: 0;
-          border-right: 1px solid #ddd;
-          margin: 0 0.5rem 0 0;
-          height: ~"calc(@{row-size} - 1px)";
-          width: @row-size;
-      }
-      p {
-          display: inline-block;
-          font-weight: bold;
-          font-size: 16px;
-          vertical-align: top;
-          width: ~"calc(100% - 64px)";
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          line-height: ~"calc(@{row-size} - 1px)";
-          height: ~"calc(@{row-size} - 1px)";
-      }
-  }
-  &.loading {
-      div.open-card-menu button {
-          margin-right: 12px;
-      }
-      .list-group-item {
-          cursor: default;
-          background: white;
-          &:hover {
-              background: white;
-              a:hover {
-                  color: multiply(#337ab7, #fafafa);
-              }
-          }
-          a {
-              text-decoration: none;
-              color: multiply(#337ab7, #fafafa);
-          }
-      }
-      .open-card-menu p {
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          &:before  {
-              content: "";
-              background: url("../img/spin.svg") no-repeat;
-              height: 22px;
-              width: 22px;
-              position: relative;
-              top: 5px;
-              display: inline-block;
-              background-size: 20px 20px;
-              background-position: center;
-          }
-      }
-  }
+
+  // &.loading {
+  //     div.open-card-menu button {
+  //         margin-right: 12px;
+  //     }
+  //     .list-group-item {
+  //         cursor: default;
+  //         background: white;
+  //         &:hover {
+  //             background: white;
+  //             a:hover {
+  //                 color: multiply(#337ab7, #fafafa);
+  //             }
+  //         }
+  //         a {
+  //             text-decoration: none;
+  //             color: multiply(#337ab7, #fafafa);
+  //         }
+  //     }
+  //     .open-card-menu p {
+  //         white-space: nowrap;
+  //         overflow: hidden;
+  //         text-overflow: ellipsis;
+  //         &:before  {
+  //             content: "";
+  //             background: url("../img/spin.svg") no-repeat;
+  //             height: 22px;
+  //             width: 22px;
+  //             position: relative;
+  //             top: 5px;
+  //             display: inline-block;
+  //             background-size: 20px 20px;
+  //             background-position: center;
+  //         }
+  //     }
+  // }
 }
