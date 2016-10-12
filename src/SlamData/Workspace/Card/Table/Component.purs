@@ -93,14 +93,14 @@ runTable = case _ of
 updateTable
   ∷ Port.TaggedResourcePort
   → CC.CardEvalT (H.ComponentDSL JTS.State QueryP Slam) Unit
-updateTable { resource, tag, axes, varMap } = do
+updateTable { resource, tag, varMap } = do
   oldInput ← lift $ H.gets _.input
   when (((oldInput <#> _.resource) ≠ pure resource) || ((oldInput >>= _.tag) ≠ tag))
     $ lift $ resetState
 
   size ← CET.liftQ $ Quasar.count resource
 
-  lift $ H.modify $ JTS._input ?~ { resource, size, tag, axes, varMap }
+  lift $ H.modify $ JTS._input ?~ { resource, size, tag, varMap }
   p ← lift $ H.gets JTS.pendingPageInfo
 
   items ← CET.liftQ $
@@ -142,6 +142,6 @@ evalTable = case _ of
 refresh ∷ DSL Unit
 refresh = do
   input ← H.gets _.input
-  for_ input \ {resource, tag, axes, varMap} →
-    CEQ.runCardEvalT_ $ updateTable {resource, tag, axes, varMap}
+  for_ input \ {resource, tag, varMap} →
+    CEQ.runCardEvalT_ $ updateTable {resource, tag, varMap}
   CC.raiseUpdatedC' CC.StateOnlyUpdate

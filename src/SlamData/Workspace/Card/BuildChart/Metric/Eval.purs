@@ -38,6 +38,7 @@ import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.BuildChart.Metric.Model (Model, MetricR)
 import SlamData.Workspace.Card.BuildChart.Semantics (getValues)
 import SlamData.Workspace.Card.BuildChart.Aggregation as Ag
+import SlamData.Workspace.Card.BuildChart.Axis as Ax
 
 eval
   ∷ ∀ m
@@ -49,12 +50,13 @@ eval Nothing _  =
   QE.throw "Please select axis to aggregate"
 eval (Just conf) resource = do
   records ← BCE.records resource
-  pure $ Port.Metric $ buildMetric conf records
+  let axes = Ax.buildAxes (A.take 100 records)
+  pure $ Port.Metric $ buildMetric axes conf records
 
 
-buildMetric ∷ MetricR → JArray → Port.MetricPort
-buildMetric r records =
-  { value, label: r.label }
+buildMetric ∷ Ax.Axes → MetricR → JArray → Port.MetricPort
+buildMetric axes r records =
+  { value, label: r.label, axes }
   where
   formatterRegex ∷ Rgx.Regex
   formatterRegex =

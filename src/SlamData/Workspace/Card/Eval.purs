@@ -161,29 +161,29 @@ evalCard input =
       pure $ Port.DownloadOptions { resource, compress, options }
     BuildMetric model, Just (Port.TaggedResource { resource }) →
       BuildMetric.eval model resource
-    BuildSankey model, Just (Port.TaggedResource {resource}) →
+    BuildSankey model, Just (Port.TaggedResource { resource }) →
       BuildSankey.eval model resource
-    BuildGauge model, Just (Port.TaggedResource {resource}) →
+    BuildGauge model, Just (Port.TaggedResource { resource }) →
       BuildGauge.eval model resource
-    BuildGraph model, Just (Port.TaggedResource {resource}) →
+    BuildGraph model, Just (Port.TaggedResource { resource }) →
       BuildGraph.eval model resource
-    BuildPie model, Just (Port.TaggedResource {resource}) →
+    BuildPie model, Just (Port.TaggedResource { resource }) →
       BuildPie.eval model resource
-    BuildRadar model, Just (Port.TaggedResource {resource}) →
+    BuildRadar model, Just (Port.TaggedResource { resource }) →
       BuildRadar.eval model resource
-    BuildArea model, Just (Port.TaggedResource {resource, axes}) →
-      BuildArea.eval model resource axes
-    BuildLine model, Just (Port.TaggedResource {resource, axes}) →
-      BuildLine.eval model resource axes
-    BuildBar model, Just (Port.TaggedResource {resource, axes}) →
-      BuildBar.eval model resource axes
-    BuildScatter model, Just (Port.TaggedResource {resource}) →
+    BuildArea model, Just (Port.TaggedResource { resource }) →
+      BuildArea.eval model resource
+    BuildLine model, Just (Port.TaggedResource { resource }) →
+      BuildLine.eval model resource
+    BuildBar model, Just (Port.TaggedResource { resource }) →
+      BuildBar.eval model resource
+    BuildScatter model, Just (Port.TaggedResource { resource }) →
       BuildScatter.eval model resource
-    BuildFunnel model, Just (Port.TaggedResource {resource}) →
+    BuildFunnel model, Just (Port.TaggedResource { resource }) →
       BuildFunnel.eval model resource
-    BuildHeatmap model, Just (Port.TaggedResource {resource, axes}) →
-      BuildHeatmap.eval model resource axes
-    BuildBoxplot model, Just (Port.TaggedResource {resource}) →
+    BuildHeatmap model, Just (Port.TaggedResource { resource }) →
+      BuildHeatmap.eval model resource
+    BuildBoxplot model, Just (Port.TaggedResource { resource }) →
       BuildBoxplot.eval model resource
     BuildPivotTable model, Just (Port.TaggedResource tr) →
       BuildPivotTable.eval model tr
@@ -220,10 +220,8 @@ evalOpen info res = do
          ("File " ⊕ Path.printPath filePath ⊕ " doesn't exist")
    case msg of
      Nothing → do
-       axes ←
-         CET.liftQ $ QQ.axes filePath 20
        CET.addSource filePath
-       pure { resource: filePath, tag: Nothing, axes, varMap: Nothing }
+       pure { resource: filePath, tag: Nothing, varMap: Nothing }
      Just err →
        QE.throw err
 
@@ -248,11 +246,7 @@ evalQuery info sql urlVarMap varMap = do
     <$> QQ.compile backendPath sql varMap'
   validateResources inputs
   CET.addSources inputs
-  axes ← CET.liftQ do
-    QQ.viewQuery backendPath resource sql varMap'
-    QFS.messageIfFileNotFound resource "Requested collection doesn't exist"
-    QQ.axes resource 20
-  pure { resource, tag: pure sql, axes, varMap: Just varMap }
+  pure { resource, tag: pure sql, varMap: Just varMap }
 
 evalSearch
   ∷ ∀ m
@@ -287,14 +281,7 @@ evalSearch info queryText resource = do
       validateResources inputs
       CET.addSources inputs
 
-  axes ← CET.liftQ do
-    QQ.viewQuery (Right resource) outputResource template SM.empty
-    QFS.messageIfFileNotFound
-      outputResource
-      "Error making search temporary resource"
-    QQ.axes outputResource 20
-
-  pure { resource: outputResource, tag: pure sql, axes, varMap: Nothing }
+  pure { resource: outputResource, tag: pure sql, varMap: Nothing }
 
 runEvalCard
   ∷ ∀ m

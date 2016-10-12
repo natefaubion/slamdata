@@ -45,7 +45,6 @@ import Data.Foldable (maximum)
 import Data.Int as Int
 import Data.Lens ((^?), (?~), LensP, lens, _Just)
 
-import SlamData.Workspace.Card.BuildChart.Axis (Axes)
 import SlamData.Workspace.Card.Table.Component.Query (PageStep(..))
 import SlamData.Workspace.Card.Table.Model (Model)
 import SlamData.Workspace.Card.Port as Port
@@ -106,7 +105,6 @@ _levelOfDetails = lens (_.levelOfDetails) (_{levelOfDetails = _})
 type Input =
   { resource ∷ FilePath
   , tag ∷ Maybe String
-  , axes ∷ Axes
   , size ∷ Int
   , varMap ∷ Maybe Port.VarMap
   }

@@ -43,6 +43,7 @@ import SlamData.Workspace.Card.BuildChart.Pie.Model (Model, PieR)
 import SlamData.Workspace.Card.BuildChart.Common.Positioning (adjustRadialPositions, adjustDonutRadiuses, RadialPosition, WithDonutRadius, radialTitles)
 import SlamData.Workspace.Card.CardType.ChartType (ChartType(Pie))
 import SlamData.Workspace.Card.BuildChart.Aggregation as Ag
+import SlamData.Workspace.Card.BuildChart.Axis as Ax
 import SlamData.Workspace.Card.BuildChart.ColorScheme (colors)
 import SlamData.Workspace.Card.BuildChart.Semantics (getMaybeString, getValues)
 import SlamData.Workspace.Card.Eval.CardEvalT as CET
@@ -59,7 +60,8 @@ eval Nothing _ =
   QE.throw "Please select axis to aggregate"
 eval (Just conf) resource = do
   records ← BCE.records resource
-  pure $ Port.ChartInstructions (buildPie conf records) Pie
+  let axes = Ax.buildAxes (A.take 100 records)
+  pure $ Port.ChartInstructions axes (buildPie conf records) Pie
 
 
 type OnePieSeries =

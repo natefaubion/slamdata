@@ -57,13 +57,13 @@ eval
   . (Monad m, QuasarDSL m)
   ⇒ Model
   → FilePath
-  → Ax.Axes
   → CET.CardEvalT m Port.Port
-eval Nothing _ _ =
+eval Nothing _ =
   QE.throw "Please select axis to aggregate"
-eval (Just conf) resource axes = do
+eval (Just conf) resource = do
   records ← BCE.records resource
-  pure $ Port.ChartInstructions (buildArea conf records axes) Area
+  let axes = Ax.buildAxes (A.take 100 records)
+  pure $ Port.ChartInstructions axes (buildArea conf records axes) Area
 
 type AreaSeries =
   { name ∷ Maybe String

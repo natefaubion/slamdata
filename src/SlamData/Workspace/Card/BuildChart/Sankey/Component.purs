@@ -153,7 +153,7 @@ eval = cardEval ⨁ chartEval
 cardEval ∷ CC.CardEvalQuery ~> DSL
 cardEval = case _ of
   CC.EvalCard info output next → do
-    for_ (info.input ^? Lens._Just ∘ Port._ResourceAxes) \axes → do
+    for_ (output ^? Lens._Just ∘ Port._ChartAxes) \axes → do
       H.modify _{axes = axes}
       synchronizeChildren
     pure next

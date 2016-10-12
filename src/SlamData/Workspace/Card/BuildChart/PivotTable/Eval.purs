@@ -43,8 +43,9 @@ eval
   → CET.CardEvalT m Port.Port
 eval Nothing _ =
   QE.throw "Please select axis to aggregate"
-eval (Just options) tr | PTM.isSimple options =
-  pure $ Port.PivotTable { records: [], options, taggedResource: tr }
+eval (Just options) tr | PTM.isSimple options = do
+  axes ← CET.liftQ $ QQ.axes tr.resource 100
+  pure $ Port.PivotTable { records: [], options, taggedResource: tr, axes }
 eval (Just options@{ dimensions: [] }) tr = do
   let
     path = fromMaybe P.rootDir (P.parentDir tr.resource)
@@ -61,9 +62,10 @@ eval (Just options@{ dimensions: [] }) tr = do
         [ "SELECT " <> String.joinWith ", " cols
         , "FROM {{path}} AS row"
         ]
+  axes ← CET.liftQ $ QQ.axes tr.resource 100
   records ← CET.liftQ $ liftQuasar $
     QF.readQuery Readable path sql SM.empty Nothing
-  pure $ Port.PivotTable { records, options, taggedResource: tr }
+  pure $ Port.PivotTable { records, options, taggedResource: tr, axes }
 eval (Just options) tr = do
   let
     path = fromMaybe P.rootDir (P.parentDir tr.resource)
@@ -87,9 +89,10 @@ eval (Just options) tr = do
         , "GROUP BY " <> String.joinWith ", " groupBy
         , "ORDER BY " <> String.joinWith ", " groupBy
         ]
+  axes ← CET.liftQ $ QQ.axes tr.resource 100
   records ← CET.liftQ $ liftQuasar $
     QF.readQuery Readable path sql SM.empty Nothing
-  pure $ Port.PivotTable { records, options, taggedResource: tr }
+  pure $ Port.PivotTable { records, options, taggedResource: tr, axes }
 
 sqlAggregation ∷ Maybe Ag.Aggregation → String → String
 sqlAggregation a b = case a of

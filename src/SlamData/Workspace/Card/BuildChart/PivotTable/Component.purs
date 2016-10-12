@@ -21,6 +21,8 @@ import SlamData.Prelude
 import Data.Argonaut as J
 import Data.Array as Array
 import Data.Int (toNumber)
+import Data.Lens ((^?))
+import Data.Lens as Lens
 import Data.List ((:))
 import Data.List as List
 
@@ -315,11 +317,9 @@ renderHighLOD st =
 
 evalCard ∷ CC.CardEvalQuery ~> DSL
 evalCard = case _ of
-  CC.EvalCard info _ next → do
-    case info.input of
-      Just (Port.TaggedResource { axes }) →
-        H.modify _ { axes = axes }
-      _ → pure unit
+  CC.EvalCard info output next → do
+    for_ (output ^? Lens._Just ∘ Port._ChartAxes) \axes → do
+      H.modify _ { axes = axes }
     pure next
   CC.Activate next →
     pure next

@@ -55,13 +55,13 @@ eval
   . (Monad m, QuasarDSL m)
   ⇒ Model
   → FilePath
-  → Axes
   → CET.CardEvalT m Port.Port
-eval Nothing _ _ =
+eval Nothing _ =
   QE.throw "Please select axis to aggregate"
-eval (Just conf) resource axes = do
+eval (Just conf) resource = do
   records ← BCE.records resource
-  pure $ Port.ChartInstructions (buildBar conf records axes) Bar
+  let axes = Ax.buildAxes (A.take 100 records)
+  pure $ Port.ChartInstructions axes (buildBar conf records axes) Bar
 
 
 type BarSeries =

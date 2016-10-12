@@ -40,6 +40,7 @@ import SlamData.Workspace.Card.BuildChart.Common.Eval as BCE
 import SlamData.Workspace.Card.BuildChart.Gauge.Model (Model, GaugeR)
 import SlamData.Workspace.Card.CardType.ChartType (ChartType(Gauge))
 import SlamData.Workspace.Card.BuildChart.Aggregation as Ag
+import SlamData.Workspace.Card.BuildChart.Axis as Ax
 import SlamData.Workspace.Card.BuildChart.ColorScheme (colors)
 import SlamData.Workspace.Card.BuildChart.Semantics (getMaybeString, getValues)
 import SlamData.Workspace.Card.Eval.CardEvalT as CET
@@ -57,7 +58,8 @@ eval Nothing _ =
   QE.throw "Please select axis to aggregate"
 eval (Just conf) resource = do
   records ← BCE.records resource
-  pure $ Port.ChartInstructions (buildGauge conf records) Gauge
+  let axes = Ax.buildAxes (A.take 100 records)
+  pure $ Port.ChartInstructions axes (buildGauge conf records) Gauge
 
 ----------------------------------------------------------------------
 -- GAUGE BUILDER

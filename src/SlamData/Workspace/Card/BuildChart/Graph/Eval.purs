@@ -48,6 +48,7 @@ import SlamData.Workspace.Card.BuildChart.Common.Eval (type (>>))
 import SlamData.Workspace.Card.BuildChart.Common.Eval as BCE
 import SlamData.Workspace.Card.BuildChart.Graph.Model (Model, GraphR)
 import SlamData.Workspace.Card.CardType.ChartType (ChartType(Graph))
+import SlamData.Workspace.Card.BuildChart.Axis as Ax
 import SlamData.Workspace.Card.BuildChart.Aggregation as Ag
 import SlamData.Workspace.Card.BuildChart.ColorScheme (colors)
 import SlamData.Workspace.Card.BuildChart.Semantics as Sem
@@ -65,7 +66,8 @@ eval Nothing _ =
   QE.throw "Please select axis to aggregate"
 eval (Just conf) resource = do
   records ← BCE.records resource
-  pure $ Port.ChartInstructions (buildGraph conf records) Graph
+  let axes = Ax.buildAxes (A.take 100 records)
+  pure $ Port.ChartInstructions axes (buildGraph conf records) Graph
 
 
 type EdgeItem =
