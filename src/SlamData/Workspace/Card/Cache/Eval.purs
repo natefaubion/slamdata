@@ -24,44 +24,39 @@ import Data.StrMap as SM
 
 import Quasar.Types (FilePath)
 
-import SlamData.Quasar.Class (class QuasarDSL)
-import SlamData.Quasar.Error as QE
 import SlamData.Quasar.FS as QFS
 import SlamData.Quasar.Query as QQ
-import SlamData.Workspace.Card.Eval.CardEvalT as CET
+import SlamData.Workspace.Card.Eval.Monad as CEM
+import SlamData.Workspace.Card.Eval.Transition (CardEvalInput)
 import SlamData.Workspace.Card.Port as Port
 
 import Utils.Path as PU
 
 eval
-  ∷ ∀ m
-  . (Monad m, QuasarDSL m)
-  ⇒ CET.CardEvalInput
+  ∷ CardEvalInput
   → Maybe String
   → FilePath
   → Maybe Port.VarMap
-  → CET.CardEvalT m Port.TaggedResourcePort
+  → CEM.CardEval Port.TaggedResourcePort
 eval info mfp resource varMap =
   case mfp of
-    Nothing → eval' (CET.temporaryOutputResource info) resource varMap
+    Nothing → eval' (CEM.temporaryOutputResource info) resource varMap
     Just pt →
       case PU.parseAnyPath pt of
         Just (Right fp) → eval' fp resource varMap
-        _ → QE.throw $ pt ⊕ " is not a valid file path"
+        _ → CEM.throw $ pt ⊕ " is not a valid file path"
 
 eval'
-  ∷ ∀ m
-  . (Monad m, QuasarDSL m)
-  ⇒ FilePath
+  ∷ FilePath
   → FilePath
   → Maybe Port.VarMap
-  → CET.CardEvalT m Port.TaggedResourcePort
+  → CEM.CardEval Port.TaggedResourcePort
 eval' fp resource varMap = do
 
-  outputResource ← CET.liftQ $
+  outputResource ← CEM.liftQ $
     QQ.fileQuery resource fp "select * from {{path}}" SM.empty
 
-  CET.liftQ $ QFS.messageIfFileNotFound
+  CEM.liftQ $ QFS.messageIfFileNotFound
     outputResource
     "Error saving file, please try another location"
 
@@ -73,8 +68,12 @@ eval' fp resource varMap = do
   -- in the expected location, and the rest of the deck can run as the Save
   -- failing has not effect on the output. -gb
   when (fp /= outputResource)
-    $ QE.throw
+    $ CEM.throw
     $ "Resource: " ⊕ Path.printPath outputResource ⊕ " hasn't been modified"
-  CET.addSource resource
-  CET.addCache outputResource
-  pure { resource: outputResource, tag: Nothing, varMap }
+  CEM.addSource resource
+  CEM.addCache outputResource
+  pure
+    { resource: outputResource
+    , tag: Nothing
+    , varMap
+    }

@@ -69,7 +69,7 @@ import SlamData.Workspace.Card.Cache.Component.Query as Cache
 import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.CardType (CardType)
 import SlamData.Workspace.Card.Chart.Component.Query as Chart
-import SlamData.Workspace.Card.Common.EvalQuery (CardEvalInput, CardEvalT, CardEvalQuery(..), ModelUpdateType(..), raiseUpdatedC, raiseUpdatedC', raiseUpdatedP, raiseUpdatedP')
+import SlamData.Workspace.Card.Common.EvalQuery (CardEvalInput, CardEvalQuery(..), ModelUpdateType(..), raiseUpdatedC, raiseUpdatedC', raiseUpdatedP, raiseUpdatedP')
 import SlamData.Workspace.Card.Download.Component.Query as Download
 import SlamData.Workspace.Card.DownloadOptions.Component.Query as DOpts
 import SlamData.Workspace.Card.Draftboard.Component.Query as Draftboard

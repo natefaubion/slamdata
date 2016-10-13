@@ -34,13 +34,12 @@ import Halogen (query, action, gets, request, fromEff, modify)
 import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Ace.Component as AceCard
 import SlamData.Workspace.Card.Ace.Component.State (Status(..), _status, isNew)
-import SlamData.Workspace.Card.Eval.CardEvalT as CET
 import SlamData.Workspace.Card.Port as Port
 
 import Utils.Ace (readOnly)
 import Utils.Completions (mkCompletion, pathCompletions)
 
-queryEval ∷ CET.CardEvalInput → AceCard.DSL Unit
+queryEval ∷ CC.CardEvalInput → AceCard.DSL Unit
 queryEval info = do
   status ← gets _.status
   when (isNew status) do

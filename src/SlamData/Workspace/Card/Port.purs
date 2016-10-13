@@ -21,6 +21,7 @@ module SlamData.Workspace.Card.Port
   , MetricPort
   , PivotTablePort
   , tagPort
+  , eqTaggedResourcePort
   , _SlamDown
   , _VarMap
   , _Resource
@@ -72,9 +73,10 @@ type MetricPort =
 
 type PivotTablePort =
   { records ∷ Array Json
-  , options ∷ PTM.PivotTableR
+  , options ∷ PTM.Model
   , taggedResource ∷ TaggedResourcePort
   , axes ∷ Axes
+  , query ∷ String
   }
 
 data Port
@@ -89,7 +91,6 @@ data Port
   | Draftboard
   | Blocked
 
-
 tagPort ∷ Maybe Port → String
 tagPort Nothing = "Nothing"
 tagPort (Just p) = case p of
@@ -103,6 +104,12 @@ tagPort (Just p) = case p of
   ChartInstructions _ _ _ → "ChartInstructions"
   Metric _ → "Metric"
   PivotTable _ → "PivotTable"
+
+eqTaggedResourcePort ∷ TaggedResourcePort → TaggedResourcePort → Boolean
+eqTaggedResourcePort tr1 tr2 =
+  tr1.resource ≡ tr2.resource
+  && tr1.tag ≡ tr2.tag
+  && tr1.varMap ≡ tr2.varMap
 
 _SlamDown ∷ TraversalP Port (SD.SlamDownP VarMapValue)
 _SlamDown = wander \f s → case s of

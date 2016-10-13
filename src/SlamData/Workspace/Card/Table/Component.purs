@@ -22,6 +22,8 @@ module SlamData.Workspace.Card.Table.Component
 
 import SlamData.Prelude
 
+import Control.Monad.Except.Trans as ET
+
 import Data.Argonaut.Core as JSON
 import Data.Int as Int
 import Data.Lens ((.~), (?~))
@@ -32,9 +34,7 @@ import SlamData.Monad (Slam)
 import SlamData.Quasar.Error as QE
 import SlamData.Quasar.Query as Quasar
 import SlamData.Workspace.Card.CardType as CT
-import SlamData.Workspace.Card.Common.EvalQuery as CEQ
 import SlamData.Workspace.Card.Component as CC
-import SlamData.Workspace.Card.Eval.CardEvalT as CET
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Table.Component.Query (QueryP, PageStep(..), Query(..))
@@ -58,7 +58,7 @@ tableComponent =
 evalCard ∷ CC.CardEvalQuery ~> DSL
 evalCard = case _ of
   CC.EvalCard info output next → do
-    for_ info.input $ CEQ.runCardEvalT_ ∘ runTable
+    for_ info.input $ void ∘ ET.runExceptT ∘ runTable
     pure next
   CC.Activate next →
     pure next
@@ -85,25 +85,25 @@ evalCard = case _ of
 
 runTable
   ∷ Port.Port
-  → CC.CardEvalT (H.ComponentDSL JTS.State QueryP Slam) Unit
+  → ET.ExceptT QE.QError (H.ComponentDSL JTS.State QueryP Slam) Unit
 runTable = case _ of
   Port.TaggedResource trp → updateTable trp
   _ → QE.throw "Expected a TaggedResource input"
 
 updateTable
   ∷ Port.TaggedResourcePort
-  → CC.CardEvalT (H.ComponentDSL JTS.State QueryP Slam) Unit
+  → ET.ExceptT QE.QError (H.ComponentDSL JTS.State QueryP Slam) Unit
 updateTable { resource, tag, varMap } = do
   oldInput ← lift $ H.gets _.input
   when (((oldInput <#> _.resource) ≠ pure resource) || ((oldInput >>= _.tag) ≠ tag))
     $ lift $ resetState
 
-  size ← CET.liftQ $ Quasar.count resource
+  size ←  ET.ExceptT $ Quasar.count resource
 
   lift $ H.modify $ JTS._input ?~ { resource, size, tag, varMap }
   p ← lift $ H.gets JTS.pendingPageInfo
 
-  items ← CET.liftQ $
+  items ← ET.ExceptT $
     Quasar.sample resource ((p.page - 1) * p.pageSize) p.pageSize
 
   lift
@@ -143,5 +143,5 @@ refresh ∷ DSL Unit
 refresh = do
   input ← H.gets _.input
   for_ input \ {resource, tag, varMap} →
-    CEQ.runCardEvalT_ $ updateTable {resource, tag, varMap}
+    void $ ET.runExceptT $ updateTable {resource, tag, varMap}
   CC.raiseUpdatedC' CC.StateOnlyUpdate

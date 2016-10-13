@@ -21,7 +21,7 @@ module SlamData.Workspace.Card.Common.EvalQuery
   , raiseUpdatedC'
   , raiseUpdatedP
   , raiseUpdatedP'
-  , module SlamData.Workspace.Card.Eval.CardEvalT
+  , module SlamData.Workspace.Card.Eval.Transition
   ) where
 
 import SlamData.Prelude
@@ -32,8 +32,8 @@ import Control.Monad.Aff.AVar (AVAR)
 import Halogen as H
 import Halogen.Component.Utils (raise, raise')
 
-import SlamData.Workspace.Card.Eval.CardEvalT (CardEvalInput, CardEvalT, runCardEvalT, runCardEvalT_, temporaryOutputResource)
 import SlamData.Workspace.Card.Model (AnyCardModel)
+import SlamData.Workspace.Card.Eval.Transition (CardEvalInput)
 import SlamData.Workspace.Card.Port as Port
 
 -- | The query algebra shared by the inner parts of a card component.

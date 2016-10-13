@@ -30,10 +30,8 @@ import Data.Lens ((^?))
 
 import Quasar.Types (FilePath)
 
-import SlamData.Quasar.Class (class QuasarDSL)
-import SlamData.Quasar.Error as QE
 import SlamData.Workspace.Card.BuildChart.Common.Eval as BCE
-import SlamData.Workspace.Card.Eval.CardEvalT as CET
+import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.BuildChart.Metric.Model (Model, MetricR)
 import SlamData.Workspace.Card.BuildChart.Semantics (getValues)
@@ -41,13 +39,11 @@ import SlamData.Workspace.Card.BuildChart.Aggregation as Ag
 import SlamData.Workspace.Card.BuildChart.Axis as Ax
 
 eval
-  ∷ ∀ m
-  . (Monad m, QuasarDSL m)
-  ⇒ Model
+  ∷ Model
   → FilePath
-  → CET.CardEvalT m Port.Port
+  → CEM.CardEval Port.Port
 eval Nothing _  =
-  QE.throw "Please select axis to aggregate"
+  CEM.throw "Please select axis to aggregate"
 eval (Just conf) resource = do
   records ← BCE.records resource
   let axes = Ax.buildAxes (A.take 100 records)

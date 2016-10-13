@@ -76,14 +76,13 @@ initialState =
   }
 
 modelFromState ∷ State → Model
-modelFromState st = Just
+modelFromState st =
   { dimensions: map snd st.dimensions
   , columns: map snd st.columns
   }
 
 stateFromModel ∷ Model → State → State
-stateFromModel Nothing st = st { dimensions = [], columns = [], fresh = 0 }
-stateFromModel (Just r) st =
+stateFromModel r st =
   let
     l1 = Array.length r.dimensions
     l2 = Array.length r.columns

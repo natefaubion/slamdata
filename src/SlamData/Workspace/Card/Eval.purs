@@ -14,7 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 
-module SlamData.Workspace.Card.Eval where
+module SlamData.Workspace.Card.Eval
+  ( EvalStep
+  , evalCard
+  , stepEval
+  , module SlamData.Workspace.Card.Eval.Transition
+  ) where
 
 import SlamData.Prelude
 
@@ -37,15 +42,15 @@ import SlamData.Quasar.FS as QFS
 import SlamData.Quasar.Class (class QuasarDSL)
 import SlamData.Quasar.Query as QQ
 import SlamData.Workspace.Card.Cache.Eval as Cache
-import SlamData.Workspace.Card.DownloadOptions.Component.State as DO
-import SlamData.Workspace.Card.Eval.CardEvalT as CET
+import SlamData.Workspace.Card.Eval.Monad as CEM
+import SlamData.Workspace.Card.Eval.Machine (Step(..))
+import SlamData.Workspace.Card.Eval.Transition (Eval(..), CardEvalInput, tagEval)
 import SlamData.Workspace.Card.Markdown.Component.State.Core as MDS
 import SlamData.Workspace.Card.Markdown.Eval as MDE
 import SlamData.Workspace.Card.Markdown.Model as MD
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Search.Interpret as Search
 import SlamData.Workspace.Card.Variables.Eval as VariablesE
-import SlamData.Workspace.Card.Variables.Model as Variables
 import SlamData.Workspace.Deck.AdditionalSource (AdditionalSource)
 import SlamData.Workspace.Card.BuildChart.Metric.Eval as BuildMetric
 import SlamData.Workspace.Card.BuildChart.Sankey.Eval as BuildSankey
@@ -66,136 +71,83 @@ import Text.SlamSearch as SS
 import Text.Markdown.SlamDown as SD
 import Text.Markdown.SlamDown.Halogen.Component.State as SDH
 
-data Eval
-  = Pass
-  | Query SQL
-  | Search String
-  | Cache (Maybe String)
-  | Error String
-  | Markdown String
-  | MarkdownForm MD.Model
-  | Open R.Resource
-  | Variables Variables.Model
-  | DownloadOptions DO.State
-  | Draftboard
-  | BuildMetric BuildMetric.Model
-  | BuildSankey BuildSankey.Model
-  | BuildGauge BuildGauge.Model
-  | BuildGraph BuildGraph.Model
-  | BuildPie BuildPie.Model
-  | BuildRadar BuildRadar.Model
-  | BuildArea BuildArea.Model
-  | BuildLine BuildLine.Model
-  | BuildBar BuildBar.Model
-  | BuildScatter BuildScatter.Model
-  | BuildFunnel BuildFunnel.Model
-  | BuildHeatmap BuildHeatmap.Model
-  | BuildBoxplot BuildBoxplot.Model
-  | BuildPivotTable BuildPivotTable.Model
+type EvalStep =
+  { output ∷ Port.Port
+  , sources ∷ Set.Set AdditionalSource
+  , next ∷ CEM.EvalMachine
+  }
 
-tagEval ∷ Eval → String
-tagEval = case _ of
-  Pass → "Pass"
-  Query str → "Query " <> show str
-  Search str → "Search " <> show str
-  Cache str → "Cache " <> show str
-  Error str → "Error " <> show str
-  Markdown str → "Markdown " <> show str
-  Open res → "Open " <> show res
-  MarkdownForm m → "MarkdownForm"
-  Variables m → "Variables"
-  DownloadOptions m → "DownloadOptions"
-  Draftboard → "Draftboard"
-  BuildMetric _ → "BuildMetric"
-  BuildSankey _ → "BuildSankey"
-  BuildGauge _ → "BuildGauge"
-  BuildGraph _ → "BuildGraph"
-  BuildPie _ → "BuildPie"
-  BuildRadar _ → "BuildRadar"
-  BuildArea _ → "BuildArea"
-  BuildLine _ → "BuildLine"
-  BuildBar _ → "BuildBar"
-  BuildScatter _ → "BuildScatter"
-  BuildFunnel _ → "BuildFunnel"
-  BuildHeatmap _ → "BuildHeatmap"
-  BuildBoxplot _ → "BuildBoxplot"
-  BuildPivotTable _ → "BuildPivotTable"
-
-evalCard
-  ∷ ∀ m
-  . (MonadPar m, QuasarDSL m, Affable SlamDataEffects m)
-  ⇒ CET.CardEvalInput
-  → Eval
-  → CET.CardEvalT m Port.Port
-evalCard input =
-  case _, input.input of
+evalCard ∷ CEM.EvalMachine
+evalCard arg@(input × eval) =
+  case eval, input.input of
     Error msg, _ →
-      pure $ Port.CardError msg
+      loop (Port.CardError msg)
     _, Just Port.Blocked →
-      pure Port.Blocked
+      loop Port.Blocked
     Pass, Nothing →
-      QE.throw "Card expected an input value"
+      CEM.throw "Card expected an input value"
     Pass, Just port →
-      pure port
+      loop port
     Draftboard, _ →
-      pure Port.Draftboard
+      loop Port.Draftboard
     Query sql, Just (Port.VarMap varMap) →
-      map Port.TaggedResource
-        $ evalQuery input sql (fromMaybe SM.empty $ Map.lookup (fst input.cardCoord) input.urlVarMaps) varMap
+      loop ∘ Port.TaggedResource
+        =<< evalQuery input sql (fromMaybe SM.empty $ Map.lookup (fst input.cardCoord) input.urlVarMaps) varMap
     Query sql, _ →
-      map Port.TaggedResource
-        $ evalQuery input sql (fromMaybe SM.empty $ Map.lookup (fst input.cardCoord) input.urlVarMaps) Port.emptyVarMap
+      loop ∘ Port.TaggedResource
+        =<< evalQuery input sql (fromMaybe SM.empty $ Map.lookup (fst input.cardCoord) input.urlVarMaps) Port.emptyVarMap
     Markdown txt, _ →
-      MDE.markdownEval input txt
+      loop =<< MDE.markdownEval input txt
     MarkdownForm model, (Just (Port.SlamDown doc)) →
-      lift $ Port.VarMap <$> evalMarkdownForm doc model
+      loop ∘ Port.VarMap =<< evalMarkdownForm doc model
     Search query, Just (Port.TaggedResource { resource }) →
-      Port.TaggedResource <$> evalSearch input query resource
+      loop ∘ Port.TaggedResource =<< evalSearch input query resource
     Cache pathString, Just (Port.TaggedResource { resource, varMap }) →
-      Port.TaggedResource <$> Cache.eval input pathString resource varMap
+      loop ∘ Port.TaggedResource =<< Cache.eval input pathString resource varMap
     Open res, _ →
-      Port.TaggedResource <$> evalOpen input res
+      loop ∘ Port.TaggedResource =<< evalOpen input res
     Variables model, _ →
-      pure $ Port.VarMap $ VariablesE.eval (fst input.cardCoord) input.urlVarMaps model
+      loop $ Port.VarMap $ VariablesE.eval (fst input.cardCoord) input.urlVarMaps model
     DownloadOptions { compress, options }, Just (Port.TaggedResource { resource }) →
-      pure $ Port.DownloadOptions { resource, compress, options }
+      loop $ Port.DownloadOptions { resource, compress, options }
     BuildMetric model, Just (Port.TaggedResource { resource }) →
-      BuildMetric.eval model resource
+      loop =<< BuildMetric.eval model resource
     BuildSankey model, Just (Port.TaggedResource { resource }) →
-      BuildSankey.eval model resource
+      loop =<< BuildSankey.eval model resource
     BuildGauge model, Just (Port.TaggedResource { resource }) →
-      BuildGauge.eval model resource
+      loop =<< BuildGauge.eval model resource
     BuildGraph model, Just (Port.TaggedResource { resource }) →
-      BuildGraph.eval model resource
+      loop =<< BuildGraph.eval model resource
     BuildPie model, Just (Port.TaggedResource { resource }) →
-      BuildPie.eval model resource
+      loop =<< BuildPie.eval model resource
     BuildRadar model, Just (Port.TaggedResource { resource }) →
-      BuildRadar.eval model resource
+      loop =<< BuildRadar.eval model resource
     BuildArea model, Just (Port.TaggedResource { resource }) →
-      BuildArea.eval model resource
+      loop =<< BuildArea.eval model resource
     BuildLine model, Just (Port.TaggedResource { resource }) →
-      BuildLine.eval model resource
+      loop =<< BuildLine.eval model resource
     BuildBar model, Just (Port.TaggedResource { resource }) →
-      BuildBar.eval model resource
+      loop =<< BuildBar.eval model resource
     BuildScatter model, Just (Port.TaggedResource { resource }) →
-      BuildScatter.eval model resource
+      loop =<< BuildScatter.eval model resource
     BuildFunnel model, Just (Port.TaggedResource { resource }) →
-      BuildFunnel.eval model resource
+      loop =<< BuildFunnel.eval model resource
     BuildHeatmap model, Just (Port.TaggedResource { resource }) →
-      BuildHeatmap.eval model resource
+      loop =<< BuildHeatmap.eval model resource
     BuildBoxplot model, Just (Port.TaggedResource { resource }) →
-      BuildBoxplot.eval model resource
-    BuildPivotTable model, Just (Port.TaggedResource tr) →
-      BuildPivotTable.eval model tr
-    e, i →
-      QE.throw $ "Card received unexpected input type; " <> tagEval e <> " | " <> Port.tagPort i
+      loop =<< BuildBoxplot.eval model resource
+    BuildPivotTable _, _ →
+      BuildPivotTable.eval arg
+    _, _ →
+      CEM.unexpectedInput arg
+  where
+  loop ∷ Port.Port → CEM.CardEval CEM.EvalMachineStep
+  loop = pure ∘ flip Step evalCard
 
 evalMarkdownForm
-  ∷ ∀ m
-  . (Monad m, Affable SlamDataEffects m)
-  ⇒ (Port.VarMap × (SD.SlamDownP Port.VarMapValue))
+  ∷ Port.VarMap × SD.SlamDownP Port.VarMapValue
   → MD.Model
-  → m Port.VarMap
+  → CEM.CardEval Port.VarMap
 evalMarkdownForm (vm × doc) model = do
   let inputState = SDH.formStateFromDocument doc
   -- TODO: find a way to smash these annotations if possible -js
@@ -204,63 +156,62 @@ evalMarkdownForm (vm × doc) model = do
   pure $ thisVarMap `SM.union` vm
 
 evalOpen
-  ∷ ∀ m
-  . (Monad m, QuasarDSL m)
-  ⇒ CET.CardEvalInput
+  ∷ CardEvalInput
   → R.Resource
-  → CET.CardEvalT m Port.TaggedResourcePort
+  → CEM.CardEval Port.TaggedResourcePort
 evalOpen info res = do
    filePath ←
-     maybe (QE.throw "No resource is selected") pure
+     maybe (CEM.throw "No resource is selected") pure
        $ res ^? R._filePath
    msg ←
-     CET.liftQ
+     CEM.liftQ
        $ QFS.messageIfFileNotFound
          filePath
          ("File " ⊕ Path.printPath filePath ⊕ " doesn't exist")
    case msg of
      Nothing → do
-       CET.addSource filePath
+       CEM.addSource filePath
        pure { resource: filePath, tag: Nothing, varMap: Nothing }
      Just err →
-       QE.throw err
+       CEM.throw err
 
 evalQuery
-  ∷ ∀ m
-  . (MonadPar m, QuasarDSL m)
-  ⇒ CET.CardEvalInput
+  ∷ CardEvalInput
   → SQL
   → Port.URLVarMap
   → Port.VarMap
-  → CET.CardEvalT m Port.TaggedResourcePort
+  → CEM.CardEval Port.TaggedResourcePort
 evalQuery info sql urlVarMap varMap = do
   let
     varMap' =
       SM.union urlVarMap $ map Port.renderVarMapValue varMap
     resource =
-      CET.temporaryOutputResource info
+      CEM.temporaryOutputResource info
     backendPath =
       Left $ fromMaybe Path.rootDir (Path.parentDir resource)
-  { inputs } ← CET.liftQ
-    $ lmap (QE.prefixMessage "Error compiling query")
-    <$> QQ.compile backendPath sql varMap'
+  { inputs } ←
+    CEM.liftQ $
+      lmap (QE.prefixMessage "Error compiling query")
+        <$> QQ.compile backendPath sql varMap'
   validateResources inputs
-  CET.addSources inputs
-  pure { resource, tag: pure sql, varMap: Just varMap }
+  CEM.addSources inputs
+  pure
+    { resource
+    , tag: pure sql
+    , varMap: Just varMap
+    }
 
 evalSearch
-  ∷ ∀ m
-  . (MonadPar m, QuasarDSL m)
-  ⇒ CET.CardEvalInput
+  ∷ CardEvalInput
   → String
   → FilePath
-  → CET.CardEvalT m Port.TaggedResourcePort
+  → CEM.CardEval Port.TaggedResourcePort
 evalSearch info queryText resource = do
   query ← case SS.mkQuery queryText of
-    Left _ → QE.throw "Incorrect query string"
+    Left _ → CEM.throw "Incorrect query string"
     Right q → pure q
 
-  fields ← CET.liftQ do
+  fields ← CEM.liftQ do
     QFS.messageIfFileNotFound
       resource
       ("Input resource " ⊕ Path.printPath resource ⊕ " doesn't exist")
@@ -269,36 +220,48 @@ evalSearch info queryText resource = do
   let
     template = Search.queryToSQL fields query
     sql = QQ.templated resource template
-    outputResource = CET.temporaryOutputResource info
+    outputResource = CEM.temporaryOutputResource info
 
-  compileResult ← lift $ QQ.compile (Right resource) sql SM.empty
+  compileResult ← QQ.compile (Right resource) sql SM.empty
   case compileResult of
     Left err →
       case GE.fromQError err of
-        Left msg → QE.throw $ "Error compiling query: " ⊕ msg
-        Right _ → QE.throw $ "Error compiling query: " ⊕ QE.printQError err
+        Left msg → CEM.throw $ "Error compiling query: " ⊕ msg
+        Right _ → CEM.throw $ "Error compiling query: " ⊕ QE.printQError err
     Right { inputs } → do
       validateResources inputs
-      CET.addSources inputs
+      CEM.addSources inputs
 
-  pure { resource: outputResource, tag: pure sql, varMap: Nothing }
+  pure
+    { resource: outputResource
+    , tag: pure sql
+    , varMap: Nothing
+    }
 
-runEvalCard
+stepEval
   ∷ ∀ m
   . (MonadPar m, QuasarDSL m, Affable SlamDataEffects m)
-  ⇒ CET.CardEvalInput
+  ⇒ CardEvalInput
   → Eval
-  → m (Either GE.GlobalError (Port.Port × (Set.Set AdditionalSource)))
-runEvalCard input =
-  CET.runCardEvalT ∘ evalCard input
+  → CEM.EvalMachine
+  → m (Either GE.GlobalError EvalStep)
+stepEval input eval machine = do
+  res × sources ← CEM.runCardEvalM (machine (input × eval))
+  pure case res of
+    Left err →
+      case GE.fromQError err of
+        Left msg → Right { output: Port.CardError msg, sources, next: machine }
+        Right ge → Left ge
+    Right (Step output next) →
+      Right { output, sources, next }
 
 validateResources
-  ∷ ∀ m f
-  . (MonadPar m, QuasarDSL m, Foldable f)
+  ∷ ∀ f
+  . Foldable f
   ⇒ f FilePath
-  → CET.CardEvalT m Unit
+  → CEM.CardEval Unit
 validateResources =
   parTraverse_ \path → do
-    noAccess ← lift $ QFS.fileNotAccessible path
+    noAccess ← QFS.fileNotAccessible path
     for_ noAccess \reason →
-      throwError $ QE.prefixMessage ("Resource `" ⊕ Path.printPath path ⊕ "` is unavailable") reason
+      CEM.throwError $ QE.prefixMessage ("Resource `" ⊕ Path.printPath path ⊕ "` is unavailable") reason

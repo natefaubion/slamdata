@@ -18,7 +18,7 @@ module SlamData.Workspace.Card.BuildChart.PivotTable.Model where
 
 import SlamData.Prelude
 
-import Data.Argonaut (JCursor, Json, class EncodeJson, class DecodeJson, decodeJson, (~>), (:=), isNull, jsonNull, (.?), jsonEmptyObject)
+import Data.Argonaut (JCursor, Json, class EncodeJson, class DecodeJson, decodeJson, (~>), (:=), isNull, (.?), jsonEmptyObject)
 import Data.Array as Array
 import Data.Foldable as F
 import Data.Lens (PrismP, prism')
@@ -29,7 +29,7 @@ import Test.StrongCheck.Arbitrary (class Arbitrary, arbitrary)
 import Test.StrongCheck.Gen as Gen
 import Test.Property.ArbJson (runArbJCursor)
 
-type PivotTableR =
+type Model =
   { dimensions ∷ Array JCursor
   , columns ∷ Array Column
   }
@@ -41,8 +41,6 @@ data Column
       , valueAggregation ∷ Maybe (Ag.Aggregation)
       }
 
-type Model = Maybe PivotTableR
-
 _Column
   ∷ PrismP Column
       { value ∷ JCursor
@@ -53,53 +51,38 @@ _Column = prism' Column case _ of
   _ → Nothing
 
 initialModel ∷ Model
-initialModel = Nothing
-
-eqPivotTableR ∷ PivotTableR → PivotTableR → Boolean
-eqPivotTableR r1 r2 = r1.dimensions == r2.dimensions && r1.columns == r2.columns
+initialModel =
+  { dimensions: []
+  , columns: []
+  }
 
 eqModel ∷ Model → Model → Boolean
-eqModel Nothing Nothing = true
-eqModel (Just r1) (Just r2) = eqPivotTableR r1 r2
-eqModel _ _ = false
+eqModel r1 r2 = r1.dimensions == r2.dimensions && r1.columns == r2.columns
 
-genPivotTableR ∷ Gen.Gen PivotTableR
-genPivotTableR = do
+genModel ∷ Gen.Gen Model
+genModel = do
   dimensions ← map runArbJCursor <$> arbitrary
   columns ← arbitrary
   pure { dimensions, columns }
 
-genModel ∷ Gen.Gen Model
-genModel =
-  arbitrary >>= if _
-    then pure Nothing
-    else Just <$> genPivotTableR
-
-encodePivotTableR ∷ PivotTableR → Json
-encodePivotTableR r =
+encode ∷ Model → Json
+encode r =
   "configType" := "pivot"
   ~> "dimensions" := r.dimensions
   ~> "columns" := r.columns
   ~> jsonEmptyObject
 
-encode ∷ Model → Json
-encode Nothing = jsonNull
-encode (Just r) = encodePivotTableR r
-
-decodePivotTableR ∷ Json → Either String PivotTableR
-decodePivotTableR js = do
-  obj ← decodeJson js
-  configType ← obj .? "configType"
-  unless (configType ≡ "pivot") do
-    throwError "Not a valid pivot table configuration"
-  dimensions ← obj .? "dimensions"
-  columns ← obj .? "columns"
-  pure { dimensions, columns }
-
 decode ∷ Json → Either String Model
 decode js
-  | isNull js = pure Nothing
-  | otherwise = Just <$> decodePivotTableR js
+  | isNull js = pure initialModel
+  | otherwise = do
+      obj ← decodeJson js
+      configType ← obj .? "configType"
+      unless (configType ≡ "pivot") do
+        throwError "Not a valid pivot table configuration"
+      dimensions ← obj .? "dimensions"
+      columns ← obj .? "columns"
+      pure { dimensions, columns }
 
 derive instance eqColumn ∷ Eq Column
 derive instance ordColumn ∷ Ord Column
@@ -134,7 +117,7 @@ instance decodeJsonColumn ∷ DecodeJson Column where
       _ →
         Left $ "Not a valid column type: " <> columnType
 
-isSimple ∷ PivotTableR → Boolean
+isSimple ∷ Model → Boolean
 isSimple { dimensions, columns } =
   Array.null dimensions && F.all simpleCol columns
   where

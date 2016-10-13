@@ -47,7 +47,7 @@ import SlamData.Render.CSS.New as CSS
 import SlamData.Workspace.Card.BuildChart.PivotTable.Model (Column(..), isSimple)
 import SlamData.Workspace.Card.BuildChart.Aggregation as Ag
 import SlamData.Workspace.Card.Chart.PivotTableRenderer.Model as PTRM
-import SlamData.Workspace.Card.Port (PivotTablePort, TaggedResourcePort)
+import SlamData.Workspace.Card.Port (PivotTablePort, eqTaggedResourcePort)
 
 import Global (readFloat)
 
@@ -287,14 +287,8 @@ eval = case _ of
     let
       sameResource =
         case input.taggedResource, st.input of
-          tr1, Just { options, taggedResource: tr2 } →
-            F.and
-              [ tr1.resource ≡ tr2.resource
-              , tr1.tag ≡ tr2.tag
-              , isSimple options
-              , input.options.columns ≡ options.columns
-              , tr1.varMap ≡ tr2.varMap
-              ]
+          tr1, Just { query, options, taggedResource: tr2 } →
+            eqTaggedResourcePort tr1 tr2 && input.query ≡ query
           _, _ → false
     if sameResource
       then do
@@ -365,7 +359,6 @@ pageQuery input = do
   st ← H.get
   let
     path   = fromMaybe P.rootDir (P.parentDir input.taggedResource.resource)
-    sql    = simpleQuery input.options.columns input.taggedResource
     offset = st.pageIndex * st.pageSize
     limit  = st.pageSize
   H.modify _ { loading = true }
@@ -381,8 +374,7 @@ pageQuery input = do
       H.modify _
         { pageCount = calcPageCount st.count st.pageSize
         }
-  records ← liftQuasar $
-    QF.readQuery Readable path sql mempty (Just { offset, limit })
+  records ← liftQuasar (QF.readQuery Readable path input.query mempty (Just { offset, limit }))
   H.modify _ { loading = false }
   for_ records \recs →
     H.modify _
@@ -410,24 +402,6 @@ pageTree input = do
 calcPageCount ∷ Int → Int → Int
 calcPageCount count size =
   Int.ceil (Int.toNumber count / Int.toNumber size)
-
-simpleQuery
-  ∷ Array Column
-  → TaggedResourcePort
-  → String
-simpleQuery columns tr =
-  let
-    cols =
-      Array.mapWithIndex
-        case _, _ of
-          i, Column c → "row" <> show c.value <> " AS _" <> show i
-          i, _ → "COUNT(*) AS _" <> show i -- Shouldn't be possible, but ok
-        columns
-  in
-    QQ.templated tr.resource $ String.joinWith " "
-      [ "SELECT " <> String.joinWith ", " cols
-      , "FROM {{path}} AS row"
-      ]
 
 tupleN ∷ Int → J.JCursor
 tupleN int = J.JField ("_" <> show int) J.JCursorTop

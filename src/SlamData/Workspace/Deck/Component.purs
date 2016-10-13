@@ -724,16 +724,23 @@ evalCard
   → DeckDSL CardEval
 evalCard path urlVarMaps input card = do
   Wiring wiring ← H.liftH $ H.liftH ask
-  output ← H.liftH $ H.liftH $ Pr.defer do
-    input' ← for input Pr.wait
-
-    let
-      model = (snd card).model
-    case Card.modelToEval model of
-      Left err → do
-        SA.track (SA.ErrorInCardEval $ Card.modelCardType model)
-        pure $ (Port.CardError $ "Could not evaluate card: " <> err) × mempty
-      Right cmd →
+  prevEval ← getCache (DCS.coordModelToCoord card) wiring.cards
+  let
+    model = (snd card).model
+    prevMachine = join (_.eval <$> prevEval)
+  case Card.modelToEval model of
+    Left err → do
+      SA.track (SA.ErrorInCardEval $ Card.modelCardType model)
+      pure
+        { input
+        , card
+        , output: Just $ pure $ (Port.CardError $ "Could not evaluate card: " <> err) × mempty
+        , eval: prevMachine
+        }
+    Right cmd → do
+      stepEval ← H.liftH $ H.liftH $ Pr.defer do
+        input' ← for input Pr.wait
+        machine ← fromMaybe Eval.evalCard <$> for prevMachine Pr.wait
         let
           args =
             { path
@@ -741,18 +748,26 @@ evalCard path urlVarMaps input card = do
             , cardCoord: DCS.coordModelToCoord card
             , input: input'
             }
-        in
-          Eval.runEvalCard args cmd >>= case _ of
-            Left ge → do
-              GE.raiseGlobalError ge
-              pure $ (Port.CardError $ "Could not evaluate card") × mempty
-            Right out@(Tuple p _) → do
-              case p of
-                Port.CardError _ →
-                  SA.track (SA.ErrorInCardEval $ Card.modelCardType model)
-                _ → pure unit
-              pure out
-  pure { input, card, output: Just output }
+        Eval.stepEval args cmd machine >>= case _ of
+          Left ge → do
+            GE.raiseGlobalError ge
+            pure
+              { sources: Set.empty ∷ Set.Set AdditionalSource
+              , output: Port.CardError "Could not evaluate card"
+              , next: machine
+              }
+          Right step → do
+            case step.output of
+              Port.CardError _ →
+                SA.track (SA.ErrorInCardEval $ Card.modelCardType model)
+              _ → pure unit
+            pure step
+      pure
+        { input
+        , card
+        , output: Just $ (\{ output, sources } → output × sources) <$> stepEval
+        , eval: Just $ _.next <$> stepEval
+        }
 
 -- | Interprets a list of pending card evaluations into updates for the
 -- | display cards. Takes care of the pending card, next action card and
@@ -768,6 +783,7 @@ runCardUpdates opts source steps = do
       { card: st.id × nextActionCard
       , input: map (map fst) <$> _.output =<< L.last steps
       , output: Nothing
+      , eval: Nothing
       }
     updateSteps =
       if AT.isEditable opts.accessType
@@ -821,17 +837,24 @@ runCardUpdates opts source steps = do
         }
     { steps: L.Cons x xs, cards, updates } → do
       output ← sequence x.output
-      let cards' = L.Cons x.card cards
-          updates' = L.Cons x updates
+      let
+        cards' = L.Cons x.card cards
+        updates' = L.Cons x updates
       updateCards st $ case output of
         Just ((Port.CardError err) × _) →
-          let errorCard' = st.id × errorCard
-              errorStep  = { input: map (map fst) $ x.output, output: Nothing, card: errorCard' }
-          in
-              { steps: L.Nil
-              , cards: L.Cons errorCard' cards'
-              , updates: L.Cons errorStep updates'
+          let
+            errorCard' = st.id × errorCard
+            errorStep  =
+              { input: map fst <$> x.output
+              , output: Nothing
+              , card: errorCard'
+              , eval: Nothing
               }
+          in
+            { steps: L.Nil
+            , cards: L.Cons errorCard' cards'
+            , updates: L.Cons errorStep updates'
+            }
         _ →
           { steps: xs
           , cards: cards'

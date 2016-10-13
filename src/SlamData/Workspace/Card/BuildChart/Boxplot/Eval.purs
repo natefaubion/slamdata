@@ -39,8 +39,6 @@ import ECharts.Types.Phantom as ETP
 
 import Quasar.Types (FilePath)
 
-import SlamData.Quasar.Class (class QuasarDSL)
-import SlamData.Quasar.Error as QE
 import SlamData.Workspace.Card.BuildChart.Common.Eval (type (>>))
 import SlamData.Workspace.Card.BuildChart.Common.Eval as BCE
 import SlamData.Workspace.Card.BuildChart.Common.Positioning (rectangularGrids, rectangularTitles, adjustRectangularPositions)
@@ -49,19 +47,17 @@ import SlamData.Workspace.Card.CardType.ChartType (ChartType(Boxplot))
 import SlamData.Workspace.Card.BuildChart.Axis as Ax
 import SlamData.Workspace.Card.BuildChart.ColorScheme (colors)
 import SlamData.Workspace.Card.BuildChart.Semantics (getMaybeString, getValues)
-import SlamData.Workspace.Card.Eval.CardEvalT as CET
+import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Port as Port
 
 import Utils.Array (enumerate)
 
 eval
-  ∷ ∀ m
-  . (Monad m, QuasarDSL m)
-  ⇒ Model
+  ∷ Model
   → FilePath
-  → CET.CardEvalT m Port.Port
+  → CEM.CardEval Port.Port
 eval Nothing _ =
-  QE.throw "Please select axis to aggregate"
+  CEM.throw "Please select axis to aggregate"
 eval (Just conf) resource = do
   records ← BCE.records resource
   let axes = Ax.buildAxes (A.take 100 records)

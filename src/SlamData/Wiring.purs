@@ -54,6 +54,7 @@ import SlamData.Quasar.Class (class QuasarDSL)
 import SlamData.Quasar.Error as QE
 import SlamData.GlobalMenu.Bus (SignInBus)
 import SlamData.Workspace.Card.CardId (CardId)
+import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.Port (Port)
 import SlamData.Workspace.Card.Port.VarMap as Port
@@ -67,6 +68,7 @@ type CardEval =
   { card ∷ DeckId × Card.Model
   , input ∷ Maybe (Promise Port)
   , output ∷ Maybe (Promise (Port × (Set.Set AdditionalSource)))
+  , eval ∷ Maybe (Promise CEM.EvalMachine)
   }
 
 type DeckRef = Promise (Either QE.QError Deck)
