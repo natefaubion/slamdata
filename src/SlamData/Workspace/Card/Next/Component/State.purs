@@ -46,6 +46,7 @@ defaultActions =
   [ Insert Open
   , Insert (Ace SQLMode)
   , Insert Search
+  , Insert Table
   , chartSubmenu
   , Insert Chart
   , Insert (Ace MarkdownMode)

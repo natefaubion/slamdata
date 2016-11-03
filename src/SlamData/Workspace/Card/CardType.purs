@@ -136,7 +136,7 @@ cardName = case _ of
   ChartOptions chty → chartName chty
   Chart → "Show Chart"
   Markdown → "Show Markdown"
-  Table → "Show Table"
+  Table → "Preview Table"
   Download → "Show Download"
   Variables → "Setup Variables"
   Troubleshoot → "Troubleshoot"
