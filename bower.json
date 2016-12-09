@@ -46,7 +46,7 @@
     "purescript-pathy": "^3.0.1",
     "purescript-profunctor-lenses": "^2.1.0",
     "purescript-quasar": "^12.0.0",
-    "purescript-rationals": "^2.0.0",
+    "purescript-rationals": "^2.1.0",
     "purescript-routing": "^3.0.0",
     "purescript-search": "^2.0.0",
     "purescript-strongcheck-argonaut": "^1.0.0",
