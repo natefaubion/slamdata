@@ -24,12 +24,13 @@ module SlamData.Workspace.Eval.Traverse
   , getSharingInput
   , hydrateCursor
   , resolveUrlVarMaps
+  , isCyclical
   ) where
 
 import SlamData.Prelude
 
 import Data.Array as Array
-import Data.Foldable (find)
+import Data.Foldable as F
 import Data.List (List(..), (:))
 import Data.List as List
 import Data.Map (Map)
@@ -184,6 +185,25 @@ resolveUrlVarMaps decks cards = StrMap.fold go mempty
 
     toDeckName key = do
       guard (key ≠ "")
-      deck ← find (eq key ∘ _.model.name) decks
+      deck ← F.find (eq key ∘ _.model.name) decks
       cardId ← Array.head deck.model.cards
       toVariables cardId
+
+isCyclical
+  ∷ Map Deck.Id Deck.Cell
+  → Map Card.Id Card.Cell
+  → Card.Id
+  → Deck.Id
+  → Boolean
+isCyclical decks cards cardId = goDeck
+  where
+    goDeck deckId =
+      case Map.lookup deckId decks of
+        Nothing → false
+        Just deck → F.or (goCard <$> deck.model.cards)
+
+    goCard cardId' | cardId ≡ cardId' = true
+    goCard cardId' =
+      case Map.lookup cardId' cards of
+        Nothing → false
+        Just card → F.or (goDeck <$> Card.childDeckIds card.model)

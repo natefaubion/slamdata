@@ -293,6 +293,7 @@ evalBoard opts = case _ of
             H.modify
               $ updateLayout (fromMaybe st.layout result)
               ∘ _ { moveLocation = Nothing }
+            void $ queryDeck deckId $ H.action DCQ.UpdateCardSize
         CC.raiseUpdatedP' CC.EvalModelUpdate
     pure next
   AddDeck cursor next → do

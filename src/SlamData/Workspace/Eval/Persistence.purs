@@ -59,7 +59,7 @@ import SlamData.Workspace.Eval as Eval
 import SlamData.Workspace.Eval.Card as Card
 import SlamData.Workspace.Eval.Deck as Deck
 import SlamData.Workspace.Eval.Graph (pendingGraph, EvalGraph)
-import SlamData.Workspace.Eval.Traverse (TraverseCard(..), TraverseDeck(..), unfoldModelTree)
+import SlamData.Workspace.Eval.Traverse (TraverseCard(..), TraverseDeck(..), unfoldModelTree, isCyclical)
 import SlamData.Workspace.Model as WM
 import SlamData.Workspace.Legacy (isLegacy, loadCompatWorkspace, pruneLegacyData)
 
@@ -428,11 +428,12 @@ groupDeck orn bias deckId siblingId newParentId = do
   oldParentId ← unwrapOrExn "Parent not found" cell.parent
   oldParent ← unwrapOrExn "Parent not found" =<< getCard oldParentId
   newParent ← unwrapOrExn "Destination not found" =<< getCard newParentId
+  hasCycle ← detectCycle newParentId deckId
   case oldParent.model, newParent.model of
-    CM.Draftboard { layout }, CM.Draftboard { layout: inner } → do
+    CM.Draftboard { layout }, CM.Draftboard { layout: inner } | not hasCycle → do
       let
         inner' =
-          Layout.insertRootSplit (Pane.Cell (Just deckId)) orn (1%2) bias layout
+          Layout.insertRootSplit (Pane.Cell (Just deckId)) orn (1%2) bias inner
         layout' = layout <#> case _ of
           Just did | did ≡ deckId → Nothing
           a → a
@@ -560,6 +561,13 @@ debounce ms key make cache init run = do
         Just { avar } → liftAff $ killVar avar (Exn.error "debounce")
         Nothing → void $ fork init
       pure (Just a)
+
+detectCycle ∷ ∀ m. PersistEnv m (Card.Id → Deck.Id → m Boolean)
+detectCycle cardId deckId = do
+  { eval } ← Wiring.expose
+  decks ← Cache.snapshot eval.decks
+  cards ← Cache.snapshot eval.cards
+  pure (isCyclical decks cards cardId deckId)
 
 unwrapOrExn ∷ ∀ m a. MonadThrow Exn.Error m ⇒ String → Maybe a → m a
 unwrapOrExn = unwrapOrThrow ∘ Exn.error

@@ -23,14 +23,12 @@ module SlamData.Workspace.Deck.Slider
 
 import SlamData.Prelude
 
-import Data.Array ((..))
 import Data.Array as Array
 import Data.Int as Int
 import Data.Lens ((.~), (?~))
 import Data.Lens as Lens
 import Data.List ((:))
 import Data.String as String
-import Data.Tuple as Tuple
 
 import CSS (CSS)
 
@@ -69,16 +67,27 @@ import Utils.CSS as CSSUtils
 render ∷ DeckOptions → (DeckOptions → DeckComponent) → State → Boolean → DeckHTML
 render opts deckComponent st visible =
   HH.div
-    ([ HP.key "deck-cards"
-     , HP.classes [ ClassNames.cardSlider ]
-     , HE.onTransitionEnd $ HE.input_ DCQ.StopSliderTransition
-     , style do
-         cardSliderTransformCSS (DCS.activeCardIndex st) st.sliderTranslateX
-         cardSliderTransitionCSS st.sliderTransition
-     ]
-     ⊕ (guard (not visible) $> (HP.class_ ClassNames.invisible)))
-    $ map (Tuple.uncurry $ renderCard opts deckComponent st)
-    $ Array.zip st.displayCards (0 .. Array.length st.displayCards)
+    [ HP.key "deck-cards"
+    , HP.classes ([ ClassNames.cardSlider ] ⊕ (guard (not visible) $> ClassNames.invisible))
+    , HE.onTransitionEnd $ HE.input_ DCQ.StopSliderTransition
+    , style do
+        cardSliderTransformCSS (DCS.activeCardIndex st) st.sliderTranslateX
+        cardSliderTransitionCSS st.sliderTransition
+    ]
+    (Array.mapWithIndex maybeRenderCard st.displayCards)
+  where
+  activeIndex =
+    DCS.activeCardIndex st
+
+  nestedLayout =
+    case opts.displayCursor of
+      _ : _ : _ → true
+      _ → false
+
+  maybeRenderCard ∷ Int → DCS.DisplayCard → DeckHTML
+  maybeRenderCard index card
+    | nestedLayout && index ≠ activeIndex = HH.text ""
+    | otherwise = renderCard opts deckComponent st activeIndex index card
 
 startSliding ∷ Event MouseEvent → GripperDef → DeckDSL Unit
 startSliding mouseEvent gDef = do
@@ -232,16 +241,24 @@ cardSpacingGridSquares = 2.0
 cardSpacingPx ∷ Number
 cardSpacingPx = cardSpacingGridSquares * 24.0
 
+cardKey ∷ DCS.DisplayCard → String
+cardKey = case _ of
+  Left DCS.PendingCard → "card-pending"
+  Left (DCS.ErrorCard _) → "card-error"
+  Left (DCS.NextActionCard _) → "card-next-action"
+  Right { cardId } → "card-" ⊕ CardId.toString cardId
+
 renderCard
   ∷ DeckOptions
   → (DeckOptions → DeckComponent)
   → State
-  → DCS.DisplayCard
   → Int
+  → Int
+  → DCS.DisplayCard
   → DeckHTML
-renderCard opts deckComponent st card index =
+renderCard opts deckComponent st activeIndex index card =
   HH.div
-    [ HP.key key
+    [ HP.key (cardKey card)
     , HP.classes classes
     , style $ cardPositionCSS index
     ]
@@ -264,12 +281,6 @@ renderCard opts deckComponent st card index =
   cardComponent = pure case card of
     Left m → renderMeta st m
     Right cd → renderDef opts deckComponent st cd
-
-  key = case card of
-    Left DCS.PendingCard → "card-pending"
-    Left (DCS.ErrorCard _) → "card-error"
-    Left (DCS.NextActionCard _) → "card-next-action"
-    Right { cardId } → "card-" ⊕ CardId.toString cardId
 
   classes =
     [ ClassNames.card

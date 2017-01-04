@@ -19,7 +19,6 @@ module SlamData.Workspace.Deck.BackSide.Component where
 import SlamData.Prelude
 
 import Data.Array as A
-import Data.Foldable as F
 import Data.List (List(..), (:))
 import Data.String as Str
 
@@ -33,7 +32,6 @@ import SlamData.Monad (Slam)
 import SlamData.Quasar.Auth (getIdToken)
 import SlamData.Render.Common as RC
 import SlamData.Render.CSS as CSS
-import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Model as CM
 import SlamData.Workspace.Card.Component.CSS as CCSS
 import SlamData.Workspace.Deck.Component.State (CardDef)
@@ -119,7 +117,6 @@ actionEnabled st a =
   case st.activeCard, a of
     Nothing, Trash → false
     _, Unwrap → st.unwrappable
-    _, Mirror | F.elem CT.Draftboard (_.cardType <$> st.cardDefs) → false
     _, _ → true
 
 actionGlyph ∷ BackAction → HTML
