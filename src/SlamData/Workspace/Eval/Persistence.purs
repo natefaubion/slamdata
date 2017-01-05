@@ -585,7 +585,10 @@ mirroredState cards cardId output status =
   case Array.findIndex (eq cardId) cards of
     Nothing → { cards, status, index: Nothing }
     Just ix →
-      { cards: Array.take (ix + 1) cards
-      , status: maybe (Deck.NeedsEval cardId) Deck.Completed output
-      , index: Just ix
-      }
+      let
+        cards' = Array.take (ix + 1) cards
+        status' = case status of
+          Deck.NeedsEval cardId' | Array.elem cardId' cards' → status
+          Deck.PendingEval cardId' | Array.elem cardId' cards' → status
+          _ → maybe (Deck.NeedsEval cardId) Deck.Completed output
+      in { cards: cards', status: status', index: Just ix }
