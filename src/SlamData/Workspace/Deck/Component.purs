@@ -289,14 +289,16 @@ peekBackSide opts (Back.DoAction action _) = do
         then deleteDeck opts
         else showDialog Dialog.DeleteDeck
     Back.Mirror → do
+      let mirrorCard = (hush =<< DCS.activeCard st) <|> DCS.findLastRealCard st
       deck ← liftH' $ P.getDeck opts.deckId
-      for_ (_.parent <$> deck) case _ of
-        Just cardId | not (L.null opts.displayCursor) → do
-          liftH' $ P.mirrorDeck opts.deckId cardId
+      case deck >>= _.parent, mirrorCard <#> _.cardId of
+        Just parentId, Just cardId | not (L.null opts.displayCursor) → do
+          liftH' $ P.mirrorDeck parentId cardId opts.deckId
           H.modify (DCS.changeDisplayMode DCS.Normal)
-        _ → do
-          parentId ← liftH' $ P.wrapAndMirrorDeck opts.deckId
+        _, Just cardId → do
+          parentId ← liftH' $ P.wrapAndMirrorDeck cardId opts.deckId
           navigateToDeck (parentId L.: opts.cursor)
+        _, _ → pure unit
     Back.Wrap → do
       parentId ← liftH' $ P.wrapDeck opts.deckId
       if L.null opts.displayCursor

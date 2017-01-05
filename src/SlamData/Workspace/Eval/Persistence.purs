@@ -325,26 +325,30 @@ wrapDeck deckId = do
   queueSaveDefault
   pure parentDeckId
 
-wrapAndMirrorDeck ∷ ∀ f m. Persist f m (Deck.Id → m Deck.Id)
-wrapAndMirrorDeck deckId = do
+wrapAndMirrorDeck ∷ ∀ f m. Persist f m (Card.Id → Deck.Id → m Deck.Id)
+wrapAndMirrorDeck cardId deckId = do
   cell ← unwrapOrExn "Deck not found" =<< getDeck deckId
-  mirrorDeckId × _ ← freshDeck DM.emptyDeck { cards = cell.model.cards } cell.status
+  card ← unwrapOrExn "Card not found" =<< getCard cardId
+  let mstate = mirroredState cell.model.cards cardId card.output cell.status
+  mirrorDeckId × _ ← freshDeck DM.emptyDeck { cards = mstate.cards } mstate.status
   parentCardId × _ ←
     freshCard (Just Port.Initial) Set.empty $
       CM.splitDraftboard Orn.Vertical (List.fromFoldable [ deckId, mirrorDeckId ])
   parentDeckId × _ ← freshDeck DM.emptyDeck { cards = pure parentCardId } (Deck.NeedsEval parentCardId)
-  cloneActiveStateTo mirrorDeckId deckId
+  cloneActiveStateTo ({ cardIndex: _ } <$> mstate.index) mirrorDeckId deckId
   updateRootOrParent deckId parentDeckId cell.parent
   queueSaveDefault
   pure parentDeckId
 
-mirrorDeck ∷ ∀ f m. Persist f m (Deck.Id → Card.Id → m Deck.Id)
-mirrorDeck deckId parentId = do
+mirrorDeck ∷ ∀ f m. Persist f m (Card.Id → Card.Id → Deck.Id → m Deck.Id)
+mirrorDeck parentId cardId deckId = do
   cell ← unwrapOrExn "Deck not found" =<< getDeck deckId
-  card ← unwrapOrExn "Card not found" =<< getCard parentId
-  mirrorDeckId × _ ← freshDeck DM.emptyDeck { cards = cell.model.cards } cell.status
-  parentModel ← unwrapOrExn "Cannot mirror deck" $ CM.mirrorInDraftboard deckId mirrorDeckId card.model
-  cloneActiveStateTo mirrorDeckId deckId
+  card ← unwrapOrExn "Card not found" =<< getCard cardId
+  parent ← unwrapOrExn "Parent not found" =<< getCard parentId
+  let mstate = mirroredState cell.model.cards cardId card.output cell.status
+  mirrorDeckId × _ ← freshDeck DM.emptyDeck { cards = mstate.cards } mstate.status
+  parentModel ← unwrapOrExn "Cannot mirror deck" $ CM.mirrorInDraftboard deckId mirrorDeckId parent.model
+  cloneActiveStateTo ({ cardIndex: _ } <$> mstate.index) mirrorDeckId deckId
   putCard parentId parentModel
   rebuildGraph
   publishCardChange (Card.toAll parentId) parentModel
@@ -507,11 +511,12 @@ updateRoot newId = do
   { eval } ← Wiring.expose
   liftAff $ modifyVar (const newId) eval.root
 
-cloneActiveStateTo ∷ ∀ f m. Persist f m (Deck.Id → Deck.Id → m Unit)
-cloneActiveStateTo to from = do
+cloneActiveStateTo ∷ ∀ f m. Persist f m (Maybe Wiring.ActiveState → Deck.Id → Deck.Id → m Unit)
+cloneActiveStateTo state to from = do
   { cache } ← Wiring.expose
   activeState ← Cache.get from cache.activeState
-  for_ activeState \as → Cache.put to as cache.activeState
+  for_ (activeState <|> state) \as →
+    Cache.put to as cache.activeState
 
 makeDeckCell ∷ ∀ m. MonadAff SlamDataEffects m ⇒ Deck.Model → Deck.EvalStatus → m Deck.Cell
 makeDeckCell model status =  do
@@ -566,3 +571,21 @@ unwrapOrExn = unwrapOrThrow ∘ Exn.error
 
 unwrapOrThrow ∷ ∀ m e a. MonadThrow e m ⇒ e → Maybe a → m a
 unwrapOrThrow err = maybe (throw err) pure
+
+mirroredState
+  ∷ Array Card.Id
+  → Card.Id
+  → Maybe Card.Port
+  → Deck.EvalStatus
+  → { cards ∷ Array Card.Id
+    , status ∷ Deck.EvalStatus
+    , index ∷ Maybe Int
+    }
+mirroredState cards cardId output status =
+  case Array.findIndex (eq cardId) cards of
+    Nothing → { cards, status, index: Nothing }
+    Just ix →
+      { cards: Array.take (ix + 1) cards
+      , status: maybe (Deck.NeedsEval cardId) Deck.Completed output
+      , index: Just ix
+      }

@@ -286,9 +286,11 @@ findLastCard ∷ State → Maybe DisplayCard
 findLastCard state =
   A.last state.displayCards
 
-findLastRealCard ∷ State → Maybe DisplayCard
+findLastRealCard ∷ State → Maybe CardDef
 findLastRealCard state =
-  A.index state.displayCards (A.length state.displayCards - 2)
+  case A.index state.displayCards (A.length state.displayCards - 2) of
+    Just (Right def) → Just def
+    _ → Nothing
 
 -- | Reconstructs a deck state from a deck model.
 fromModel

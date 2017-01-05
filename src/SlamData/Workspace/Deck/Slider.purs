@@ -307,7 +307,7 @@ renderCard opts deckComponent st card index =
 
   isLastCard =
     fromMaybe false $
-      DCS.eqDisplayCard card <$> DCS.findLastRealCard st
+      DCS.eqDisplayCard card ∘ Right <$> DCS.findLastRealCard st
 
   presentAccessNextActionCardGuide =
     st.presentAccessNextActionCardGuide ∧ isLastCard ∧ st.focused
