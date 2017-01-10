@@ -19,10 +19,8 @@ module SlamData.Workspace.Deck.BackSide where
 import SlamData.Prelude
 
 import Data.List (List)
-import Data.Foldable as F
 
 import SlamData.ActionList.Component as ActionList
-import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Deck.Component.State (CardDef)
 import SlamData.Workspace.Deck.DeckId (DeckId)
 
@@ -99,7 +97,6 @@ actionHighlighted unwrappable activeCard cardDefs a =
     $ case activeCard, a of
       Nothing, Trash → false
       _, Unwrap → unwrappable
-      _, Mirror | F.elem CT.Draftboard (_.cardType <$> cardDefs) → false
       _, _ → true
 
 actionIcon ∷ BackAction → ActionList.ActionIconSrc
