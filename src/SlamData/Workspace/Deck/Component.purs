@@ -37,6 +37,7 @@ import Data.Array as Array
 import Data.Lens ((.~), (%~), (?~), _Left, _Just, is)
 import Data.List as L
 import Data.List ((:))
+import Data.Set as Set
 
 import DOM.HTML.HTMLElement (getBoundingClientRect)
 
@@ -401,15 +402,16 @@ getUpdatedBackActions opts activeCard cards = do
 calculateUnwrappable ∷ Back.BackSideOptions → DCS.CardDef → DeckDSL Boolean
 calculateUnwrappable { displayCursor, deckId } { cardId } =
   fromMaybe false <$> runMaybeT do
-    deck ← MaybeT $ map _.model <$> (H.liftH $ H.liftH (P.getDeck deckId))
-    card ← MaybeT $ map _.model <$> (H.liftH $ H.liftH (P.getCard cardId))
+    deck ← MaybeT $ liftH' (P.getDeck deckId)
+    card ← MaybeT $ liftH' (P.getCard cardId)
     let
-      cardLen = Array.length deck.cards
-      deckIds = Card.childDeckIds card
-    pure $ case displayCursor, card, cardLen, deckIds of
-      L.Nil    , Card.Draftboard _, 1, (_ : L.Nil) → true
-      _ : L.Nil, Card.Draftboard _, 1, _ → true
-      _ , _, _, _ → false
+      cardLen = Array.length deck.model.cards
+      deckIds = Card.childDeckIds card.model
+      mirrorLen = Set.size card.decks
+    pure case card.model, displayCursor, deckIds of
+      Card.Draftboard _, L.Nil    , _ : L.Nil → cardLen ≡ 1
+      Card.Draftboard _, _ : L.Nil, _ → cardLen ≡ 1 && mirrorLen ≡ 1
+      _, _, _ → false
 
 dismissedAccessNextActionCardGuideKey ∷ String
 dismissedAccessNextActionCardGuideKey = "dismissedAccessNextActionCardGuide"
