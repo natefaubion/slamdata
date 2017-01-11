@@ -174,7 +174,7 @@ varMapOut ∷ DataMap → Out
 varMapOut v = Variables × v
 
 resourceOut ∷ Resource → Out
-resourceOut r = ResourceKey defaultResourceVar × SM.singleton "out" (Left r)
+resourceOut r = ResourceKey defaultResourceVar × SM.singleton defaultResourceVar (Left r)
 
 portOut ∷ Port → Out
 portOut p = p × SM.empty
