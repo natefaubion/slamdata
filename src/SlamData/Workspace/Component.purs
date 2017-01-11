@@ -300,11 +300,11 @@ runFreshWorkspace cards = do
       H.fromAff (Bus.read cell.bus) >>= case _ of
         ED.Pending _ → wait
         ED.Complete _ _ → wait
-        _ → pure unit
-  wait
+        _ → H.gets _.cursor
+  cursor ← wait
   liftH' P.saveWorkspace
   urlVarMaps ← H.fromEff $ readRef varMaps
-  navigate $ WorkspaceRoute path (pure deckId) (WA.Load accessType) urlVarMaps
+  navigate $ WorkspaceRoute path cursor (WA.Load accessType) urlVarMaps
 
 peek ∷ ∀ a. ChildQuery a → WorkspaceDSL Unit
 peek = (const (pure unit)) ⨁ const (pure unit) ⨁ peekNotification

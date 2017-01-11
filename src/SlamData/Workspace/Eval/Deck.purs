@@ -42,7 +42,6 @@ data EvalMessage
   = Pending CardId
   | Complete (Array CardId) Out
   | CardChange CardId
-  | ParentChange (Maybe CardId)
   | NameChange String
 
 data EvalStatus
