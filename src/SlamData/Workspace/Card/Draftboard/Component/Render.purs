@@ -59,7 +59,7 @@ render opts st =
     , renderOuterEdge "left" Orn.Horizontal Layout.SideA
     , renderOuterEdge "right" Orn.Horizontal Layout.SideB
     , renderOuterEdge "bottom" Orn.Vertical Layout.SideB
-    , if not (List.null opts.deck.cursor) && st.layout == Pane.Cell Nothing
+    , if not (List.null opts.deck.displayCursor) && st.layout == Pane.Cell Nothing
         then
           HH.div
             [ HP.classes [ HH.className "card-input-minimum-lod" ] ]
