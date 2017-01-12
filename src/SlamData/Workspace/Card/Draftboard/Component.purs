@@ -18,6 +18,8 @@ module SlamData.Workspace.Card.Draftboard.Component where
 
 import SlamData.Prelude
 
+import Control.Monad.Aff (later)
+
 import Data.Foldable (and, all, find)
 import Data.Int as Int
 import Data.List (List(..), (:))
@@ -77,6 +79,8 @@ evalCard = case _ of
     case card of
       Card.Draftboard model → do
         H.modify (updateLayout model.layout)
+        -- TODO: Why??? Remove this when we update to newer Halogen
+        H.fromAff (later (pure unit))
         void $ H.queryAll (right (H.action DCQ.UpdateCardSize))
       _ → pure unit
     pure next
