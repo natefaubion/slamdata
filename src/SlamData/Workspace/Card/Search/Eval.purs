@@ -39,6 +39,7 @@ import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Search.Interpret as Search
 
+import Text.Parsing.Parser as PP
 import Text.SlamSearch as SS
 
 evalSearch
@@ -54,9 +55,11 @@ evalSearch
   → Port.Resource
   → m Port.Out
 evalSearch queryText resource = do
-  let filePath = resource ^. Port._filePath
-  query ← case SS.mkQuery queryText of
-    Left _ → CEM.throw "Incorrect query string"
+  let
+    filePath = resource ^. Port._filePath
+    queryText' = if queryText ≡ "" then "*" else queryText
+  query ← case SS.mkQuery queryText' of
+    Left pe → CEM.throw $ "Unable to parse query: " <> PP.parseErrorMessage pe
     Right q → pure q
 
   fields ← CEM.liftQ do
