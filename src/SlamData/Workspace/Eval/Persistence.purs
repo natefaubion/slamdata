@@ -510,6 +510,12 @@ cloneActiveStateTo state to from = do
   for_ (activeState <|> state) \as →
     Cache.put to as cache.activeState
 
+linkToParent ∷ ∀ f m. Persist f m (Card.Id → Deck.Id → m Unit)
+linkToParent parentId deckId = do
+  { eval } ← Wiring.expose
+  Cache.modify parentId (\cell → cell { decks = Set.insert deckId cell.decks }) eval.cards
+  Cache.modify deckId (_ { parent = Just parentId }) eval.decks
+
 makeDeckCell ∷ ∀ m. MonadAff SlamDataEffects m ⇒ Deck.Model → Deck.EvalStatus → m Deck.Cell
 makeDeckCell model status =  do
   bus ← liftAff Bus.make

@@ -22,6 +22,7 @@ module SlamData.Wiring.Cache
   , restore
   , get
   , alter
+  , modify
   , put
   , remove
   , clear
@@ -91,6 +92,16 @@ alter key fn (Cache cache) = do
     Nothing, Nothing → putVar cache vals
     Just _ , Nothing → putVar cache (Map.delete key vals)
     _      , Just v  → putVar cache (Map.insert key v vals)
+
+modify
+  ∷ ∀ eff m k v
+  . (MonadAff (avar ∷ AVAR | eff) m, Ord k)
+  ⇒ k
+  → (v → v)
+  → Cache k v
+  → m Unit
+modify key fn (Cache cache) = liftAff do
+  modifyVar (Map.update (Just ∘ fn) key) cache
 
 put
   ∷ ∀ eff m k v

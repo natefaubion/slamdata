@@ -366,8 +366,9 @@ recalcRect = do
     H.modify (updateRect rect)
 
 addDeck ∷ CardOptions → Pane.Cursor → DraftboardDSL Unit
-addDeck _ cursor = do
+addDeck opts cursor = do
   deckId × _ ← liftH' $ P.freshDeck emptyDeck (ED.Completed Port.emptyOut)
+  liftH' $ P.linkToParent opts.cardId deckId
   st ← H.get
   let
     layout = Pane.modifyAt (const (Pane.Cell (Just deckId))) cursor st.layout
