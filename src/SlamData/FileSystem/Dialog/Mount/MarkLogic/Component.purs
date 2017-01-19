@@ -27,10 +27,12 @@ import Data.Path.Pathy (dir, (</>))
 
 import Halogen as H
 import Halogen.HTML.Indexed as HH
+import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Properties.Indexed as HP
 import Halogen.Themes.Bootstrap3 as B
 
 import Quasar.Mount as QM
+import Quasar.Mount.MarkLogic (Format(..))
 
 import SlamData.Monad (Slam)
 import SlamData.FileSystem.Dialog.Mount.Common.Render as MCR
@@ -62,10 +64,29 @@ render state =
             , MCR.label "Password" [ MCR.input state MCS._password [ HP.inputType HP.InputPassword ] ]
             ]
         , HH.div
-            [ HP.class_ Rc.mountPath ]
+            [ HP.classes [B.formGroup, Rc.mountPath] ]
             [ MCR.label "Database" [ MCR.input state MCS._path [] ] ]
+        , HH.div
+            [ HP.class_ Rc.mountFormat ]
+            [ HH.label_ [ HH.span_ [ HH.text "Format" ] ]
+            , formatRadio "XML" XML
+            , formatRadio "JSON" JSON
+            ]
         ]
     ]
+
+  where
+  formatRadio lbl val =
+    HH.label_
+      [ HH.input
+          [ HP.inputType HP.InputRadio
+          , HP.name "mlformat"
+          , HP.checked (state.format ≡ val)
+          , HE.onValueChange (HE.input_ (ModifyState _ { format = val }))
+          ]
+      , HH.text lbl
+      ]
+
 
 eval ∷ Query ~> H.ComponentDSL MCS.State Query Slam
 eval = case _ of

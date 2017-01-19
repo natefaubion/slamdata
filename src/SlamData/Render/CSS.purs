@@ -87,6 +87,9 @@ mountProps = className "mount-props"
 mountPath ∷ ClassName
 mountPath = className "mount-path"
 
+mountFormat ∷ ClassName
+mountFormat = className "mount-format"
+
 mountPropsScrollbox ∷ ClassName
 mountPropsScrollbox = className "mount-props-scrollbox"
 
