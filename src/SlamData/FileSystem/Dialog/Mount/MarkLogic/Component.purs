@@ -59,11 +59,13 @@ render state =
     [ MCR.section "Server" [ MCR.host state MCS._host' ]
     , MCR.section "Authentication"
         [ HH.div
-            [ HP.classes [B.formGroup, Rc.mountUserInfo] ]
+            [ HP.class_ Rc.mountUserInfo ]
             [ MCR.label "Username" [ MCR.input state MCS._user [] ]
             , MCR.label "Password" [ MCR.input state MCS._password [ HP.inputType HP.InputPassword ] ]
             ]
-        , HH.div
+        ]
+    , MCR.section "Root"
+        [ HH.div
             [ HP.classes [B.formGroup, Rc.mountPath] ]
             [ MCR.label "Database" [ MCR.input state MCS._path [] ] ]
         , HH.div
