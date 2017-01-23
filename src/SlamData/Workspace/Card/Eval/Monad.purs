@@ -22,7 +22,7 @@ module SlamData.Workspace.Card.Eval.Monad
   , CardEnv(..)
   , CardResult
   , CardEvalM
-  , ChildOut
+  , DeckEvaluator
   , addSource
   , addCache
   , addSources
@@ -44,6 +44,7 @@ import SlamData.Prelude hiding (throwError)
 
 import Control.Applicative.Free (FreeAp, liftFreeAp, foldFreeAp)
 import Control.Monad.Aff (Aff)
+import Control.Monad.Aff.AVar as AVar
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Free (class Affable)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
@@ -54,7 +55,8 @@ import Control.Monad.Throw as Throw
 import Control.Monad.Writer.Class (class MonadTell, tell)
 import Control.Parallel.Class (parallel, sequential)
 
-import Data.List (List, (:))
+import Data.Identity (Identity(..))
+import Data.List ((:))
 import Data.Map as Map
 import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as Path
@@ -69,9 +71,12 @@ import SlamData.Effects (SlamDataEffects)
 import SlamData.Quasar.Class (class QuasarDSL, class ParQuasarDSL, liftQuasar)
 import SlamData.Quasar.Error (msgToQError)
 import SlamData.Workspace.Card.CardId as CID
+import SlamData.Workspace.Card.Eval.Class (class DeckEvalDSL, parEvalDecks)
 import SlamData.Workspace.Card.Eval.State (EvalState(..))
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Deck.AdditionalSource (AdditionalSource(..))
+import SlamData.Workspace.Eval.Deck as Deck
+import Unsafe.Coerce (unsafeCoerce)
 import Utils.Path (DirPath, FilePath)
 
 type CardEval = CardEvalM SlamDataEffects
@@ -88,22 +93,35 @@ type CardResult a =
   , state ∷ CardState
   }
 
-type ChildOut =
-  { namespace ∷ String
-  , varMap ∷ Port.DataMap
-  }
-
 newtype CardEnv = CardEnv
   { path ∷ DirPath
   , cardId ∷ CID.CardId
   , urlVarMaps ∷ Map.Map CID.CardId Port.URLVarMap
-  , children ∷ List ChildOut
   }
+
+data ParEvalDecks' f a b =
+  ParEvalDecks
+    (forall m c d. Applicative m ⇒ (c → m d) → f c → m (f d))
+    (Deck.Model → Port.Out → a)
+    (f Deck.Id)
+    (f a → b)
+
+data ParEvalDecks b
+
+instance functorParEvalDecks ∷ Functor ParEvalDecks where
+  map g = unParEvalDecks (\(ParEvalDecks t f as co) → coParEvalDecks (ParEvalDecks t f as (g <$> co)))
+
+coParEvalDecks ∷ ∀ f a b. ParEvalDecks' f a b → ParEvalDecks b
+coParEvalDecks = unsafeCoerce
+
+unParEvalDecks ∷ ∀ b r. (∀ f a. ParEvalDecks' f a b → r) → ParEvalDecks b → r
+unParEvalDecks = unsafeCoerce
 
 data CardEvalF eff a
   = Aff (Aff eff a)
   | Quasar (QA.QuasarAFC a)
   | ParQuasar (FreeAp QA.QuasarAFC a)
+  | ParDecks (ParEvalDecks a)
   | Tell (a × Set AdditionalSource)
   | State (CardState → a × CardState)
   | Ask (CardEnv → a)
@@ -111,13 +129,14 @@ data CardEvalF eff a
 
 instance functorCardEvalF ∷ Functor (CardEvalF eff) where
   map f = case _ of
-    Aff aff     → Aff (f <$> aff)
-    Quasar q    → Quasar (f <$> q)
-    ParQuasar a → ParQuasar (f <$> a)
-    Tell a      → Tell (lmap f a)
-    State a     → State (lmap f <$> a)
-    Ask a       → Ask (f <$> a)
-    Throw err   → Throw err
+    Aff aff      → Aff (f <$> aff)
+    Quasar q     → Quasar (f <$> q)
+    ParQuasar a  → ParQuasar (f <$> a)
+    ParDecks a   → ParDecks (f <$> a)
+    Tell a       → Tell (lmap f a)
+    State a      → State (lmap f <$> a)
+    Ask a        → Ask (f <$> a)
+    Throw err    → Throw err
 
 newtype CardEvalM eff a = CardEvalM (Free (CardEvalF eff) a)
 
@@ -156,6 +175,10 @@ instance quasarDSLCardEvalM ∷ QuasarDSL (CardEvalM eff) where
 
 instance parQuasarDSLCardEvalM ∷ ParQuasarDSL (CardEvalM eff) where
   sequenceQuasar = CardEvalM ∘ liftF ∘ ParQuasar ∘ traverse liftFreeAp
+
+instance deckEvalDSLCardEvalM ∷ DeckEvalDSL (CardEvalM eff) where
+  evalDeck deckId = unwrap <$> parEvalDecks Tuple (Identity deckId)
+  parEvalDecks f as = CardEvalM (liftF (ParDecks (coParEvalDecks (ParEvalDecks traverse f as id))))
 
 addSource ∷ ∀ m. (MonadTell (Set AdditionalSource) m) ⇒ FilePath → m Unit
 addSource fp = tell (Set.singleton (Source fp))
@@ -204,18 +227,24 @@ throw = Throw.throw ∘ msgToQError
 liftQ ∷ ∀ m a. MonadThrow QError m ⇒ m (Either QError a) → m a
 liftQ = flip bind (either Throw.throw pure)
 
+type DeckEvaluator m =
+  { getDeck ∷ Deck.Id → m (Maybe Deck.Cell)
+  , runDeck ∷ Deck.Id → m (Maybe Port.Out)
+  }
+
 runCardEvalM
   ∷ ∀ eff f m a
   . ( QuasarDSL m
-    , MonadAff eff m
+    , MonadAff (avar ∷ AVar.AVAR | eff) m
     , Parallel f m
     , Monad m
     )
-  ⇒ CardEnv
+  ⇒ DeckEvaluator m
+  → CardEnv
   → CardState
-  → CardEvalM eff a
+  → CardEvalM (avar ∷ AVar.AVAR | eff) a
   → m (CardResult a)
-runCardEvalM env initialState (CardEvalM ce) = go initialState Set.empty ce
+runCardEvalM { getDeck, runDeck } env initialState (CardEvalM ce) = go initialState Set.empty ce
   where
     go st as ce' = case resume ce' of
       Left ctr →
@@ -223,9 +252,37 @@ runCardEvalM env initialState (CardEvalM ce) = go initialState Set.empty ce
           Aff aff → liftAff aff >>= go st as
           Quasar q → liftQuasar q >>= go st as
           ParQuasar q → sequential (foldFreeAp (parallel ∘ liftQuasar) q) >>= go st as
+          ParDecks d → parDecks d >>= go st as
           Tell (n × as') → go st (as <> as') n
           State k → let res = k st in go (snd res) as (fst res)
           Ask k → go st as (k env)
           Throw err → pure { output: Left err, sources: as, state: st }
       Right a →
         pure { output: Right a, sources: as, state: st }
+
+    parDecks = unParEvalDecks \(ParEvalDecks trav f deckIds co) → do
+      let
+        loopEval = do
+          var ← liftAff $ AVar.makeVar' 0
+          res ←
+            runExceptT
+            $ sequential
+            $ flip trav deckIds
+            $ parallel ∘ \deckId → do
+              cell ← Throw.note "Deck not found" =<< lift (getDeck deckId)
+              case cell.status of
+                Deck.Completed out → pure (cell.model × out)
+                Deck.NeedsEval cardId → do
+                  liftAff $ AVar.modifyVar (_ + 1) var
+                  out ← Throw.note "Deck not found" =<< lift (runDeck deckId)
+                  pure (cell.model × out)
+                Deck.PendingEval _ → do
+                  liftAff $ AVar.modifyVar (_ + 1) var
+                  out ← Deck.waitComplete cell.bus
+                  pure (cell.model × out)
+          cnt ← liftAff $ AVar.peekVar var
+          case res, cnt of
+            Left err, _ → pure (liftF (Throw (msgToQError err)))
+            Right as, 0 → co <$> trav (pure ∘ uncurry f) as
+            _, _ → loopEval
+      loopEval

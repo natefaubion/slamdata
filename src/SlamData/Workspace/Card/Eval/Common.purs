@@ -33,7 +33,9 @@ import Quasar.Advanced.QuasarAF as QF
 import SlamData.Quasar.Error as QE
 import SlamData.Quasar.Class (class QuasarDSL, class ParQuasarDSL, sequenceQuasar)
 import SlamData.Workspace.Card.Eval.Monad as CEM
+import SlamData.Workspace.Card.Eval.Class (class DeckEvalDSL, parEvalDecks)
 import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Eval.Deck as Deck
 
 escapeCursor ∷ J.JCursor → String
 escapeCursor = case _ of
@@ -60,16 +62,18 @@ validateResources fs = do
       pure unit
 
 evalComposite
-  ∷ ∀ m
-  . MonadAsk CEM.CardEnv m
-  ⇒ m Port.DataMap
-evalComposite = do
-  CEM.CardEnv { children } ← ask
-  pure (foldl mergeChildren SM.empty children)
+  ∷ ∀ m f
+  . ( MonadThrow CEM.CardError m
+    , DeckEvalDSL m
+    , Traversable f
+    )
+  ⇒ f Deck.Id
+  → m Port.DataMap
+evalComposite deckIds =
+  foldl merge SM.empty <$> parEvalDecks Tuple deckIds
   where
-    mergeChildren ∷ Port.DataMap → CEM.ChildOut → Port.DataMap
-    mergeChildren vm { namespace, varMap } =
-      case namespace of
+    merge vm (deck × _ × varMap) =
+      case deck.name of
         "" → SM.fold (update id) vm varMap
         ns → SM.fold (update \k → ns <> "." <> k) vm varMap
 

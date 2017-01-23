@@ -50,6 +50,7 @@ import SlamData.Workspace.Card.Setups.Chart.Sankey.Eval as BuildSankey
 import SlamData.Workspace.Card.Setups.Chart.Scatter.Eval as BuildScatter
 import SlamData.Workspace.Card.Cache.Eval as Cache
 import SlamData.Workspace.Card.CardType as CT
+import SlamData.Workspace.Card.Eval.Class (class DeckEvalDSL)
 import SlamData.Workspace.Card.Eval.Common as Common
 import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Eval.Transition (Eval(..), tagEval)
@@ -76,14 +77,15 @@ runCard
     , Parallel f m
     , Monad m
     )
-  ⇒ CEM.CardEnv
+  ⇒ CEM.DeckEvaluator m
+  → CEM.CardEnv
   → CEM.CardState
   → Eval
   → Port.Port
   → Port.DataMap
   → m (CEM.CardResult Port.Out)
-runCard env state trans input varMap =
-  CEM.runCardEvalM env state (evalCard trans input varMap ∷ CEM.CardEval Port.Out)
+runCard deckEval env state trans input varMap =
+  CEM.runCardEvalM deckEval env state (evalCard trans input varMap ∷ CEM.CardEval Port.Out)
 
 evalCard
   ∷ ∀ m
@@ -94,6 +96,7 @@ evalCard
     , MonadTell CEM.CardLog m
     , QuasarDSL m
     , ParQuasarDSL m
+    , DeckEvalDSL m
     )
   ⇒ Eval
   → Port.Port
@@ -104,7 +107,7 @@ evalCard trans port varMap = case trans, port of
   _, Port.CardError msg → CEM.throw msg
   Pass, _ → pure (port × varMap)
   Chart, _ → pure (Port.ResourceKey Port.defaultResourceVar × varMap)
-  Composite, _ → Port.varMapOut <$> Common.evalComposite
+  Composite deckIds, _ → Port.varMapOut <$> Common.evalComposite deckIds
   Query sql, _ → Query.evalQuery sql varMap
   Markdown txt, _ → MDE.evalMarkdown txt varMap
   MarkdownForm model, Port.SlamDown doc → MDE.evalMarkdownForm model doc varMap
@@ -148,7 +151,7 @@ evalCard trans port varMap = case trans, port of
   e, i → CEM.throw $ "Card received unexpected input type; " <> tagEval e <> " | " <> Port.tagPort i
 
 modelToEval ∷ Model.AnyCardModel → Eval
-modelToEval = case _ of
+modelToEval card = case card of
   Model.Ace CT.SQLMode model → Query model.text
   Model.Ace CT.MarkdownMode model → Markdown model.text
   Model.Markdown model → MarkdownForm model
@@ -157,7 +160,7 @@ modelToEval = case _ of
   Model.Open res → Open res
   Model.Variables model → Variables model
   Model.DownloadOptions model → DownloadOptions model
-  Model.Draftboard _ → Composite
+  Model.Draftboard model → Composite (Model.childDeckIds card)
   Model.BuildMetric model  → BuildMetric model
   Model.BuildSankey model → BuildSankey model
   Model.BuildGauge model → BuildGauge model

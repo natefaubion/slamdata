@@ -21,6 +21,7 @@ module SlamData.Workspace.Eval
 
 import SlamData.Prelude
 
+import Control.Monad.Aff.AVar as AVar
 import Control.Monad.Aff.Bus as Bus
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff.Class (liftEff)
@@ -33,7 +34,6 @@ import Data.Lens (preview, _Left)
 import Data.List (List)
 import Data.List as List
 import Data.Map (Map)
-import Data.Map as Map
 import Data.Set (Set)
 
 import SlamData.Effects (SlamDataEffects)
@@ -43,6 +43,7 @@ import SlamData.Wiring (Wiring)
 import SlamData.Wiring as Wiring
 import SlamData.Wiring.Cache (Cache)
 import SlamData.Wiring.Cache as Cache
+import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Port.VarMap (URLVarMap)
 import SlamData.Workspace.Eval.Card as Card
 import SlamData.Workspace.Eval.Deck as Deck
@@ -93,26 +94,16 @@ runEvalLoop path decks cards tick urlVarMaps source = goInit
           cardInput = fromMaybe Card.emptyOut card.input
           card' = card { pending = Just cardInput }
         Cache.put cardId card' cards
-        tryEvalCard mempty cardInput cardId card'
+        evalCard mempty cardInput cardId card'
 
-    tryEvalCard ∷ Array Card.Id → Card.Out → Card.Id → Card.Cell → m Unit
-    tryEvalCard history cardInput cardId card =
-      evaluatedOutputs (Card.childDeckIds card.model) >>= traverse_ \childOutputs → do
-        let
-          children = List.mapMaybe (toChildOut ∘ snd) childOutputs
-          pendingIds = List.mapMaybe (preview Deck._PendingEval ∘ _.status ∘ snd) childOutputs
-          unevaluatedIds = List.nub (List.mapMaybe (traverse (preview Deck._NeedsEval ∘ _.status)) childOutputs)
-        if List.null pendingIds && List.null unevaluatedIds
-          then evalCard history cardInput cardId card children
-          else goChildDecks unevaluatedIds
-
-    evalCard ∷ Array Card.Id → Card.Out → Card.Id → Card.Cell → List Card.ChildOut → m Unit
-    evalCard history cardInput@(cardPort × varMap) cardId card children = do
+    evalCard ∷ Array Card.Id → Card.Out → Card.Id → Card.Cell → m Unit
+    evalCard history cardInput@(cardPort × varMap) cardId card = do
       publish card (Card.Pending source cardInput)
       let
-        cardEnv = Card.CardEnv { path, cardId, urlVarMaps, children }
+        deckEval = { getDeck: flip Cache.get decks, runDeck }
+        cardEnv = Card.CardEnv { path, cardId, urlVarMaps }
         cardTrans = Card.modelToEval card.model
-      result ← Card.runCard cardEnv card.state cardTrans cardPort varMap
+      result ← Card.runCard deckEval cardEnv card.state cardTrans cardPort varMap
       let
         history' =
           case cardPort of
@@ -154,26 +145,18 @@ runEvalLoop path decks cards tick urlVarMaps source = goInit
       Cache.get cardId cards >>= traverse_ \card → do
         let card' = card { input = Just cardInput, pending = Just cardInput }
         Cache.put cardId card' cards
-        tryEvalCard history cardInput cardId card'
+        evalCard history cardInput cardId card'
 
-    goChildDecks ∷ List (Deck.Id × Card.Id) → m Unit
-    goChildDecks cardCoords = do
-      for_ cardCoords \(deckId × cardId) → do
-        Cache.get deckId decks >>= traverse_ \deck → do
-          let deck' = deck { status = Deck.PendingEval cardId }
-          Cache.put deckId deck' decks
-      parTraverse_ goInit (List.nub (snd <$> cardCoords))
-
-    evaluatedOutputs ∷ ∀ t. Traversable t ⇒ t Deck.Id → m (Maybe (t (Deck.Id × Deck.Cell)))
-    evaluatedOutputs deckIds = do
-      deckGraph ← Cache.snapshot decks
-      let stats = for deckIds \deckId → Tuple deckId <$> Map.lookup deckId deckGraph
-      pure stats
-
-    toChildOut ∷ Deck.Cell → Maybe Card.ChildOut
-    toChildOut { model, status } = case status of
-      Deck.Completed (_ × varMap) → Just { namespace: model.name, varMap }
-      _ → Nothing
+    runDeck ∷ Deck.Id → m (Maybe Port.Out)
+    runDeck deckId = runMaybeT do
+      deck ← MaybeT $ Cache.get deckId decks
+      case Array.head deck.model.cards of
+        Nothing → pure Port.emptyOut
+        Just cardId → lift do
+          outVar ← liftAff AVar.makeVar
+          fork $ liftAff ∘ AVar.putVar outVar =<< Deck.waitComplete deck.bus
+          fork $ goInit cardId
+          liftAff $ AVar.peekVar outVar
 
 publish ∷ ∀ m r a b. MonadAff SlamDataEffects m ⇒ { bus ∷ Bus.BusW' b a | r } → a → m Unit
 publish rec message = liftAff (Bus.write message rec.bus)

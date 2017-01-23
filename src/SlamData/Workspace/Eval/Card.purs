@@ -39,7 +39,7 @@ import Data.Set (Set)
 
 import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.Eval (Eval, runCard, modelToEval)
-import SlamData.Workspace.Card.Eval.Monad (CardEnv(..), ChildOut, EvalState, AdditionalSource(..))
+import SlamData.Workspace.Card.Eval.Monad (CardEnv(..), EvalState, AdditionalSource(..))
 import SlamData.Workspace.Card.Model (AnyCardModel, modelCardType, cardModelOfType, childDeckIds)
 import SlamData.Workspace.Card.Port (Port(..), Out, emptyOut, portOut, resourceOut)
 import SlamData.Workspace.Eval.Deck as Deck

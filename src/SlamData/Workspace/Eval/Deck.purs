@@ -21,6 +21,7 @@ module SlamData.Workspace.Eval.Deck
   , Cell
   , Model
   , evalStatusFromCards
+  , waitComplete
   , _NeedsEval
   , _PendingEval
   , _Completed
@@ -29,7 +30,9 @@ module SlamData.Workspace.Eval.Deck
   ) where
 
 import SlamData.Prelude
-import Control.Monad.Aff.Bus (BusRW)
+import Control.Monad.Aff.AVar (AVAR)
+import Control.Monad.Aff.Bus (BusRW, BusR', read)
+import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Data.Array as Array
 import Data.Lens (Prism', prism')
 import SlamData.Workspace.Card.CardId (CardId)
@@ -77,3 +80,10 @@ _Completed ∷ Prism' EvalStatus Out
 _Completed = prism' Completed case _ of
   Completed out → Just out
   _             → Nothing
+
+waitComplete ∷ ∀ eff m r. MonadAff (avar ∷ AVAR | eff) m ⇒ BusR' r EvalMessage → m Out
+waitComplete bus = loop
+  where
+    loop = liftAff (read bus) >>= case _ of
+      Complete _ out → pure out
+      _ → loop
