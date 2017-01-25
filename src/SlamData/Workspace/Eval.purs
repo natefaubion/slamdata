@@ -28,6 +28,8 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception as Exn
 import Control.Monad.Eff.Ref (readRef, modifyRef)
 import Control.Monad.Fork (class MonadFork, fork)
+import Control.Monad.Throw as Throw
+import Control.Parallel.Class (sequential, parallel)
 
 import Data.Array as Array
 import Data.Lens (preview, _Left)
@@ -39,11 +41,12 @@ import Data.Set (Set)
 import SlamData.Effects (SlamDataEffects)
 import SlamData.GlobalError as GE
 import SlamData.Quasar.Class (class QuasarDSL)
+import SlamData.Quasar.Error as QE
 import SlamData.Wiring (Wiring)
 import SlamData.Wiring as Wiring
 import SlamData.Wiring.Cache (Cache)
 import SlamData.Wiring.Cache as Cache
-import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Eval.Class (ParEvalDecks, ParEvalDecks'(..), unParEvalDecks)
 import SlamData.Workspace.Card.Port.VarMap (URLVarMap)
 import SlamData.Workspace.Eval.Card as Card
 import SlamData.Workspace.Eval.Deck as Deck
@@ -61,6 +64,10 @@ type Eval f m a =
   , Parallel f m
   , QuasarDSL m
   ) ⇒ a
+
+data EvalLevel = Leaf | Nested
+
+derive instance eqEvalLevel ∷ Eq EvalLevel
 
 evalGraph ∷ ∀ f m. Eval f m (List Card.DisplayCoord → m Unit)
 evalGraph sources = do
@@ -85,25 +92,28 @@ runEvalLoop
   → Card.DisplayCoord
   → Card.Id
   → m Unit )
-runEvalLoop path decks cards tick urlVarMaps source = goInit
+runEvalLoop path decks cards tick urlVarMaps source = goInit Leaf
   where
-    goInit ∷ Card.Id → m Unit
-    goInit cardId = do
+    goInit ∷ EvalLevel → Card.Id → m Unit
+    goInit level cardId = do
       Cache.get cardId cards >>= traverse_ \card → do
-        let
-          cardInput = fromMaybe Card.emptyOut card.input
-          card' = card { pending = Just cardInput }
-        Cache.put cardId card' cards
-        evalCard mempty cardInput cardId card'
+        -- When an child deck triggers a change in a parent, we don't want to
+        -- start evaluating the parent if it is already pending. The parent
+        -- should already be in control of that.
+        when (level ≡ Leaf || isNothing card.pending) do
+          let
+            cardInput = fromMaybe Card.emptyOut card.input
+            card' = card { pending = Just cardInput }
+          Cache.put cardId card' cards
+          evalCard mempty cardInput cardId card'
 
     evalCard ∷ Array Card.Id → Card.Out → Card.Id → Card.Cell → m Unit
     evalCard history cardInput@(cardPort × varMap) cardId card = do
       publish card (Card.Pending source cardInput)
       let
-        deckEval = { getDeck: flip Cache.get decks, runDeck }
         cardEnv = Card.CardEnv { path, cardId, urlVarMaps }
         cardTrans = Card.modelToEval card.model
-      result ← Card.runCard deckEval cardEnv card.state cardTrans cardPort varMap
+      result ← Card.runCard parEvalDecks cardEnv card.state cardTrans cardPort varMap
       let
         history' =
           case cardPort of
@@ -137,7 +147,7 @@ runEvalLoop path decks cards tick urlVarMaps source = goInit
         Cache.put deckId deck' decks
         publish deck (Deck.Complete history cardInput)
         pure deck.parent
-      fork $ parTraverse_ goInit parentCardIds
+      fork $ parTraverse_ (goInit Nested) parentCardIds
       parTraverse_ (goNextCard history cardInput) cardIds
 
     goNextCard ∷ Array Card.Id → Card.Out → Card.Id → m Unit
@@ -147,16 +157,36 @@ runEvalLoop path decks cards tick urlVarMaps source = goInit
         Cache.put cardId card' cards
         evalCard history cardInput cardId card'
 
-    runDeck ∷ Deck.Id → m (Maybe Port.Out)
-    runDeck deckId = runMaybeT do
-      deck ← MaybeT $ Cache.get deckId decks
-      case Array.head deck.model.cards of
-        Nothing → pure Port.emptyOut
-        Just cardId → lift do
-          outVar ← liftAff AVar.makeVar
-          fork $ liftAff ∘ AVar.putVar outVar =<< Deck.waitComplete deck.bus
-          fork $ goInit cardId
-          liftAff $ AVar.peekVar outVar
+    -- We must attempt to evaluate child decks till we reach a stable point.
+    -- Stable is defined as all children having a `Completed` status. We can't
+    -- accomplish this in a single tick because other children may have been
+    -- queued for evaluation while we are evaluating any one child.
+    parEvalDecks ∷ ∀ a. ParEvalDecks a → m (Either QE.QError a)
+    parEvalDecks = unParEvalDecks \(ParEvalDecks traverse' f deckIds co) → do
+      let
+        loopEval = do
+          var ← liftAff $ AVar.makeVar' 0
+          res ← runExceptT $ sequential $ flip traverse' deckIds $ parallel ∘ \deckId → do
+            cell ← Throw.note "Deck not found" =<< lift (Cache.get deckId decks)
+            case cell.status of
+              Deck.Completed out → pure (cell.model × out)
+              Deck.NeedsEval cardId → do
+                liftAff $ AVar.modifyVar (_ + 1) var
+                lift do
+                  outVar ← liftAff AVar.makeVar
+                  fork $ liftAff ∘ AVar.putVar outVar =<< Deck.waitComplete cell.bus
+                  fork $ goInit Leaf cardId
+                  Tuple cell.model <$> liftAff (AVar.peekVar outVar)
+              Deck.PendingEval _ → do
+                liftAff $ AVar.modifyVar (_ + 1) var
+                out ← Deck.waitComplete cell.bus
+                pure (cell.model × out)
+          cnt ← liftAff $ AVar.peekVar var
+          case res, cnt of
+            Left err, _ → pure (Left (QE.msgToQError err))
+            Right as, 0 → Right ∘ co <$> traverse' (pure ∘ uncurry f) as
+            _, _ → loopEval
+      loopEval
 
 publish ∷ ∀ m r a b. MonadAff SlamDataEffects m ⇒ { bus ∷ Bus.BusW' b a | r } → a → m Unit
 publish rec message = liftAff (Bus.write message rec.bus)

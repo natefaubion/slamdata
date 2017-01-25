@@ -20,6 +20,26 @@ import SlamData.Prelude
 import SlamData.Workspace.Eval.Deck as Deck
 import SlamData.Workspace.Card.Port (Out)
 
+import Unsafe.Coerce (unsafeCoerce)
+
 class DeckEvalDSL m where
   evalDeck ∷ Deck.Id → m (Deck.Model × Out)
   parEvalDecks ∷ ∀ f a. Traversable f ⇒ (Deck.Model → Out → a) → f Deck.Id → m (f a)
+
+data ParEvalDecks' f a b =
+  ParEvalDecks
+    (∀ m c d. Applicative m ⇒ (c → m d) → f c → m (f d))
+    (Deck.Model → Out → a)
+    (f Deck.Id)
+    (f a → b)
+
+data ParEvalDecks b
+
+instance functorParEvalDecks ∷ Functor ParEvalDecks where
+  map g = unParEvalDecks (\(ParEvalDecks t f as co) → coParEvalDecks (ParEvalDecks t f as (g <$> co)))
+
+coParEvalDecks ∷ ∀ f a b. ParEvalDecks' f a b → ParEvalDecks b
+coParEvalDecks = unsafeCoerce
+
+unParEvalDecks ∷ ∀ b r. (∀ f a. ParEvalDecks' f a b → r) → ParEvalDecks b → r
+unParEvalDecks = unsafeCoerce
