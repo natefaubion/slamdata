@@ -18,8 +18,6 @@ module SlamData.Workspace.Card.Eval.Transition
 
 import SlamData.Prelude
 
-import Data.List (List)
-
 import Quasar.Types (SQL)
 
 import SlamData.FileSystem.Resource as R
@@ -47,12 +45,11 @@ import SlamData.Workspace.Card.Setups.FormInput.Labeled.Model as SetupLabeled
 import SlamData.Workspace.Card.Setups.FormInput.TextLike.Model as SetupTextLike
 import SlamData.Workspace.Card.Setups.FormInput.Static.Model as SetupStatic
 import SlamData.Workspace.Card.FormInput.Model as FormInput
-import SlamData.Workspace.Eval.Deck as Deck
 
 data Eval
   = Pass
   | Chart
-  | Composite (List Deck.Id)
+  | Composite
   | Query SQL
   | Search String
   | Cache (Maybe String)
@@ -93,7 +90,7 @@ data Eval
 tagEval ∷ Eval → String
 tagEval = case _ of
   Pass → "Pass"
-  Composite _ → "Composite"
+  Composite → "Composite"
   Chart → "Chart"
   Query str → "Query " <> show str
   Search str → "Search " <> show str

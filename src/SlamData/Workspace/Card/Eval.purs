@@ -107,7 +107,7 @@ evalCard trans port varMap = case trans, port of
   _, Port.CardError msg → CEM.throw msg
   Pass, _ → pure (port × varMap)
   Chart, _ → pure (Port.ResourceKey Port.defaultResourceVar × varMap)
-  Composite deckIds, _ → Port.varMapOut <$> Common.evalComposite deckIds
+  Composite, _ → Port.varMapOut <$> Common.evalComposite
   Query sql, _ → Query.evalQuery sql varMap
   Markdown txt, _ → MDE.evalMarkdown txt varMap
   MarkdownForm model, Port.SlamDown doc → MDE.evalMarkdownForm model doc varMap
@@ -160,7 +160,7 @@ modelToEval card = case card of
   Model.Open res → Open res
   Model.Variables model → Variables model
   Model.DownloadOptions model → DownloadOptions model
-  Model.Draftboard model → Composite (Model.childDeckIds card)
+  Model.Draftboard model → Composite
   Model.BuildMetric model  → BuildMetric model
   Model.BuildSankey model → BuildSankey model
   Model.BuildGauge model → BuildGauge model

@@ -56,7 +56,7 @@ import Control.Monad.Writer.Class (class MonadTell, tell)
 import Control.Parallel.Class (parallel, sequential)
 
 import Data.Identity (Identity(..))
-import Data.List ((:))
+import Data.List (List, (:))
 import Data.Map as Map
 import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as Path
@@ -71,10 +71,11 @@ import SlamData.Effects (SlamDataEffects)
 import SlamData.Quasar.Class (class QuasarDSL, class ParQuasarDSL, liftQuasar)
 import SlamData.Quasar.Error (msgToQError)
 import SlamData.Workspace.Card.CardId as CID
-import SlamData.Workspace.Card.Eval.Class (class DeckEvalDSL, parEvalDecks, ParEvalDecks, ParEvalDecks'(..), coParEvalDecks)
+import SlamData.Workspace.Card.Eval.Class (class DeckEvalDSL, evalDecks, ParEvalDecks, ParEvalDecks'(..), coParEvalDecks)
 import SlamData.Workspace.Card.Eval.State (EvalState(..))
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Deck.AdditionalSource (AdditionalSource(..))
+import SlamData.Workspace.Eval.Deck as Deck
 import Utils.Path (DirPath, FilePath)
 
 type CardEval = CardEvalM SlamDataEffects
@@ -102,6 +103,7 @@ data CardEvalF eff a
   | Quasar (QA.QuasarAFC a)
   | ParQuasar (FreeAp QA.QuasarAFC a)
   | ParDecks (ParEvalDecks a)
+  | ChildDecks (List Deck.Id → a)
   | Tell (a × Set AdditionalSource)
   | State (CardState → a × CardState)
   | Ask (CardEnv → a)
@@ -113,6 +115,7 @@ instance functorCardEvalF ∷ Functor (CardEvalF eff) where
     Quasar q     → Quasar (f <$> q)
     ParQuasar a  → ParQuasar (f <$> a)
     ParDecks a   → ParDecks (f <$> a)
+    ChildDecks a → ChildDecks (f <$> a)
     Tell a       → Tell (lmap f a)
     State a      → State (lmap f <$> a)
     Ask a        → Ask (f <$> a)
@@ -157,8 +160,9 @@ instance parQuasarDSLCardEvalM ∷ ParQuasarDSL (CardEvalM eff) where
   sequenceQuasar = CardEvalM ∘ liftF ∘ ParQuasar ∘ traverse liftFreeAp
 
 instance deckEvalDSLCardEvalM ∷ DeckEvalDSL (CardEvalM eff) where
-  evalDeck deckId = unwrap <$> parEvalDecks Tuple (Identity deckId)
-  parEvalDecks f as = CardEvalM (liftF (ParDecks (coParEvalDecks (ParEvalDecks traverse f as id))))
+  childDecks = CardEvalM (liftF (ChildDecks id))
+  evalDeck deckId = unwrap <$> evalDecks Tuple (Identity deckId)
+  evalDecks f as = CardEvalM (liftF (ParDecks (coParEvalDecks (ParEvalDecks traverse f as id))))
 
 addSource ∷ ∀ m. (MonadTell (Set AdditionalSource) m) ⇒ FilePath → m Unit
 addSource fp = tell (Set.singleton (Source fp))
@@ -207,7 +211,10 @@ throw = Throw.throw ∘ msgToQError
 liftQ ∷ ∀ m a. MonadThrow QError m ⇒ m (Either QError a) → m a
 liftQ = flip bind (either Throw.throw pure)
 
-type DeckEvaluator m = ∀ a. ParEvalDecks a → m (Either QError a)
+type DeckEvaluator m =
+  { evalDecks ∷ ∀ a. ParEvalDecks a → m (Either QError a)
+  , childDecks ∷ m (List Deck.Id)
+  }
 
 runCardEvalM
   ∷ ∀ eff f m a
@@ -221,7 +228,7 @@ runCardEvalM
   → CardState
   → CardEvalM (avar ∷ AVar.AVAR | eff) a
   → m (CardResult a)
-runCardEvalM parDecks env initialState (CardEvalM ce) = go initialState Set.empty ce
+runCardEvalM impl env initialState (CardEvalM ce) = go initialState Set.empty ce
   where
     go st as ce' = case resume ce' of
       Left ctr →
@@ -229,7 +236,8 @@ runCardEvalM parDecks env initialState (CardEvalM ce) = go initialState Set.empt
           Aff aff → liftAff aff >>= go st as
           Quasar q → liftQuasar q >>= go st as
           ParQuasar q → sequential (foldFreeAp (parallel ∘ liftQuasar) q) >>= go st as
-          ParDecks d → either (liftF ∘ Throw) id <$> parDecks d >>= go st as
+          ParDecks d → either (liftF ∘ Throw) id <$> impl.evalDecks d >>= go st as
+          ChildDecks k → k <$> impl.childDecks >>= go st as
           Tell (n × as') → go st (as <> as') n
           State k → let res = k st in go (snd res) as (fst res)
           Ask k → go st as (k env)

@@ -111,9 +111,10 @@ runEvalLoop path decks cards tick urlVarMaps source = goInit Leaf
     evalCard history cardInput@(cardPort × varMap) cardId card = do
       publish card (Card.Pending source cardInput)
       let
+        deckEval = { evalDecks: parEvalDecks, childDecks: childDecks cardId }
         cardEnv = Card.CardEnv { path, cardId, urlVarMaps }
         cardTrans = Card.modelToEval card.model
-      result ← Card.runCard parEvalDecks cardEnv card.state cardTrans cardPort varMap
+      result ← Card.runCard deckEval cardEnv card.state cardTrans cardPort varMap
       let
         history' =
           case cardPort of
@@ -187,6 +188,10 @@ runEvalLoop path decks cards tick urlVarMaps source = goInit Leaf
             Right as, 0 → Right ∘ co <$> traverse' (pure ∘ uncurry f) as
             _, _ → loopEval
       loopEval
+
+    childDecks ∷ Card.Id → m (List Deck.Id)
+    childDecks cardId =
+      maybe mempty (Card.childDeckIds ∘ _.model) <$> Cache.get cardId cards
 
 publish ∷ ∀ m r a b. MonadAff SlamDataEffects m ⇒ { bus ∷ Bus.BusW' b a | r } → a → m Unit
 publish rec message = liftAff (Bus.write message rec.bus)

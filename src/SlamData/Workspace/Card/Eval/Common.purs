@@ -23,6 +23,7 @@ import Control.Monad.Throw (class MonadThrow, throw)
 
 import Data.Argonaut as J
 import Data.Array as Array
+import Data.List as List
 import Data.Path.Pathy as Path
 import Data.StrMap as SM
 
@@ -33,9 +34,8 @@ import Quasar.Advanced.QuasarAF as QF
 import SlamData.Quasar.Error as QE
 import SlamData.Quasar.Class (class QuasarDSL, class ParQuasarDSL, sequenceQuasar)
 import SlamData.Workspace.Card.Eval.Monad as CEM
-import SlamData.Workspace.Card.Eval.Class (class DeckEvalDSL, parEvalDecks)
+import SlamData.Workspace.Card.Eval.Class (class DeckEvalDSL, evalDecks, childDecks)
 import SlamData.Workspace.Card.Port as Port
-import SlamData.Workspace.Eval.Deck as Deck
 
 escapeCursor ∷ J.JCursor → String
 escapeCursor = case _ of
@@ -62,16 +62,21 @@ validateResources fs = do
       pure unit
 
 evalComposite
-  ∷ ∀ m f
+  ∷ ∀ m
   . ( MonadThrow CEM.CardError m
     , DeckEvalDSL m
-    , Traversable f
     )
-  ⇒ f Deck.Id
-  → m Port.DataMap
-evalComposite deckIds =
-  foldl merge SM.empty <$> parEvalDecks Tuple deckIds
+  ⇒ m Port.DataMap
+evalComposite = loop mempty mempty
   where
+    -- The children of decks can dynamically change mid eval, so we need to
+    -- loop until they are stable.
+    loop prevIds prevResults = do
+      nextIds ← childDecks
+      if List.null (List.difference prevIds nextIds)
+        then pure (foldl merge SM.empty prevResults)
+        else loop nextIds =<< evalDecks Tuple nextIds
+
     merge vm (deck × _ × varMap) =
       case deck.name of
         "" → SM.fold (update id) vm varMap

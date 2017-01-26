@@ -17,14 +17,16 @@ limitations under the License.
 module SlamData.Workspace.Card.Eval.Class where
 
 import SlamData.Prelude
+import Data.List (List)
 import SlamData.Workspace.Eval.Deck as Deck
 import SlamData.Workspace.Card.Port (Out)
 
 import Unsafe.Coerce (unsafeCoerce)
 
 class DeckEvalDSL m where
+  childDecks ∷ m (List Deck.Id)
   evalDeck ∷ Deck.Id → m (Deck.Model × Out)
-  parEvalDecks ∷ ∀ f a. Traversable f ⇒ (Deck.Model → Out → a) → f Deck.Id → m (f a)
+  evalDecks ∷ ∀ f a. Traversable f ⇒ (Deck.Model → Out → a) → f Deck.Id → m (f a)
 
 data ParEvalDecks' f a b =
   ParEvalDecks
