@@ -27,8 +27,6 @@ import Control.Monad.State.Class (class MonadState)
 import Control.Monad.Throw (class MonadThrow)
 import Control.Monad.Writer.Class (class MonadTell)
 
-import Data.Lens (view)
-
 import SlamData.Effects (SlamDataEffects)
 import SlamData.Quasar.Class (class QuasarDSL, class ParQuasarDSL)
 import SlamData.Workspace.Card.Setups.Chart.Area.Eval as BuildArea
@@ -50,6 +48,7 @@ import SlamData.Workspace.Card.Setups.Chart.Sankey.Eval as BuildSankey
 import SlamData.Workspace.Card.Setups.Chart.Scatter.Eval as BuildScatter
 import SlamData.Workspace.Card.Cache.Eval as Cache
 import SlamData.Workspace.Card.CardType as CT
+import SlamData.Workspace.Card.DownloadOptions.Eval as DOptions
 import SlamData.Workspace.Card.Eval.Common as Common
 import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Eval.Transition (Eval(..), tagEval)
@@ -143,8 +142,7 @@ evalCard trans port varMap = case trans, port of
   FormInput (FormInput.TextLike model), Port.SetupTextLikeFormInput tlp →
     FormInput.evalTextLike model tlp =<< CEM.extractResource varMap
   FormInput _, _ → pure (Port.ResourceKey Port.defaultResourceVar × varMap)
-  DownloadOptions { compress, options }, _ →
-    CEM.tapResource (pure ∘ Port.DownloadOptions ∘ { compress, options, resource: _ } ∘ view Port._filePath) varMap
+  DownloadOptions model, _ → CEM.tapResource (DOptions.eval model) varMap
   e, i → CEM.throw $ "Card received unexpected input type; " <> tagEval e <> " | " <> Port.tagPort i
 
 modelToEval ∷ Model.AnyCardModel → Eval

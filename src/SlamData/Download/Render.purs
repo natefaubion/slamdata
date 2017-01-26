@@ -106,3 +106,27 @@ optionsJSON func opts =
           , HH.text label
           ]
       ]
+
+fldName
+  ∷ ∀ q
+  . Either D.CSVOptions D.JSONOptions
+  → String
+  → (String → H.Action q)
+  → H.ComponentHTML q
+fldName options tgtValue query =
+  HH.div
+    [ HP.classes [ B.formGroup, Rc.downloadTarget ] ]
+    [ HH.label_
+        [ HH.span_ [ HH.text "Target name" ]
+        , HH.input
+            [ HP.classes [ B.formControl ]
+            , HP.value tgtValue
+            , HE.onValueInput (HE.input query)
+            ]
+        , HH.div
+            [ HP.classes [ Rc.downloadTargetBox ] ]
+            [ HH.span_ [ HH.text tgtValue ]
+            , HH.span_ [ HH.text (D.extension false options) ]
+            ]
+        ]
+    ]

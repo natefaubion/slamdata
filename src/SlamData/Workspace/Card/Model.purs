@@ -40,6 +40,7 @@ import Data.Rational ((%))
 
 import Data.List as L
 import Data.Lens (Traversal', wander)
+import Data.Path.Pathy (fileName, runFileName)
 
 import SlamData.FileSystem.Resource as R
 import SlamData.Workspace.Card.CardType as CT
@@ -366,8 +367,8 @@ decodeCardModel = case _ of
       J.decodeJson j
       <|> (map (fromMaybe R.root) $ J.decodeJson j)
 
-cardModelOfType ∷ Port.Port → CT.CardType → AnyCardModel
-cardModelOfType port = case _ of
+cardModelOfType ∷ Port.Out → CT.CardType → AnyCardModel
+cardModelOfType (port × varMap) = case _ of
   CT.Ace CT.SQLMode → Ace CT.SQLMode (Query.initialModel port)
   CT.Ace mode → Ace mode Ace.emptyModel
   CT.Search → Search ""
@@ -406,7 +407,7 @@ cardModelOfType port = case _ of
   CT.Troubleshoot → Troubleshoot
   CT.Cache → Cache Nothing
   CT.Open → Open R.root
-  CT.DownloadOptions → DownloadOptions DLO.initialState
+  CT.DownloadOptions → DownloadOptions $ DLO.initialState (runFileName ∘ fileName <$> Port.extractFilePath varMap)
   CT.Draftboard → Draftboard DB.emptyModel
 
 singletonDraftboard ∷ DeckId → AnyCardModel

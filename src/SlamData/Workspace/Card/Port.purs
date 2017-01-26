@@ -84,6 +84,7 @@ type DownloadPort =
   { resource ∷ PU.FilePath
   , compress ∷ Boolean
   , options ∷ DownloadOptions
+  , targetName ∷ String
   }
 
 type MetricPort =

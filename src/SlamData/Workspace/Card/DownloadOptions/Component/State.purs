@@ -34,12 +34,12 @@ import Data.Path.Pathy as Pathy
 import SlamData.Download.Model as D
 import SlamData.Workspace.LevelOfDetails (LevelOfDetails(..))
 
-
 import Utils.Path as PU
 
 type State =
   { compress ∷ Boolean
   , options ∷ Either D.CSVOptions D.JSONOptions
+  , targetName ∷ Maybe String
   , source ∷ Maybe PU.FilePath
   , levelOfDetails ∷ LevelOfDetails
   }
@@ -50,11 +50,13 @@ eqState s1 s2 =
     && s1.options ≡ s2.options
     && s1.source ≡ s2.source
     && s1.levelOfDetails ≡ s2.levelOfDetails
+    && s1.targetName ≡ s2.targetName
 
-initialState ∷ State
-initialState =
+initialState ∷ Maybe String → State
+initialState targetName =
   { compress: false
   , options: Left D.initialCSVOptions
+  , targetName
   , source: Nothing
   , levelOfDetails: High
   }
@@ -75,6 +77,7 @@ encode :: State -> Json
 encode s
    = "compress" := s.compress
   ~> "options" := s.options
+  ~> "targetName" := s.targetName
   ~> "source" := (Pathy.printPath <$> s.source)
   ~> jsonEmptyObject
 
@@ -82,10 +85,12 @@ decode :: Json → Either String State
 decode = decodeJson >=> \obj → do
   compress ← obj .? "compress"
   options ← obj .? "options"
+  targetName ← obj .? "targetName" <|> pure Nothing
   source ← traverse parsePath =<< obj .? "source"
   let levelOfDetails = High
-  pure { compress, options, source, levelOfDetails }
+  pure { compress, options, targetName, source, levelOfDetails }
 
 parsePath ∷ String → Either String PU.FilePath
 parsePath =
   maybe (Left "could not parse source file path") Right ∘ PU.parseFilePath
+

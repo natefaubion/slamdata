@@ -25,7 +25,6 @@ import SlamData.Prelude
 import Control.UI.Browser (newTab)
 
 import Data.Lens ((.~), _Right, (%~), _Left)
-import Data.String as Str
 
 import Halogen as H
 
@@ -40,28 +39,23 @@ comp = H.component { render, eval }
 
 eval ∷ Query ~> (H.ComponentDSL State Query Slam)
 eval (TargetTyped s next) = do
-  H.modify (_targetName .~ (if isJust $ Str.indexOf (Str.Pattern "/") s then Left else Right) s)
-  H.modify validate
+  H.modify $ validate ∘ (_targetName .~ D.validFilename s)
   pure next
 eval (ToggleCompress next) = do
-  H.modify (_compress %~ not)
-  H.modify validate
+  H.modify $ validate ∘ (_compress %~ not)
   pure next
 eval (SetOutput ty next) = do
-  H.modify
-    $ _options
-    %~ case ty of
-        D.CSV → Left ∘ either id (const D.initialCSVOptions)
-        D.JSON → Right ∘ either (const D.initialJSONOptions) id
-  H.modify validate
+  let
+    options = case ty of
+      D.CSV → Left ∘ either id (const D.initialCSVOptions)
+      D.JSON → Right ∘ either (const D.initialJSONOptions) id
+  H.modify $ validate ∘ (_options %~ options)
   pure next
 eval (ModifyCSVOpts fn next) = do
-  H.modify (_options ∘ _Left %~ fn)
-  H.modify validate
+  H.modify $ validate ∘ (_options ∘ _Left %~ fn)
   pure next
 eval (ModifyJSONOpts fn next) = do
-  H.modify (_options ∘ _Right %~ fn)
-  H.modify validate
+  H.modify $ validate ∘ (_options ∘ _Right %~ fn)
   pure next
 eval (NewTab url next) = do
   H.fromEff $ newTab url

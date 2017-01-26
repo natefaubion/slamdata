@@ -47,7 +47,6 @@ import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.LevelOfDetails (LevelOfDetails(..))
 
-import Utils.Path as UP
 import Utils.DOM (getTextWidthPure)
 
 type HTML = H.ComponentHTML QueryP
@@ -125,10 +124,8 @@ handleDownloadPort opts = do
   hs ← H.liftH API.authHeaders
   H.modify
     $ (_url .~ url hs)
-    ∘ (_fileName .~ (fileName ⊕ ext))
+    ∘ (_fileName .~ (opts.targetName ⊕ ext))
   where
-  fileName = UP.getNameStr $ Right opts.resource
-
   ext = D.extension opts.compress opts.options
 
   url hs =
@@ -142,4 +139,4 @@ handleDownloadPort opts = do
            $ reqHeadersToJSON
            $ append hs
            $ D.toHeaders opts
-           $ Just (fileName ⊕ ext))
+           $ Just (opts.targetName ⊕ ext))

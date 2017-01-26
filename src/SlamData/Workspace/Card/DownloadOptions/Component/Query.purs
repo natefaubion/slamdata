@@ -25,5 +25,6 @@ data Query a
   | ModifyCSVOpts (CSVOptions → CSVOptions) a
   | ModifyJSONOpts (JSONOptions → JSONOptions) a
   | ToggleCompress a
+  | TargetTyped String a
 
 type QueryP = CardEvalQuery ⨁ Query

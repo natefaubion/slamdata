@@ -456,7 +456,7 @@ addCard deckId cty = do
     last ← MaybeT $ pure $ Array.last deck.model.cards
     card ← MaybeT $ getCard last
     MaybeT $ pure card.output
-  cardId × _ ← freshCard (Just input) Set.empty $ Card.cardModelOfType (fst input) cty
+  cardId × _ ← freshCard (Just input) Set.empty $ Card.cardModelOfType input cty
   putDeck deckId deck.model { cards = Array.snoc deck.model.cards cardId }
   rebuildGraph
   Eval.publish deck (Deck.CardChange cardId)

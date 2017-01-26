@@ -23,10 +23,11 @@ runArbState (ArbState s) = s
 
 instance arbitraryArbState :: Arbitrary ArbState where
   arbitrary = do
-    r <- { compress: _, options: _, source: _, levelOfDetails: LOD.High}
+    r <- { compress: _, options: _, source: _, targetName: _, levelOfDetails: LOD.High}
          <$> arbitrary
          <*> (map (bimap runArbCSVOptions runArbJSONOptions) arbitrary)
          <*> (map (map runArbFilePath) arbitrary)
+         <*> arbitrary
     pure $ ArbState r
 
 check :: forall eff. SC eff Unit

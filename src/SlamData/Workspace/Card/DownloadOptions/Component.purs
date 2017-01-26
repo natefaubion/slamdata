@@ -48,7 +48,7 @@ comp options = CC.makeCardComponent
   { options
   , cardType: DownloadOptions
   , component: H.component {render, eval}
-  , initialState: initialState
+  , initialState: initialState Nothing
   , _State: CC._DownloadOptionsState
   , _Query: CC.makeQueryPrism CC._DownloadOptionsQuery
   }
@@ -88,7 +88,9 @@ renderDownloadConfiguration ∷ State → HTML
 renderDownloadConfiguration state =
   HH.div
     [ HP.classes [ RC.downloadConfiguration ] ]
-    [ either optionsCSV optionsJSON state.options ]
+    [ DLR.fldName state.options (fromMaybe "" state.targetName) (\s → right ∘ TargetTyped s)
+    , either optionsCSV optionsJSON state.options
+    ]
 
 optionsCSV ∷ DL.CSVOptions → HTML
 optionsCSV = DLR.optionsCSV (\lens v → right ∘ (ModifyCSVOpts (lens .~ v)))
@@ -183,5 +185,7 @@ downloadOptsEval q = do
       H.modify (_options ∘ _Right %~ fn) $> next
     ToggleCompress next →
       H.modify (_compress %~ not) $> next
+    TargetTyped s next →
+      H.modify _ { targetName = Just s } $> next
   CC.raiseUpdatedC' CC.EvalModelUpdate
   pure n

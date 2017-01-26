@@ -54,7 +54,7 @@ render state =
           , HP.classes [ Rc.dialogDownload ]
           ]
       [ resField state
-      , fldName state
+      , Rd.fldName state.options (either id id state.targetName) TargetTyped
       , options state
       , message state
       ]
@@ -73,31 +73,6 @@ resField state =
         , HH.text (resourcePath state.source)
         ]
     ]
-
-fldName ∷ State → H.ComponentHTML Query
-fldName state =
-  HH.div
-    [ HP.classes [ B.formGroup, Rc.downloadTarget ] ]
-    [ HH.label_
-        [ HH.span_ [ HH.text "Target name" ]
-        , HH.input
-            [ HP.classes [ B.formControl ]
-            , HP.value tgtValue
-            , HE.onValueInput (HE.input TargetTyped)
-            ]
-        , HH.div
-            [ HP.classes [ Rc.downloadTargetBox ] ]
-            [ HH.span_ [ HH.text tgtValue ]
-            , HH.span_ [ HH.text (ext state) ]
-            ]
-        ]
-    ]
-  where
-  tgtValue ∷ String
-  tgtValue = either id id $ state.targetName
-
-ext ∷ State → String
-ext state = D.extension (compressed state) state.options
 
 compressed ∷ State → Boolean
 compressed state = not isFile state.source || state.compress
@@ -164,7 +139,7 @@ btnDownload state =
       $ append state.authHeaders
       $ D.toHeaders state
       $ Just
-      $ (either id id state.targetName) <> ext state
+      $ either id id state.targetName <> D.extension false state.options
 
     url =
       (encodeURI $ printPath Config.data_ ⊕ resourcePath state.source)

@@ -198,6 +198,12 @@ extension compress options
       Right _ → ".json"
       Left _ → ".csv"
 
+validFilename ∷ String → Either String String
+validFilename s =
+  if isJust (Str.indexOf (Str.Pattern "/") s)
+    then Left s
+    else Right s
+
 toHeaders
   :: forall r
    . { compress :: Boolean
