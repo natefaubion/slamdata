@@ -22,8 +22,9 @@ module SlamData.Workspace.Card.Model
   , cardModelOfType
   , modelCardType
   , singletonDraftboard
+  , singletonTabs
   , splitDraftboard
-  , mirrorInDraftboard
+  , mirrorInParent
   , childDeckIds
   , updatePointer
   , setupLabeledFormInput
@@ -38,6 +39,7 @@ import Data.Argonaut ((:=), (~>), (.?))
 import Data.Argonaut as J
 import Data.Rational ((%))
 
+import Data.Array as Array
 import Data.List as L
 import Data.Lens (Traversal', wander)
 import Data.Path.Pathy (fileName, runFileName)
@@ -88,6 +90,7 @@ import SlamData.Workspace.Card.Setups.FormInput.Static.Model as SetupStatic
 import SlamData.Workspace.Card.Setups.FormInput.Labeled.Model as SetupLabeled
 import SlamData.Workspace.Card.Setups.FormInput.TextLike.Model as SetupTextLike
 import SlamData.Workspace.Card.FormInput.Model as FormInput
+import SlamData.Workspace.Card.Tabs.Model as Tabs
 
 import Test.StrongCheck.Arbitrary as SC
 import Test.StrongCheck.Gen as Gen
@@ -132,6 +135,7 @@ data AnyCardModel
   | SetupDatetime SetupDatetime.Model
   | SetupStatic SetupStatic.Model
   | FormInput FormInput.Model
+  | Tabs Tabs.Model
 
 instance arbitraryAnyCardModel ∷ SC.Arbitrary AnyCardModel where
   arbitrary =
@@ -172,6 +176,7 @@ instance arbitraryAnyCardModel ∷ SC.Arbitrary AnyCardModel where
       , SetupDatetime <$> SetupDatetime.genModel
       , SetupStatic <$> SetupStatic.genModel
       , FormInput <$> FormInput.genModel
+      , Tabs <$> Tabs.genModel
       ]
 
 instance eqAnyCardModel ∷ Eq AnyCardModel where
@@ -214,6 +219,7 @@ instance eqAnyCardModel ∷ Eq AnyCardModel where
     SetupDatetime x, SetupDatetime y → SetupDatetime.eqModel x y
     SetupStatic x, SetupStatic y → SetupStatic.eqModel x y
     FormInput x, FormInput y → FormInput.eqModel x y
+    Tabs x, Tabs y → Tabs.eqModel x y
     _, _ → false
 
 instance encodeJsonCardModel ∷ J.EncodeJson AnyCardModel where
@@ -260,6 +266,7 @@ modelCardType = case _ of
   SetupDatetime _ → CT.SetupFormInput Datetime
   SetupStatic _ → CT.SetupFormInput Static
   FormInput _ → CT.FormInput
+  Tabs _ → CT.Tabs
 
 encode ∷ AnyCardModel → J.Json
 encode card =
@@ -315,6 +322,7 @@ encodeCardModel = case _ of
   SetupDatetime model → SetupDatetime.encode model
   SetupStatic model → SetupStatic.encode model
   FormInput model → FormInput.encode model
+  Tabs model → Tabs.encode model
 
 decodeCardModel
   ∷ CT.CardType
@@ -360,6 +368,7 @@ decodeCardModel = case _ of
   CT.Open → map Open ∘ decodeOpen
   CT.DownloadOptions → map DownloadOptions ∘ DLO.decode
   CT.Draftboard → map Draftboard ∘ DB.decode
+  CT.Tabs → map Tabs ∘ Tabs.decode
 
   where
     -- For backwards compat
@@ -409,10 +418,15 @@ cardModelOfType (port × varMap) = case _ of
   CT.Open → Open R.root
   CT.DownloadOptions → DownloadOptions $ DLO.initialState (runFileName ∘ fileName <$> Port.extractFilePath varMap)
   CT.Draftboard → Draftboard DB.emptyModel
+  CT.Tabs → Tabs Tabs.initialModel
 
 singletonDraftboard ∷ DeckId → AnyCardModel
 singletonDraftboard deckId =
   Draftboard { layout: Pane.Cell (Just deckId) }
+
+singletonTabs ∷ DeckId → AnyCardModel
+singletonTabs deckId =
+  Tabs { tabs: pure deckId }
 
 splitDraftboard ∷ Orn.Orientation → L.List DeckId → AnyCardModel
 splitDraftboard orn deckIds =
@@ -424,8 +438,8 @@ splitDraftboard orn deckIds =
     mkCell deckId =
       (1 % size) × Pane.wrap (Orn.reverse orn) (Pane.Cell (Just deckId))
 
-mirrorInDraftboard ∷ DeckId → DeckId → AnyCardModel → Maybe AnyCardModel
-mirrorInDraftboard oldId newId = case _ of
+mirrorInParent ∷ DeckId → DeckId → AnyCardModel → Maybe AnyCardModel
+mirrorInParent oldId newId = case _ of
   Draftboard { layout } → do
     cursor ← Pane.getCursorFor (Just oldId) layout
     let
@@ -437,11 +451,21 @@ mirrorInDraftboard oldId newId = case _ of
       Layout.insertSplit
         (Pane.Cell (Just newId)) orn (1 % 2) Layout.SideB cursor' layout
     pure (Draftboard { layout: layout' })
+  Tabs { tabs } →
+    let
+      tabs' = do
+        deckId ← tabs
+        if deckId ≡ oldId
+          then [ deckId, newId ]
+          else [ deckId ]
+    in
+      pure (Tabs { tabs: tabs' })
   _ → Nothing
 
 childDeckIds ∷ AnyCardModel → L.List DeckId
 childDeckIds = case _ of
   Draftboard { layout } → L.catMaybes (L.fromFoldable layout)
+  Tabs { tabs } → L.fromFoldable tabs
   s → mempty
 
 updatePointer
@@ -452,6 +476,8 @@ updatePointer
 updatePointer old new = case _ of
   Draftboard { layout } →
     Draftboard { layout: update <$> layout}
+  Tabs { tabs } →
+    Tabs { tabs: Array.mapMaybe (update ∘ Just) tabs }
   card → card
 
   where

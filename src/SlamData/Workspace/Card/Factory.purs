@@ -61,6 +61,7 @@ import SlamData.Workspace.Card.Table.Component (tableComponent)
 import SlamData.Workspace.Card.Troubleshoot.Component (troubleshootComponent)
 import SlamData.Workspace.Card.Variables.Component (variablesComponent)
 import SlamData.Workspace.Card.FormInput.Component (formInputComponent)
+import SlamData.Workspace.Card.Tabs.Component (tabsComponent)
 
 
 cardComponent ∷ CT.CardType → CardOptions → CardComponent
@@ -105,3 +106,4 @@ cardComponent =
     CT.SetupFormInput CT.Time → timeSetupComponent
     CT.SetupFormInput CT.Datetime → datetimeSetupComponent
     CT.FormInput → formInputComponent
+    CT.Tabs → tabsComponent

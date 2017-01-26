@@ -77,6 +77,7 @@ data CardEvalQuery a
 data ModelUpdateType
   = StateOnlyUpdate
   | EvalModelUpdate
+  | EvalStateUpdate EvalState
 
 -- | Raises a `ModelUpdateType` self-query for a card that is a standalone
 -- | component.

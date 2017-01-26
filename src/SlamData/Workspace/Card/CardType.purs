@@ -71,6 +71,7 @@ data CardType
   | Open
   | DownloadOptions
   | Draftboard
+  | Tabs
 
 derive instance eqCardType ∷ Eq CardType
 derive instance ordCardType ∷ Ord CardType
@@ -109,6 +110,7 @@ instance encodeJsonCardType ∷ EncodeJson CardType where
     Open → "open"
     DownloadOptions → "download-options"
     Draftboard → "draftboard"
+    Tabs → "tabs"
 
 instance decodeJsonCardType ∷ DecodeJson CardType where
   decodeJson json = do
@@ -141,6 +143,7 @@ instance decodeJsonCardType ∷ DecodeJson CardType where
       "open" → pure Open
       "download-options" → pure DownloadOptions
       "draftboard" → pure Draftboard
+      "tabs" → pure Tabs
       _ → Left "This is not basic card type"
 
 cardName ∷ CardType → String
@@ -160,6 +163,7 @@ cardName = case _ of
   Open → "Open"
   DownloadOptions → "Setup Download"
   Draftboard → "Setup Dashboard"
+  Tabs → "Setup Tabs"
 
 cardIcon ∷ CardType → String
 cardIcon = case _ of
@@ -246,6 +250,8 @@ cardIcon = case _ of
     "setupDownload"
   Draftboard →
     "draftboard"
+  Tabs →
+    "tabs"
 
 cardIconDarkSrc ∷ CardType → String
 cardIconDarkSrc cardType =
@@ -280,6 +286,7 @@ cardClasses = case _ of
   Cache → [ H.className "sd-card-cache" ]
   Open → [ H.className "sd-card-open" ]
   Draftboard → [ H.className "sd-card-draftboard" ]
+  Tabs → [ H.className "sd-card-tabs" ]
 
 aceCardName ∷ AceMode → String
 aceCardName MarkdownMode = "Setup Markdown"

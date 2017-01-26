@@ -26,6 +26,7 @@ module SlamData.Workspace.Eval.Card
   , module SlamData.Workspace.Card.CardId
   , module SlamData.Workspace.Card.Eval
   , module SlamData.Workspace.Card.Eval.Monad
+  , module SlamData.Workspace.Card.Eval.State
   , module SlamData.Workspace.Card.Model
   , module SlamData.Workspace.Card.Port
   ) where
@@ -39,7 +40,8 @@ import Data.Set (Set)
 
 import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.Eval (Eval, runCard, modelToEval)
-import SlamData.Workspace.Card.Eval.Monad (CardEnv(..), ChildOut, EvalState, AdditionalSource(..))
+import SlamData.Workspace.Card.Eval.Monad (CardEnv(..), ChildOut, AdditionalSource(..))
+import SlamData.Workspace.Card.Eval.State (initialEvalState, EvalState)
 import SlamData.Workspace.Card.Model (AnyCardModel, modelCardType, cardModelOfType, childDeckIds)
 import SlamData.Workspace.Card.Port (Port(..), Out, emptyOut, portOut, resourceOut)
 import SlamData.Workspace.Eval.Deck as Deck

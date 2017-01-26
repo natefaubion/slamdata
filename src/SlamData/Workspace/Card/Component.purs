@@ -175,7 +175,7 @@ makeCardComponentPart def render =
 
   initializeInnerCard ∷ CardDSL Unit
   initializeInnerCard = do
-    cell ← H.liftH $ H.liftH $ P.getCard def.options.cardId
+    cell ← liftH' $ P.getCard def.options.cardId
     for_ cell \{ bus, model, input, output, state } → do
       breaker ← subscribeToBus' (H.action ∘ CQ.HandleEvalMessage) bus
       H.modify _
@@ -196,9 +196,10 @@ makeCardComponentPart def render =
   peek ∷ ∀ a. EQ.CardEvalQuery a → CardDSL Unit
   peek = case _ of
     EQ.ModelUpdated EQ.EvalModelUpdate _ → do
-      st ← H.get
       model ← H.query unit (left (H.request EQ.Save))
       for_ model (liftH' ∘ P.publishCardChange displayCoord)
+    EQ.ModelUpdated (EQ.EvalStateUpdate es) _ → do
+      liftH' $ P.publishCardStateChange displayCoord es
     _ →
       pure unit
 

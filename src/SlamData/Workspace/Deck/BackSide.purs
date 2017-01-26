@@ -21,6 +21,7 @@ import SlamData.Prelude
 import Data.List (List)
 
 import SlamData.ActionList.Action as Action
+import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Deck.Component.State (CardDef)
 import SlamData.Workspace.Deck.DeckId (DeckId)
 
@@ -32,6 +33,7 @@ data BackAction
   | DeleteDeck
   | Mirror
   | Wrap
+  | WrapChoice CT.CardType
   | Unwrap
   | Share
   | Unshare
@@ -68,14 +70,24 @@ toActionListAction
   → BackAction
   → Action.Action BackAction
 toActionListAction unwrappable activeCard cardDefs action =
-   Action.mkDo
-     { name
-     , iconSrc
-     , description
-     , highlighted
-     , disabled
-     , action
-     }
+  case action of
+    Wrap → Action.mkDrill
+      { name
+      , iconSrc
+      , description
+      , children: toActionListAction unwrappable activeCard cardDefs <$>
+          [ WrapChoice CT.Draftboard
+          , WrapChoice CT.Tabs
+          ]
+      }
+    _ → Action.mkDo
+      { name
+      , iconSrc
+      , description
+      , highlighted
+      , disabled
+      , action
+      }
   where
   iconSrc = case action of
     Trash → "img/cardAndDeckActions/deleteCard.svg"
@@ -88,6 +100,7 @@ toActionListAction unwrappable activeCard cardDefs action =
     Wrap → "img/cardAndDeckActions/wrapDeck.svg"
     Unwrap → "img/cardAndDeckActions/unwrapDeck.svg"
     DeleteDeck → "img/cardAndDeckActions/deleteDeck.svg"
+    WrapChoice cty → CT.cardIconLightSrc cty
 
   name = case action of
     Trash → "Delete card"
@@ -100,6 +113,7 @@ toActionListAction unwrappable activeCard cardDefs action =
     Wrap → "Wrap"
     Unwrap → "Collapse"
     Unshare → "Unshare deck"
+    WrapChoice cty → CT.cardName cty
 
   description = name
 

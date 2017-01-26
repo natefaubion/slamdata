@@ -37,6 +37,7 @@ module SlamData.Workspace.Card.Port
   , flattenResources
   , resourceToVarMapValue
   , _Initial
+  , _Terminal
   , _Variables
   , _SlamDown
   , _DownloadOptions
@@ -119,6 +120,7 @@ type SetupTextLikeFormInputPort =
 
 data Port
   = Initial
+  | Terminal
   | Variables
   | CardError String
   | ResourceKey String
@@ -134,6 +136,7 @@ data Port
 tagPort ∷ Port → String
 tagPort  = case _ of
   Initial → "Initial"
+  Terminal → "Terminal"
   Variables → "Variables"
   CardError str → "CardError: " ⊕ show str
   ResourceKey str → "ResourceKey: " ⊕ show str
@@ -185,6 +188,11 @@ portOut p = p × SM.empty
 _Initial ∷ Prism' Port Unit
 _Initial = prism' (const Initial) case _ of
   Initial → Just unit
+  _ → Nothing
+
+_Terminal ∷ Prism' Port Unit
+_Terminal = prism' (const Terminal) case _ of
+  Terminal → Just unit
   _ → Nothing
 
 _Variables ∷ Prism' Port Unit

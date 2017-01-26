@@ -342,11 +342,10 @@ peekBackSide opts = case _ of
               parentId ← liftH' $ P.wrapAndMirrorDeck cardId opts.deckId
               navigateToDeck (parentId L.: opts.cursor)
             _, _ → pure unit
-        Back.Wrap → do
-          parentId ← liftH' $ P.wrapDeck opts.deckId
-          if L.null opts.displayCursor
-            then navigateToDeck (parentId L.: opts.cursor)
-            else switchToFrontside
+        Back.WrapChoice CT.Draftboard → wrapDeck Card.singletonDraftboard
+        Back.WrapChoice CT.Tabs → wrapDeck Card.singletonTabs
+        Back.WrapChoice _ → pure unit
+        Back.Wrap → pure unit
         Back.Unwrap → do
           deck ← liftH' $ P.getDeck opts.deckId
           for_ (_.parent <$> deck) case _ of
@@ -357,6 +356,13 @@ peekBackSide opts = case _ of
               navigateToDeck (childId L.: opts.cursor)
     _ →
       pure unit
+  where
+  wrapDeck ∷ (DeckId → Card.AnyCardModel) → DeckDSL Unit
+  wrapDeck wrapper = do
+    parentId ← liftH' $ P.wrapDeck opts.deckId (wrapper opts.deckId)
+    if L.null opts.displayCursor
+      then navigateToDeck (parentId L.: opts.cursor)
+      else switchToFrontside
 
 peekBackSideFilter ∷ ∀ a. ActionFilter.Query a → DeckDSL Unit
 peekBackSideFilter = case _ of

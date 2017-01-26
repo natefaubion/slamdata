@@ -81,6 +81,7 @@ type Persist f m a =
 type PersistEnv m a =
   ( MonadAff SlamDataEffects m
   , MonadAsk Wiring m
+  , MonadThrow Exn.Error m
   ) ⇒ a
 
 type ForkAff m a =
@@ -147,6 +148,13 @@ publishCardChange source@(_ × cardId) model = do
   for_ card.decks \deckId →
     getDeck deckId >>= traverse_
       (flip Eval.publish (Deck.CardChange cardId))
+
+publishCardStateChange ∷ ∀ m. PersistEnv m (Card.DisplayCoord → Card.State → m Unit)
+publishCardStateChange source@(_ × cardId) state = do
+  { eval } ← Wiring.expose
+  card ← noteError "Card not found" =<< Cache.get cardId eval.cards
+  Cache.put cardId (card { state = Just state }) eval.cards
+  Eval.publish card (Card.StateChange source state)
 
 populateGraph
   ∷ ∀ f m
@@ -306,10 +314,10 @@ deleteDeck deckId = do
       queueSaveDefault
   pure cell.parent
 
-wrapDeck ∷ ∀ f m. Persist f m (Deck.Id → m Deck.Id)
-wrapDeck deckId = do
+wrapDeck ∷ ∀ f m. Persist f m (Deck.Id → Card.AnyCardModel → m Deck.Id)
+wrapDeck deckId cardModel = do
   cell ← noteError "Deck not found" =<< getDeck deckId
-  parentCardId × _ ← freshCard (Just Card.emptyOut) Set.empty (CM.singletonDraftboard deckId)
+  parentCardId × _ ← freshCard (Just Card.emptyOut) Set.empty cardModel
   parentDeckId × _ ← freshDeck DM.emptyDeck { cards = pure parentCardId } (Deck.NeedsEval parentCardId)
   updateRootOrParent deckId parentDeckId cell.parent
   queueSaveDefault
@@ -337,7 +345,7 @@ mirrorDeck parentId cardId deckId = do
   parent ← noteError "Parent not found" =<< getCard parentId
   let mstate = mirroredState cell.model.cards cardId card.output cell.status
   mirrorDeckId × _ ← freshDeck DM.emptyDeck { cards = mstate.cards } mstate.status
-  parentModel ← noteError "Cannot mirror deck" $ CM.mirrorInDraftboard deckId mirrorDeckId parent.model
+  parentModel ← noteError "Cannot mirror deck" $ CM.mirrorInParent deckId mirrorDeckId parent.model
   cloneActiveStateTo ({ cardIndex: _ } <$> mstate.index) mirrorDeckId deckId
   putCard parentId parentModel
   rebuildGraph
@@ -537,7 +545,7 @@ makeCardCell input next model = do
     , model
     , input
     , output: Nothing
-    , state: Nothing
+    , state: Card.initialEvalState model
     , sources: Set.empty
     , tick: Nothing
     , pending: Nothing

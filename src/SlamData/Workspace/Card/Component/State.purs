@@ -64,6 +64,7 @@ module SlamData.Workspace.Card.Component.State
   , _SetupDatetimeState
   , _SetupStaticState
   , _FormInputState
+  , _TabsState
   ) where
 
 import SlamData.Prelude
@@ -116,6 +117,7 @@ import SlamData.Workspace.Card.Setups.FormInput.Labeled.Component.State as Setup
 import SlamData.Workspace.Card.Setups.FormInput.Static.Component.State as SetupStatic
 import SlamData.Workspace.Card.Setups.FormInput.TextLike.Component.State as SetupTextLike
 import SlamData.Workspace.Card.FormInput.Component.State as FormInput
+import SlamData.Workspace.Card.Tabs.Component.State as Tabs
 
 -- | The common state value for deck cards.
 type CardState =
@@ -188,6 +190,7 @@ data AnyCardState
   | SetupDatetimeState SetupTextLike.StateP
   | SetupStaticState SetupStatic.StateP
   | FormInputState FormInput.StateP
+  | TabsState Tabs.StateP
 
 _AceState ∷ Prism' AnyCardState Ace.StateP
 _AceState = prism' AceState case _ of
@@ -397,4 +400,9 @@ _SetupStaticState = prism' SetupStaticState case _ of
 _FormInputState ∷ Prism' AnyCardState FormInput.StateP
 _FormInputState = prism' FormInputState case _ of
   FormInputState s → Just s
+  _ → Nothing
+
+_TabsState ∷ Prism' AnyCardState Tabs.StateP
+_TabsState = prism' TabsState case _ of
+  TabsState s → Just s
   _ → Nothing

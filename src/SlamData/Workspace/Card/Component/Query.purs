@@ -60,6 +60,7 @@ module SlamData.Workspace.Card.Component.Query
   , _SetupDatetimeQuery
   , _SetupStaticQuery
   , _FormInputQuery
+  , _TabsQuery
   , module SlamData.Workspace.Card.Common.EvalQuery
   ) where
 
@@ -107,6 +108,7 @@ import SlamData.Workspace.Card.Setups.FormInput.Labeled.Component.Query as Setup
 import SlamData.Workspace.Card.Setups.FormInput.TextLike.Component.Query as SetupTextLike
 import SlamData.Workspace.Card.Setups.FormInput.Static.Component.Query as SetupStatic
 import SlamData.Workspace.Card.FormInput.Component.Query as FormInput
+import SlamData.Workspace.Card.Tabs.Component.Query as Tabs
 
 -- | The common query algebra for a card.
 data CardQuery a
@@ -168,6 +170,7 @@ data AnyCardQuery a
   | SetupDatetimeQuery (SetupTextLike.QueryP a)
   | SetupStaticQuery (SetupStatic.QueryP a)
   | FormInputQuery (FormInput.QueryP a)
+  | TabsQuery (Tabs.QueryP a)
 
 _AceQuery ∷ ∀ a. Prism' (AnyCardQuery a) (Ace.QueryP a)
 _AceQuery = prism' AceQuery case _ of
@@ -362,4 +365,9 @@ _SetupStaticQuery = prism' SetupStaticQuery case _ of
 _FormInputQuery ∷ ∀ a. Prism' (AnyCardQuery a) (FormInput.QueryP a)
 _FormInputQuery = prism' FormInputQuery case _ of
   FormInputQuery q → Just q
+  _ → Nothing
+
+_TabsQuery ∷ ∀ a. Prism' (AnyCardQuery a) (Tabs.QueryP a)
+_TabsQuery = prism' TabsQuery case _ of
+  TabsQuery q → Just q
   _ → Nothing
