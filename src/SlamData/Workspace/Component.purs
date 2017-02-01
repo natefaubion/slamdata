@@ -300,7 +300,9 @@ runFreshWorkspace cards = do
       H.fromAff (Bus.read cell.bus) >>= case _ of
         ED.Pending _ → wait
         ED.Complete _ _ → wait
-        _ → H.gets _.cursor
+        ED.CardComplete _ → wait
+        ED.CardChange _ → H.gets _.cursor
+        ED.NameChange _ → H.gets _.cursor
   cursor ← wait
   liftH' P.saveWorkspace
   urlVarMaps ← H.fromEff $ readRef varMaps

@@ -99,28 +99,30 @@ description = case _ of
   Insert cty → "Insert a " ⊕ CT.cardName cty ⊕ " card"
   FindOutHowToInsert cty → "Find out how to insert a " ⊕ CT.cardName cty ⊕ " card"
 
-insert ∷ InsertableCardType → Action.Action NextAction
+insert ∷ InsertableCardType → Array (Action.Action NextAction)
 insert = case _ of
-  ICT.SetupChartCard → insertChartSubmenu
-  ICT.SetupFormCard → insertFormInputSubmenu
-  iCardType → toAction $ Insert $ ICT.toCardType iCardType
+  ICT.SetupChartCard → A.singleton insertChartSubmenu
+  ICT.SetupFormCard → A.singleton insertFormInputSubmenu
+  iCardType → foldMap (A.singleton ∘ toAction ∘ Insert) $ ICT.toCardType iCardType
 
-findOutHowToInsert ∷ InsertableCardType → Action.Action NextAction
+findOutHowToInsert ∷ InsertableCardType → Array (Action.Action NextAction)
 findOutHowToInsert = case _ of
-  ICT.SetupChartCard → findOutHowToChartSubmenu
-  ICT.SetupFormCard → findOutHowToFormInputSubmenu
-  iCardType → toAction $ FindOutHowToInsert $ ICT.toCardType iCardType
+  ICT.SetupChartCard → A.singleton findOutHowToChartSubmenu
+  ICT.SetupFormCard → A.singleton findOutHowToFormInputSubmenu
+  iCardType → foldMap (A.singleton ∘ toAction ∘ FindOutHowToInsert) $ ICT.toCardType iCardType
 
 fromInsertableCard
   ∷ InsertableCardType
   → Array InsertableCardType
-  → Action.Action NextAction
-fromInsertableCard x =
-  maybe (findOutHowToInsert x) (const $ insert x) ∘ A.findIndex (eq x)
+  → Array (Action.Action NextAction)
+fromInsertableCard icard allCards = case A.elemIndex icard allCards of
+  Nothing → findOutHowToInsert icard
+  Just _ → insert icard
 
 fromPort ∷ Port → Array (Action.Action NextAction)
-fromPort port =
-  flip fromInsertableCard (ICT.cardsThatTakeInput $ ICT.fromPort port) <$> ICT.all
-
-fromMaybePort ∷ Maybe Port → Array (Action.Action NextAction)
-fromMaybePort = maybe (flip fromInsertableCard (ICT.cardsThatTakeInput ICT.None) <$> ICT.all) fromPort
+fromPort port = do
+  sample ← ICT.all
+  fromInsertableCard sample cardsTakingInputFromPort
+  where
+  ioCard = ICT.fromPort port
+  cardsTakingInputFromPort = ICT.cardsThatTakeInput ioCard

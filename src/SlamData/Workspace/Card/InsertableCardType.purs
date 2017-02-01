@@ -23,8 +23,6 @@ import Data.String as String
 import SlamData.Workspace.Card.CardType as CardType
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.CardType (CardType)
-import SlamData.Workspace.Card.CardType.ChartType (ChartType(..))
-import SlamData.Workspace.Card.CardType.FormInputType (FormInputType(..))
 import SlamData.Workspace.Card.Port (Port)
 import Utils as Utils
 
@@ -258,31 +256,31 @@ fromPort = case _ of
   Port.CategoricalMetric _ → Form
   _ → None
 
-toCardType ∷ InsertableCardType → CardType
+toCardType ∷ InsertableCardType → Maybe CardType
 toCardType = case _ of
-  CacheCard → CardType.Cache
-  DraftboardCard → CardType.Draftboard
-  OpenCard → CardType.Open
-  QueryCard → CardType.Ace CardType.SQLMode
-  SearchCard → CardType.Search
-  SetupChartCard → CardType.ChartOptions Pie
-  SetupFormCard → CardType.SetupFormInput Dropdown
-  SetupDownloadCard → CardType.DownloadOptions
-  SetupMarkdownCard → CardType.Ace CardType.MarkdownMode
-  SetupVariablesCard → CardType.Variables
-  ShowChartCard → CardType.Chart
-  ShowFormCard → CardType.FormInput
-  ShowDownloadCard → CardType.Download
-  ShowMarkdownCard → CardType.Markdown
-  TableCard → CardType.Table
-  TroubleshootCard → CardType.Troubleshoot
-  TabsCard → CardType.Tabs
+  CacheCard → Just CardType.Cache
+  DraftboardCard → Just CardType.Draftboard
+  OpenCard → Just CardType.Open
+  QueryCard → Just $ CardType.Ace CardType.SQLMode
+  SearchCard → Just CardType.Search
+  SetupChartCard → Nothing
+  SetupFormCard → Nothing
+  SetupDownloadCard → Just CardType.DownloadOptions
+  SetupMarkdownCard → Just $ CardType.Ace CardType.MarkdownMode
+  SetupVariablesCard → Just $ CardType.Variables
+  ShowChartCard → Just CardType.Chart
+  ShowFormCard → Just CardType.FormInput
+  ShowDownloadCard → Just CardType.Download
+  ShowMarkdownCard → Just CardType.Markdown
+  TableCard → Just CardType.Table
+  TroubleshootCard → Just CardType.Troubleshoot
+  TabsCard → Just CardType.Tabs
 
 print ∷ InsertableCardType → String
 print = case _ of
   SetupChartCard → "Setup Chart"
   SetupFormCard → "Setup Form"
-  a → CardType.cardName $ toCardType a
+  a → foldMap CardType.cardName $ toCardType a
 
 aAn ∷ String → String
 aAn s =

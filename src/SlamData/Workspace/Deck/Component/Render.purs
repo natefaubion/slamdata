@@ -189,17 +189,18 @@ deckIndicator st =
   activeCard =
     DCS.activeCardIndex st
 
+  classes ix card =
+    map HH.className
+    $ (guard (st.pendingCardIndex ≡ Just ix) $> "running")
+    ⊕ (A.singleton case card of
+          Right _ → "available"
+          Left DCS.PendingCard → "pending"
+          Left (DCS.ErrorCard _) → "errored"
+          Left (DCS.NextActionCard _) → "placeholder")
+    ⊕ (guard (activeCard ≡ ix) $> "focused")
+
   renderCircle ix card =
-    HH.i
-      [ HP.classes $
-          pure case card of
-            Right _ → HH.className "available"
-            Left DCS.PendingCard → HH.className "pending"
-            Left (DCS.ErrorCard _) → HH.className "errored"
-            Left (DCS.NextActionCard _) → HH.className "placeholder"
-        ⊕ (guard (activeCard ≡ ix) $> HH.className "focused")
-      ]
-      [ HH.text "" ]
+    HH.i [ HP.classes $ classes ix card ] [ HH.text "" ]
 
 flipButton ∷ DeckHTML
 flipButton =

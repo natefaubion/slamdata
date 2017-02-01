@@ -108,11 +108,22 @@ runEvalLoop path decks cards tick urlVarMaps source = goInit
 
     evalCard ∷ Array Card.Id → Card.Out → Card.Id → Card.Cell → List Card.ChildOut → m Unit
     evalCard history cardInput@(cardPort × varMap) cardId card children = do
-      publish card (Card.Pending source cardInput)
+      publish card $ Card.Pending source cardInput
       let
         cardEnv = Card.CardEnv { path, cardId, urlVarMaps, children }
         cardTrans = Card.modelToEval card.model
+        deckIds = fst source
+
+      for_ deckIds \deckId → runMaybeT do
+        deck ← MaybeT $ Cache.get deckId decks
+        Cache.put deckId deck { status = Deck.PendingEval cardId } decks
+
       result ← Card.runCard cardEnv card.state cardTrans cardPort varMap
+
+      for_ deckIds \deckId → runMaybeT do
+        deck ← MaybeT $ Cache.get deckId decks
+        publish deck $ Deck.CardComplete cardId
+
       let
         history' =
           case cardPort of
