@@ -27,6 +27,7 @@ module SlamData.Workspace.Card.Port
   , SetupTextLikeFormInputPort
   , tagPort
   , emptyOut
+  , terminalOut
   , varMapOut
   , resourceOut
   , portOut
@@ -175,6 +176,9 @@ defaultResourceVar = "results"
 
 emptyOut ∷ Out
 emptyOut = Initial × SM.empty
+
+terminalOut ∷ Out
+terminalOut = Terminal × SM.empty
 
 varMapOut ∷ DataMap → Out
 varMapOut v = Variables × v

@@ -52,6 +52,7 @@ data InsertableCardIOType
   | Download
   | Markdown
   | Variables
+  | Terminal
   | None
 
 derive instance eqInsertableCardType ∷ Eq InsertableCardType
@@ -220,6 +221,7 @@ printIOType = case _ of
   Markdown → "markdown"
   None → "to be the first card in a deck"
   Variables → "variables"
+  Terminal → "nothing"
 
 
 printIOType' ∷ InsertableCardIOType → Maybe String
@@ -254,6 +256,7 @@ fromPort = case _ of
   Port.Variables → Variables
   Port.ValueMetric _ → Chart
   Port.CategoricalMetric _ → Form
+  Port.Terminal → Terminal
   _ → None
 
 toCardType ∷ InsertableCardType → Maybe CardType

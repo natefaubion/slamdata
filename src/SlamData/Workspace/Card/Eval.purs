@@ -104,6 +104,7 @@ evalCard trans port varMap = case trans, port of
   Pass, _ → pure (port × varMap)
   Chart, _ → pure (Port.ResourceKey Port.defaultResourceVar × varMap)
   Composite, _ → Port.varMapOut <$> Common.evalComposite
+  Terminal, _ → pure Port.terminalOut
   Query sql, _ → Query.evalQuery sql varMap
   Markdown txt, _ → MDE.evalMarkdown txt varMap
   MarkdownForm model, Port.SlamDown doc → MDE.evalMarkdownForm model doc varMap
@@ -184,4 +185,5 @@ modelToEval = case _ of
   Model.SetupTime model → SetupTime model
   Model.SetupDatetime model → SetupDatetime model
   Model.FormInput model → FormInput model
+  Model.Tabs _ → Terminal
   _ → Pass

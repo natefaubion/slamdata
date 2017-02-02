@@ -49,6 +49,7 @@ import SlamData.Workspace.Card.FormInput.Model as FormInput
 data Eval
   = Pass
   | Composite
+  | Terminal
   | Chart
   | Query SQL
   | Search String
@@ -91,6 +92,7 @@ tagEval ∷ Eval → String
 tagEval = case _ of
   Pass → "Pass"
   Composite → "Composite"
+  Terminal → "Terminal"
   Chart → "Chart"
   Query str → "Query " <> show str
   Search str → "Search " <> show str
