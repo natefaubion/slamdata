@@ -37,6 +37,7 @@ type Tab =
   { deckId ∷ DeckId
   , breaker ∷ Breaker Unit
   , name ∷ String
+  , loaded ∷ Boolean
   }
 
 type State =
@@ -60,6 +61,13 @@ initialState =
 
 modelFromState ∷ State → Model
 modelFromState { tabs } = { tabs: _.deckId <$> tabs }
+
+activateTab ∷ Maybe Int → State → State
+activateTab Nothing st = st { activeTab = Nothing }
+activateTab (Just ix) st =
+  case Array.modifyAt ix (_ { loaded = true }) st.tabs of
+    Nothing → st
+    Just tabs' → st { tabs = tabs', activeTab = Just ix }
 
 updateName ∷ DeckId → String → State → State
 updateName deckId name st = st { tabs = tabs' }

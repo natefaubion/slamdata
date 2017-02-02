@@ -42,18 +42,18 @@ import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Eval.State as ES
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.Port as Port
-import SlamData.Workspace.Card.Tabs.Component.State (State, initialState, modelFromState, updateName, reorder)
+import SlamData.Workspace.Card.Tabs.Component.State (State, initialState, modelFromState, updateName, activateTab, reorder)
 import SlamData.Workspace.Card.Tabs.Component.Query (Query(..), QueryC)
 import SlamData.Workspace.Deck.Component.Query as DCQ
 import SlamData.Workspace.Deck.Component.Nested.Query as DNQ
 import SlamData.Workspace.Deck.Component.Nested.State as DNS
-import SlamData.Workspace.Deck.DeckId (DeckId)
+import SlamData.Workspace.Deck.DeckId as DID
 import SlamData.Workspace.Eval.Deck as ED
 import SlamData.Workspace.Eval.Persistence as P
 
-type TabsDSL = H.ParentDSL State DNS.State QueryC DNQ.QueryP Slam DeckId
+type TabsDSL = H.ParentDSL State DNS.State QueryC DNQ.QueryP Slam DID.DeckId
 
-type TabsHTML = H.ParentHTML DNS.State QueryC DNQ.QueryP Slam DeckId
+type TabsHTML = H.ParentHTML DNS.State QueryC DNQ.QueryP Slam DID.DeckId
 
 tabsComponent ∷ CardOptions → CC.CardComponent
 tabsComponent options = CC.makeCardComponent
@@ -86,10 +86,7 @@ render cardOpts st =
         ]
     , HH.div
         [ HP.classes [ HH.className "sd-tab-body" ] ]
-        [ case st.activeTab >>= Array.index st.tabs of
-            Nothing → HH.text ""
-            Just { deckId } → HH.slot deckId (mkDeckComponent deckId)
-        ]
+        (Array.mapWithIndex renderDeck st.tabs)
     ]
   where
     renderTab ix tab =
@@ -135,6 +132,17 @@ render cardOpts st =
     isOrdering ix opts =
       opts.source ≡ ix && abs opts.offset > 10.0
 
+    renderDeck ix tab =
+      HH.div
+        [ HP.key (DID.toString tab.deckId)
+        , HP.classes $
+            (guard (st.activeTab ≡ Just ix) $> HH.className "active")
+            <> [ HH.className "sd-tab-slot" ]
+        ]
+        if tab.loaded
+          then [ HH.slot tab.deckId (mkDeckComponent tab.deckId) ]
+          else [ HH.text "" ]
+
     mkDeckComponent deckId _ =
       let
         deckOpts =
@@ -165,11 +173,10 @@ evalCard = case _ of
     tabs ← Array.catMaybes <$> for model.tabs \deckId → runMaybeT do
       cell ← MaybeT $ liftH' $ P.getDeck deckId
       breaker ← lift $ subscribeToBus' (right ∘ H.action ∘ HandleMessage deckId) cell.bus
-      pure { deckId, breaker, name: cell.model.name }
-    H.modify _
-      { tabs = tabs
-      , activeTab = activeTab
-      }
+      pure { deckId, breaker, name: cell.model.name, loaded: false }
+    H.modify
+      $ activateTab activeTab
+      ∘ _ { tabs = tabs }
     pure next
   CC.Load _ next →
     pure next
@@ -178,11 +185,12 @@ evalCard = case _ of
   CC.ReceiveOutput _ _ next →
     pure next
   CC.ReceiveState (ES.ActiveTab ix) next → do
-    H.modify \st → st { activeTab = clampActiveTab st.tabs ix }
+    H.modify \st → activateTab (clampActiveTab st.tabs ix) st
     pure next
   CC.ReceiveState _ next →
     pure next
-  CC.ReceiveDimensions dims next →
+  CC.ReceiveDimensions _ next → do
+    H.queryAll (right (H.action DCQ.UpdateCardSize))
     pure next
   CC.ModelUpdated _ next →
     pure next
@@ -247,7 +255,7 @@ evalTabs cardOpts = case _ of
         H.modify _ { ordering = Just (opts { over = Nothing }) }
     pure next
 
-peek ∷ ∀ a. CardOptions → H.ChildF DeckId DNQ.QueryP a → TabsDSL Unit
+peek ∷ ∀ a. CardOptions → H.ChildF DID.DeckId DNQ.QueryP a → TabsDSL Unit
 peek opts _ = pure unit
 
 clampActiveTab ∷ ∀ a. Array a → Int → Maybe Int
@@ -261,10 +269,10 @@ addTab opts = do
   deckId × cell ← liftH' $ P.freshDeck ED.emptyDeck (ED.Completed Port.emptyOut)
   liftH' $ P.linkToParent opts.cardId deckId
   breaker ← subscribeToBus' (right ∘ H.action ∘ HandleMessage deckId) cell.bus
-  let tab = { deckId, breaker, name: cell.model.name }
+  let tab = { deckId, breaker, name: cell.model.name, loaded: false }
   st ← H.get
   H.modify _ { tabs = Array.snoc st.tabs tab }
   pure (Array.length st.tabs)
 
-queryDeck ∷ ∀ a. DeckId → DCQ.Query a → TabsDSL (Maybe a)
+queryDeck ∷ ∀ a. DID.DeckId → DCQ.Query a → TabsDSL (Maybe a)
 queryDeck slot = H.query slot ∘ right
