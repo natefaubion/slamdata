@@ -249,7 +249,7 @@ cardIcon = case _ of
   DownloadOptions →
     "setupDownload"
   Draftboard →
-    "draftboard"
+    "dashboard"
   Tabs →
     "tabs"
 
