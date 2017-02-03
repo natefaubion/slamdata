@@ -107,13 +107,12 @@ render cardOpts st =
 
     tabAttrs ix =
       [ HC.style (tabStyles ix)
-      , HE.onClick (HE.input_ (right ∘ ActivateTab ix))
+      , HE.onMouseDown (HE.input (\ev → right ∘ OrderStart ix ev))
       ] <>
       if cardOpts.deck.accessType ≡ AT.ReadOnly
         then []
         else
-          [ HE.onMouseDown (HE.input (\ev → right ∘ OrderStart ix ev))
-          , HE.onMouseEnter (HE.input_ (right ∘ OrderOver ix))
+          [ HE.onMouseEnter (HE.input_ (right ∘ OrderOver ix))
           , HE.onMouseLeave (HE.input_ (right ∘ OrderOut ix))
           ]
 
@@ -185,7 +184,9 @@ evalCard = case _ of
   CC.ReceiveOutput _ _ next →
     pure next
   CC.ReceiveState (ES.ActiveTab ix) next → do
-    H.modify \st → activateTab (clampActiveTab st.tabs ix) st
+    st ← H.get
+    when (st.activeTab ≠ Just ix) do
+      H.modify $ activateTab (clampActiveTab st.tabs ix)
     pure next
   CC.ReceiveState _ next →
     pure next
@@ -204,24 +205,28 @@ evalTabs cardOpts = case _ of
     CC.raiseUpdatedP' $ CC.EvalStateUpdate $ ES.ActiveTab ix
     CC.raiseUpdatedP' CC.EvalModelUpdate
     pure next
-  ActivateTab ix next → do
-    CC.raiseUpdatedP' $ CC.EvalStateUpdate $ ES.ActiveTab ix
-    pure next
   HandleMessage deckId msg next → do
     case msg of
       ED.NameChange name →
         H.modify (updateName deckId name)
       _ → pure unit
     pure next
-  OrderStart source ev next → do
+  OrderStart ix ev next → do
+    st ← H.get
     let
+      updateTabs =
+        activateTab (clampActiveTab st.tabs ix)
       opts =
-        { source
+        { source: ix
         , offset: 0.0
         , over: Nothing
         }
-    Drag.subscribe' ev (right ∘ H.action ∘ Ordering source)
-    H.modify _ { ordering = Just opts }
+    if cardOpts.deck.accessType ≡ AT.ReadOnly
+      then H.modify updateTabs
+      else do
+        Drag.subscribe' ev (right ∘ H.action ∘ Ordering ix)
+        H.modify $ updateTabs ∘ _ { ordering = Just opts }
+    CC.raiseUpdatedP' $ CC.EvalStateUpdate $ ES.ActiveTab ix
     pure next
   Ordering ix ev next → do
     st ← H.get

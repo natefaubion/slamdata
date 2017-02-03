@@ -32,7 +32,6 @@ import SlamData.Workspace.Eval.Deck as Deck
 
 data Query a
   = AddTab a
-  | ActivateTab Int a
   | HandleMessage Deck.Id Deck.EvalMessage a
   | OrderStart Int (HET.Event HET.MouseEvent) a
   | Ordering Int DragEvent a
