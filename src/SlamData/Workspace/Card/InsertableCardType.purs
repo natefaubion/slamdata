@@ -63,7 +63,7 @@ inputs ∷ Array (InsertableCardType × (Array InsertableCardIOType))
 inputs =
   [ CacheCard × [ Data ]
   , DraftboardCard × [ None ]
-  , OpenCard × [ None ]
+  , OpenCard × [ None, Variables ]
   , QueryCard × [ None, Data, Variables ]
   , SearchCard × [ Data ]
   , SetupChartCard × [ Data ]

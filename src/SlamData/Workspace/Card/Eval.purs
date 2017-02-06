@@ -27,6 +27,8 @@ import Control.Monad.State.Class (class MonadState)
 import Control.Monad.Throw (class MonadThrow)
 import Control.Monad.Writer.Class (class MonadTell)
 
+import Data.StrMap (union)
+
 import SlamData.Effects (SlamDataEffects)
 import SlamData.Quasar.Class (class QuasarDSL, class ParQuasarDSL)
 import SlamData.Workspace.Card.Setups.Chart.Area.Eval as BuildArea
@@ -98,7 +100,7 @@ evalCard
   → Port.Port
   → Port.DataMap
   → m Port.Out
-evalCard trans port varMap = case trans, port of
+evalCard trans port varMap = map (_ `union` varMap) <$> case trans, port of
   Error msg, _ → CEM.throw msg
   _, Port.CardError msg → CEM.throw msg
   Pass, _ → pure (port × varMap)

@@ -78,10 +78,19 @@ evalComposite = do
         case val, _ of
           Right (Port.SetLiteral s1), Just (Right (Port.SetLiteral s2)) →
             Just (Right (Port.SetLiteral (s1 <> s2)))
-          _, Just (Right (Port.SetLiteral s)) →
-            Just (Right (Port.SetLiteral (Array.snoc s (toValue val))))
+          _, rhs@(Just (Right (Port.SetLiteral s))) →
+            let
+              val' = toValue val
+            in if Array.elem val' s
+              then rhs
+              else Just (Right (Port.SetLiteral (Array.snoc s val')))
           _, Just v →
-            Just (Right (Port.SetLiteral [ toValue v, toValue val ]))
+            let
+              v1 = toValue val
+              v2 = toValue v
+            in if v1 ≡ v2
+              then Just val
+              else Just (Right (Port.SetLiteral [ v1, v2 ]))
           _, Nothing →
             Just val
         (mkKey key)
