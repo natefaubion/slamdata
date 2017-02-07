@@ -18,12 +18,11 @@ module Halogen.Component.Utils where
 
 import Prelude
 
-import Control.Monad.Aff (Aff, Canceler, forkAff, later', runAff)
+import Control.Monad.Aff (Aff, Canceler, forkAff, later')
 import Control.Monad.Aff.AVar (AVAR, AVar, makeVar, putVar, takeVar)
 import Control.Monad.Aff.Bus as Bus
 import Control.Monad.Aff.EventLoop as EventLoop
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
-import Control.Monad.Eff.Class (liftEff)
 
 import Data.Either as E
 import Data.Int as Int
@@ -34,88 +33,57 @@ import Halogen.Query.EventSource as ES
 
 import Math as Math
 
-withCanceler
-  ∷ ∀ a eff m
-  . MonadAff (avar ∷ AVAR | eff) m
-  ⇒ (Canceler (avar ∷ AVAR | eff) → m Unit)
-  → Aff (avar ∷ AVAR | eff) a
-  → m a
-withCanceler act aff = do
-  v ← liftAff makeVar
-  canceler ← liftAff $ forkAff do
-    res ← aff
-    putVar v res
-  act canceler
-  liftAff $ takeVar v
-
-liftWithCanceler'
-  ∷ ∀ s f g p o m a eff
-  . MonadAff (avar ∷ AVAR | eff) m
-  ⇒ (Canceler (avar ∷ AVAR | eff) → Unit → f Unit)
-  → Aff (avar ∷ AVAR | eff) a
-  → H.HalogenM s f g p o m a
-liftWithCanceler' f aff = do
-  withCanceler (\c → void <$> sendAfter' zero $ f c unit) aff
-
-sendAfter'
-  ∷ ∀ s f g m p eff
+sendAfter
+  ∷ ∀ s f g p o m eff
   . MonadAff (avar ∷ AVAR | eff) m
   ⇒ Milliseconds
-  → f Unit
+  → (∀ a. a → f a)
   → H.HalogenM s f g p o m (Canceler (avar ∷ AVAR | eff))
-sendAfter' ms action = do
+sendAfter ms action = do
   cancelerVar ← H.liftAff makeVar
   H.subscribe $ oneTimeEventSource ms action cancelerVar
   H.liftAff $ takeVar cancelerVar
-
-raise'
-  ∷ ∀ s f g m p eff
-  . MonadAff (avar ∷ AVAR | eff) m
-  ⇒ f Unit
-  → H.HalogenM s f g p o m Unit
-raise' = void <$> sendAfter' (Milliseconds 0.0)
 
 oneTimeEventSource
   ∷ ∀ f m eff
   . MonadAff (avar ∷ AVAR | eff) m
   ⇒ Milliseconds
-  → f Unit
+  → (∀ a. a → f a)
   → AVar (Canceler (avar ∷ AVAR | eff))
   → H.EventSource f m
-oneTimeEventSource (Milliseconds n) action cancelerVar =
-  ES.EventSource
-    $ ES.produce \emit →
-        void
-          $ runAff (const $ pure unit) (const $ pure unit)
-          $ putVar cancelerVar =<< (forkAff $ delay $ emitAndEnd emit)
-  where
-  delay = later' (Int.floor $ Math.max n zero)
-  emitAndEnd emit = liftEff $ emit (E.Left action) *> emit (E.Right unit)
+oneTimeEventSource (Milliseconds n) action cancelerVar = ES.EventSource do
+  let
+    producer = ES.produceAff \emit → liftAff do
+      let
+        delayedEmitter = later' (Int.floor $ Math.max n zero) do
+          emit $ E.Left $ action ES.Done
+          emit $ E.Right unit
+      putVar cancelerVar =<< forkAff delayedEmitter
+  pure { producer, done: pure unit }
 
-subscribeToBus'
-  ∷ ∀ s f g p o m a r eff
+busEventSource
+  ∷ ∀ f m a r eff
   . MonadAff (avar ∷ AVAR | eff) m
-  ⇒ (a → f Unit)
+  ⇒ (a → f ES.SubscribeStatus)
   → Bus.Bus (read ∷ Bus.Cap | r) a
-  → H.HalogenM s f g p o m (EventLoop.Breaker Unit)
-subscribeToBus' k bus =
-  subscribeToASource' k (Bus.read bus)
+  → ES.EventSource f m
+busEventSource k bus =
+  affEventSource k (Bus.read bus)
 
-subscribeToASource'
-  ∷ ∀ s f g p o m a eff
+affEventSource
+  ∷ ∀ f m a eff
   . MonadAff (avar ∷ AVAR | eff) m
-  ⇒ (a → f Unit)
+  ⇒ (a → f ES.SubscribeStatus)
   → Aff (avar ∷ AVAR | eff) a
-  → H.HalogenM s f g p o m (EventLoop.Breaker Unit)
-subscribeToASource' k source = do
+  → ES.EventSource f m
+affEventSource k source = ES.EventSource do
   breaker ← liftAff makeVar
-  H.subscribe
-    $ ES.EventSource
-    $ ES.produce \emit →
-        void $ runAff (const $ pure unit) (const $ pure unit) do
-          loop ← EventLoop.forever do
-            a ← source
-            forkAff $ H.liftEff $ emit $ E.Left (k a)
-          putVar breaker loop.breaker
-          loop.run
-  H.liftAff $ takeVar breaker
+  let
+    producer = ES.produceAff \emit → liftAff do
+      loop ← EventLoop.forever do
+        a ← source
+        forkAff $ emit $ E.Left (k a)
+      putVar breaker loop.breaker
+      loop.run
+    done = liftAff (EventLoop.break' =<< takeVar breaker)
+  pure { producer, done }
