@@ -145,9 +145,7 @@ render st =
       else
         HH.table_
             $ [ HH.tr_
-                $ (if Array.null dims
-                    then []
-                    else [ HH.td [ HP.colSpan (Array.length dims) ] [] ])
+                $ (dims <#> \d → HH.th_ [ HH.text (fst d) ])
                 ⊕ (cols <#> case _ of
                       n × Column { value } →
                         HH.th_ [ HH.text n ]
