@@ -20,14 +20,10 @@ module SlamData.Workspace.Card.Setups.Chart.PivotTable.Component
 
 import SlamData.Prelude
 
-import Control.Comonad.Cofree (Cofree)
-
 import Data.Argonaut as J
 import Data.Array as Array
 import Data.Int (toNumber)
 import Data.Lens ((^?))
-import Data.List (List, (:))
-import Data.List as List
 
 import CSS as C
 import Halogen as H
@@ -41,11 +37,11 @@ import Halogen.HTML.CSS as HC
 import SlamData.Form.Select as S
 import SlamData.Workspace.Card.Setups.Chart.Aggregation as Ag
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
-import SlamData.Workspace.Card.Setups.DimensionPicker.Column (groupColumns, flattenColumns)
-import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (groupJCursors, flattenJCursors)
+import SlamData.Workspace.Card.Setups.DimensionPicker.Column (flattenColumns)
+import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (flattenJCursors)
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.ChildSlot as PCS
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.Query (Query(..))
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.State (State, Selecting(..), modelFromState, stateFromModel, initialState, reorder, setColumnAggregation)
+import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.State as PS
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model (Column(..))
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.CardType.ChartType as CHT
@@ -54,7 +50,7 @@ import SlamData.Workspace.Card.Eval.State (_Axes)
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.LevelOfDetails (LevelOfDetails(..))
 
-type DSL = CC.InnerCardParentDSL State Query PCS.ChildQuery PCS.ChildSlot
+type DSL = CC.InnerCardParentDSL PS.State Query PCS.ChildQuery PCS.ChildSlot
 
 type HTML = CC.InnerCardParentHTML Query PCS.ChildQuery PCS.ChildSlot
 
@@ -63,11 +59,11 @@ pivotTableBuilderComponent =
   CC.makeCardComponent (CT.ChartOptions CHT.PivotTable) $ H.parentComponent
     { render
     , eval: coproduct evalCard evalOptions
-    , initialState: const initialState
+    , initialState: const PS.initialState
     , receiver: const Nothing
     }
 
-render ∷ State → HTML
+render ∷ PS.State → HTML
 render st =
   HH.div
     [ HP.classes [ HH.ClassName "sd-pivot-options" ] ]
@@ -86,24 +82,24 @@ render st =
     ]
   where
   renderSelect = case _ of
-    Col →
+    PS.Col values →
       HH.slot' PCS.cpCol unit
         (DPC.picker
           { title: "Choose column"
           , label: DPC.labelNode showColumn
           , render: DPC.renderNode showColumn
-          , values: selectColumnValues st
+          , values
           , isSelectable: DPC.isLeafPath
           })
         unit
         (Just ∘ right ∘ H.action ∘ HandleColPicker)
-    Dim →
+    PS.Dim values →
       HH.slot' PCS.cpDim unit
         (DPC.picker
           { title: "Choose dimension"
           , label: DPC.labelNode showJCursor
           , render: DPC.renderNode showJCursor
-          , values: selectDimensionValues st
+          , values
           , isSelectable: DPC.isLeafPath
           })
         unit
@@ -295,11 +291,11 @@ evalCard = case _ of
   CC.Deactivate next →
     pure next
   CC.Save k →
-    map (k ∘ Card.BuildPivotTable ∘ modelFromState) H.get
+    map (k ∘ Card.BuildPivotTable ∘ PS.modelFromState) H.get
   CC.Load card next → do
     case card of
       Card.BuildPivotTable model →
-        H.modify (stateFromModel model)
+        H.modify (PS.stateFromModel model)
       _ → pure unit
     pure next
   CC.ReceiveInput _ _ next →
@@ -319,10 +315,12 @@ evalCard = case _ of
 evalOptions ∷ Query ~> DSL
 evalOptions = case _ of
   AddDimension next → do
-    H.modify _ { selecting = Just Dim }
+    st ← H.get
+    H.modify _ { selecting = Just (PS.Dim (PS.selectDimensionValues st.axes)) }
     pure next
   AddColumn next → do
-    H.modify _ { selecting = Just Col }
+    st ← H.get
+    H.modify _ { selecting = Just (PS.Col (PS.selectColumnValues st.axes)) }
     pure next
   RemoveDimension slot next → do
     H.modify \st →
@@ -356,7 +354,7 @@ evalOptions = case _ of
             Just slot' → do
               H.modify _
                 { orderingDimension = Nothing
-                , dimensions = reorder slot slot' st.dimensions
+                , dimensions = PS.reorder slot slot' st.dimensions
                 }
               H.raise CC.modelUpdate
             Nothing →
@@ -394,7 +392,7 @@ evalOptions = case _ of
             Just slot' → do
               H.modify _
                 { orderingColumn = Nothing
-                , columns = reorder slot slot' st.columns
+                , columns = PS.reorder slot slot' st.columns
                 }
               H.raise CC.modelUpdate
             Nothing →
@@ -412,7 +410,7 @@ evalOptions = case _ of
     pure next
   ChooseAggregation slot ag next → do
     st ← H.get
-    H.modify (setColumnAggregation slot ag)
+    H.modify (PS.setColumnAggregation slot ag)
     H.raise CC.modelUpdate
     pure next
   HandleDimPicker msg next → do
@@ -441,21 +439,3 @@ evalOptions = case _ of
           }
         H.raise CC.modelUpdate
     pure next
-
-selectColumnValues ∷ State → Cofree List (Either Column Column)
-selectColumnValues st =
-  groupColumns
-    (Count : List.fromFoldable
-      (map (Column ∘ { value: _, valueAggregation: Nothing })
-        (Array.sort
-          (st.axes.category
-           <> st.axes.time
-           <> st.axes.value
-           <> st.axes.date
-           <> st.axes.datetime))))
-
-selectDimensionValues ∷ State → Cofree List (Either J.JCursor J.JCursor)
-selectDimensionValues st =
-  groupJCursors
-    (List.fromFoldable
-      (Array.sort (st.axes.category <> st.axes.time <> st.axes.value)))
