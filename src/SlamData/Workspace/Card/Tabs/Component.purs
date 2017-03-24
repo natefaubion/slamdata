@@ -39,7 +39,6 @@ import SlamData.Workspace.Card.Common (CardOptions)
 import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Eval.State as ES
 import SlamData.Workspace.Card.Model as Card
-import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Tabs.Component.State (State, initialState, modelFromState, updateName, activateTab, reorder)
 import SlamData.Workspace.Card.Tabs.Component.Query (Query(..))
 import SlamData.Workspace.Deck.Component.Query as DCQ
@@ -185,9 +184,9 @@ evalCard = case _ of
 evalTabs ∷ CardOptions → Query ~> TabsDSL
 evalTabs cardOpts = case _ of
   AddTab next → do
-    ix ← addTab cardOpts
+    ix ← H.gets (Array.length ∘ _.tabs)
+    _ ← H.lift $ P.addDeckToTabs cardOpts.cardId
     H.raise $ CC.stateUpdate $ ES.ActiveTab ix
-    H.raise CC.modelUpdate
     pure next
   HandleMessage deckId msg reply → do
     st ← H.get
@@ -253,13 +252,3 @@ clampActiveTab as ix = case Array.length as of
   0 → Nothing
   n | ix < n → Just ix
   n → Just (n - 1)
-
-addTab ∷ CardOptions → TabsDSL Int
-addTab opts = do
-  deckId × cell ← H.lift $ P.freshDeck ED.emptyDeck (ED.Completed Port.emptyOut)
-  H.lift $ P.linkToParent opts.cardId deckId
-  H.subscribe $ busEventSource (\msg → right (H.request (HandleMessage deckId msg))) cell.bus
-  let tab = { deckId, name: cell.model.name, loaded: false }
-  st ← H.get
-  H.modify _ { tabs = Array.snoc st.tabs tab }
-  pure (Array.length st.tabs)

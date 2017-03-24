@@ -41,11 +41,8 @@ import SlamData.Workspace.Card.Draftboard.Component.Common (DraftboardDSL, rootR
 import SlamData.Workspace.Card.Draftboard.Component.Query (Query(..))
 import SlamData.Workspace.Card.Draftboard.Component.Render (render)
 import SlamData.Workspace.Card.Draftboard.Component.State (MoveLocation(..), initialState, modelFromState, updateRect, updateLayout)
-import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Deck.Component.Query as DCQ
 import SlamData.Workspace.Deck.DeckId (DeckId)
-import SlamData.Workspace.Deck.Model (emptyDeck)
-import SlamData.Workspace.Eval.Deck as ED
 import SlamData.Workspace.Eval.Persistence as P
 import SlamData.Workspace.LevelOfDetails (LevelOfDetails(..))
 
@@ -297,8 +294,7 @@ evalBoard opts = case _ of
         H.raise CC.modelUpdate
     pure next
   AddDeck cursor next → do
-    addDeck opts cursor
-    H.raise CC.modelUpdate
+    H.lift $ P.addDeckToDraftboard opts.cardId cursor >>= Wiring.focusDeck
     pure next
   PreventDefault ev next →
     H.liftEff (DOM.preventDefault ev) $> next
@@ -346,18 +342,6 @@ recalcRect = do
   H.getHTMLElementRef rootRef >>= traverse_ \root → do
     rect ← H.liftEff (DOM.getOffsetClientRect root)
     H.modify (updateRect rect)
-
-addDeck ∷ CardOptions → Pane.Cursor → DraftboardDSL Unit
-addDeck opts cursor = do
-  deckId × _ ← H.lift $ P.freshDeck emptyDeck (ED.Completed Port.emptyOut)
-  H.lift $ P.linkToParent opts.cardId deckId
-  st ← H.get
-  let
-    layout = Pane.modifyAt (const (Pane.Cell (Just deckId))) cursor st.layout
-  H.modify
-    $ updateLayout (fromMaybe st.layout layout)
-    ∘ _ { inserting = false }
-  H.lift $ Wiring.focusDeck deckId
 
 groupDeck
   ∷ Orn.Orientation

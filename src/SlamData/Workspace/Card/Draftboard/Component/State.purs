@@ -58,7 +58,6 @@ type State =
   , cellLayout ∷ List.List (Cell (Maybe DeckId) Number)
   , edgeLayout ∷ List.List (Edge Number)
   , cursors ∷ Map.Map DeckId Cursor
-  , inserting ∷ Boolean
   }
 
 type SplitOpts =
@@ -98,7 +97,6 @@ initialState =
   , cellLayout: mempty
   , edgeLayout: mempty
   , cursors: mempty
-  , inserting: false
   }
 
 initialRect ∷ Rect Number

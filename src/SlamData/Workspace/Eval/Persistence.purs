@@ -478,8 +478,7 @@ wrapAndGroupDeck orn bias deckId siblingId = do
       putCard oldParentId oldParent'
       rebuildGraph
       publishCardChange (Card.toAll oldParentId) oldParent'
-    _ → do
-      throw (Exn.error "Cannot group deck")
+    _ → throw (Exn.error "Cannot group deck")
 
 groupDeck ∷ ∀ f m. Persist f m (Orn.Orientation → Layout.SplitBias → Deck.Id → Deck.Id → Card.Id → m Unit)
 groupDeck orn bias deckId siblingId newParentId = do
@@ -512,6 +511,34 @@ renameDeck deckId name = do
   queueSaveDefault Nothing
   for_ cell.parent (queueEvalDefault ∘ Card.toAll)
   pure unit
+
+addDeckToDraftboard ∷ ∀ f m. Persist f m (Card.Id → Pane.Cursor → m Deck.Id)
+addDeckToDraftboard parentId cursor = do
+  cell ← noteError "Card not found" =<< getCard parentId
+  case cell.model of
+    CM.Draftboard { layout } → do
+      deckId × _ ← freshDeck Deck.emptyDeck (Deck.Completed Card.emptyOut)
+      let
+        layout' = Pane.modifyAt (const (Pane.Cell (Just deckId))) cursor layout
+        parent' = CM.Draftboard { layout: fromMaybe layout layout' }
+      putCard parentId parent'
+      rebuildGraph
+      publishCardChange (Card.toAll parentId) parent'
+      pure deckId
+    _ → throw (Exn.error "Not a draftboard")
+
+addDeckToTabs ∷ ∀ f m. Persist f m (Card.Id → m Deck.Id)
+addDeckToTabs parentId = do
+  cell ← noteError "Card not found" =<< getCard parentId
+  case cell.model of
+    CM.Tabs { tabs } → do
+      deckId × _ ← freshDeck Deck.emptyDeck (Deck.Completed Card.emptyOut)
+      let parent' = CM.Tabs { tabs: Array.snoc tabs deckId }
+      putCard parentId parent'
+      rebuildGraph
+      publishCardChange (Card.toAll parentId) parent'
+      pure deckId
+    _ → throw (Exn.error "Not a tab set")
 
 addCard ∷ ∀ f m. Persist f m (Deck.Id → CT.CardType → m Card.Id)
 addCard deckId cty = do
@@ -574,12 +601,6 @@ cloneActiveStateTo state to from = do
   activeState ← Cache.get from cache.activeState
   for_ (activeState <|> state) \as →
     Cache.put to as cache.activeState
-
-linkToParent ∷ ∀ f m. Persist f m (Card.Id → Deck.Id → m Unit)
-linkToParent parentId deckId = do
-  { eval } ← Wiring.expose
-  Cache.modify parentId (\cell → cell { decks = Set.insert deckId cell.decks }) eval.cards
-  Cache.modify deckId (_ { parent = Just parentId }) eval.decks
 
 makeDeckCell ∷ ∀ m. MonadAff SlamDataEffects m ⇒ Deck.Model → Deck.EvalStatus → m Deck.Cell
 makeDeckCell model status =  do
