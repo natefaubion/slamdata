@@ -25,6 +25,7 @@ import Data.Array as Array
 import Data.Foldable as F
 import Data.Int (toNumber)
 import Data.Lens ((^?), (.~), _Just)
+import Data.StrMap as SM
 
 import CSS as C
 import Halogen as H
@@ -40,8 +41,9 @@ import SlamData.Workspace.Card.Setups.Axis as Ax
 import SlamData.Workspace.Card.Setups.ActionSelect.Component as AS
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
-import SlamData.Workspace.Card.Setups.DimensionPicker.Column (flattenColumns, showColumn)
-import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (flattenJCursors, showJCursor, showJCursorTip)
+import SlamData.Workspace.Card.Setups.DimensionPicker.Column (showColumn)
+import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (showJCursor, showJCursorTip)
+import SlamData.Workspace.Card.Setups.DimensionPicker.Variables (flattenVariables)
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.ChildSlot as PCS
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.Query (Query(..), ForDimension(..))
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.State as PS
@@ -55,6 +57,8 @@ import SlamData.Workspace.Card.CardType.ChartType as CHT
 import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Eval.State (_Axes)
 import SlamData.Workspace.Card.Model as Card
+import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.LevelOfDetails (LevelOfDetails(..))
 
 import Utils.Lens as UL
@@ -98,8 +102,8 @@ render st =
       HH.slot' PCS.cpCol unit
         (DPC.picker
           { title: "Choose column"
-          , label: DPC.labelNode (showColumn showJCursorTip)
-          , render: DPC.renderNode (showColumn showJCursorTip)
+          , label: DPC.labelNode (either unwrap (showColumn showJCursorTip))
+          , render: DPC.renderNode (either unwrap (showColumn showJCursorTip))
           , values
           , isSelectable: DPC.isLeafPath
           })
@@ -109,8 +113,8 @@ render st =
       HH.slot' PCS.cpDim unit
         (DPC.picker
           { title: "Choose dimension"
-          , label: DPC.labelNode showJCursorTip
-          , render: DPC.renderNode showJCursorTip
+          , label: DPC.labelNode (either unwrap showJCursorTip)
+          , render: DPC.renderNode (either unwrap showJCursorTip)
           , values
           , isSelectable: DPC.isLeafPath
           })
@@ -166,8 +170,8 @@ render st =
               { configurable: true
               , dimension
               , showLabel: absurd
-              , showDefaultLabel: showJCursor
-              , showValue: showJCursor
+              , showDefaultLabel: either unwrap showJCursor
+              , showValue: either unwrap showJCursor
               , onLabelChange: HE.input (\l → right ∘ ChangeLabel (ForGroupBy slot) l)
               , onDismiss: HE.input_ (right ∘ Remove (ForGroupBy slot))
               , onConfigure: HE.input_ (right ∘ Configure (ForGroupBy slot))
@@ -223,7 +227,7 @@ render st =
           ]
       ]
 
-  renderColumn size (slot × dimension@(D.Dimension label cat)) =
+  renderColumn size (slot × dimension) =
     HH.div
       ([ HP.classes (columnClasses slot)
        , HC.style (C.width (C.pct size))
@@ -236,8 +240,8 @@ render st =
               { configurable: true
               , dimension
               , showLabel: absurd
-              , showDefaultLabel: showColumn showJCursor
-              , showValue: showColumn showJCursor
+              , showDefaultLabel: either unwrap (showColumn showJCursor)
+              , showValue: either unwrap (showColumn showJCursor)
               , onLabelChange: HE.input (\l → right ∘ ChangeLabel (ForColumn slot) l)
               , onDismiss: HE.input_ (right ∘ Remove (ForColumn slot))
               , onConfigure: HE.input_ (right ∘ Configure (ForColumn slot))
@@ -281,7 +285,11 @@ evalCard = case _ of
         H.modify (PS.stateFromModel model)
       _ → pure unit
     pure next
-  CC.ReceiveInput _ _ next →
+  CC.ReceiveInput _ varMap next → do
+    let vars = Port.flattenResources varMap
+    st ← H.get
+    when (vars ≠ st.vars) do
+      H.modify _ { vars = vars }
     pure next
   CC.ReceiveOutput _ _ next →
     pure next
@@ -300,12 +308,12 @@ evalOptions ∷ Query ~> DSL
 evalOptions = case _ of
   AddGroupBy next → do
     st ← H.get
-    let vals = PS.selectGroupByValues st.axes
+    let vals = PS.selectGroupByValues (VM.variables st.vars) st.axes
     H.modify _ { selecting = Just (PS.SelectGroupBy vals) }
     pure next
   AddColumn next → do
     st ← H.get
-    let vals = PS.selectColumnValues st.axes
+    let vals = PS.selectColumnValues (VM.variables st.vars) st.axes
     H.modify _ { selecting = Just (PS.SelectColumn vals) }
     pure next
   Remove (ForGroupBy slot) next → do
@@ -336,7 +344,9 @@ evalOptions = case _ of
       groupBy = st.dimensions ^? UL.lookup slot ∘ D._value
       selection = join $ groupBy ^? _Just ∘ D._transform
       options = case groupBy of
-        Just (D.Projection mbTr cursor) →
+        Just (D.Projection mbTr (Left (VM.Var var))) →
+          transformOptions (maybe mempty (flip T.varTransforms mbTr) (SM.lookup var st.vars)) mbTr
+        Just (D.Projection mbTr (Right cursor)) →
           transformOptions (T.axisTransforms (Ax.axisType cursor st.axes) mbTr) mbTr
         _ → mempty
       selecting = PS.SelectTransform (ForGroupBy slot) selection options
@@ -348,9 +358,11 @@ evalOptions = case _ of
       col = st.columns ^? UL.lookup slot ∘ D._value
       selection = join $ col ^? _Just ∘ D._transform
       options = case col of
-        Just (D.Projection mbTr (PTM.Column cursor)) →
+        Just (D.Projection mbTr (Left (VM.Var var))) →
+          transformOptions (maybe mempty (flip T.varTransforms mbTr) (SM.lookup var st.vars)) mbTr
+        Just (D.Projection mbTr (Right (PTM.Column cursor))) →
           transformOptions (T.axisTransforms (Ax.axisType cursor st.axes) mbTr) mbTr
-        Just (D.Projection mbTr PTM.All) | rootAxes st.axes →
+        Just (D.Projection mbTr (Right PTM.All)) | rootAxes st.axes →
           transformOptions (T.axisTransforms (Ax.axisType J.JCursorTop st.axes) mbTr) mbTr
         _ → mempty
       selecting = PS.SelectTransform (ForColumn slot) selection options
@@ -439,8 +451,8 @@ evalOptions = case _ of
       DPC.Confirm value → do
         st ← H.get
         let
-          value' = flattenJCursors value
-          cell = D.projectionWithCategory (PTM.defaultJCursorCategory value') value'
+          value' = flattenVariables value
+          cell = D.projectionWithCategory (either D.defaultVariableCategory D.defaultJCursorCategory value') value'
         H.modify _
           { fresh = st.fresh + 1
           , dimensions = Array.snoc st.dimensions (st.fresh × cell)
@@ -455,11 +467,11 @@ evalOptions = case _ of
       DPC.Confirm value → do
         st ← H.get
         let
-          value' = flattenColumns value
+          value' = flattenVariables value
           cell = case value' of
-            PTM.All | not (rootAxes st.axes) →
-              D.Dimension (Just (D.Static "count")) (D.Projection (Just T.Count) PTM.All)
-            _ → D.projectionWithCategory (PTM.defaultColumnCategory value') value'
+            Right PTM.All | not (rootAxes st.axes) →
+              D.Dimension (Just (D.Static "count")) (D.Projection (Just T.Count) (Right PTM.All))
+            _ → D.projectionWithCategory (either D.defaultVariableCategory PTM.defaultColumnCategory value') value'
         H.modify _
           { fresh = st.fresh + 1
           , columns = Array.snoc st.columns (st.fresh × cell)

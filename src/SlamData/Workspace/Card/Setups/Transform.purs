@@ -20,8 +20,13 @@ import SlamData.Prelude
 
 import Data.Argonaut (class EncodeJson, class DecodeJson, decodeJson, (~>), (:=), (.?), jsonEmptyObject)
 import Data.Array as Array
+import Data.Json.Extended as E
+import Data.Json.Extended.Signature as ES
 import Data.Lens (Prism', prism')
 
+import Matryoshka (project)
+
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Setups.Axis as Ax
 import SlamData.Workspace.Card.Setups.Transform.Aggregation as Ag
 import SlamData.Workspace.Card.Setups.Transform.DatePart as DP
@@ -128,6 +133,19 @@ axisTransforms axis prev = Array.cons Count case axis of
   Ax.Date → dateTransforms
   Ax.Time → timeTransforms
   Ax.DateTime → dateTimeTransforms
+
+ejsonTransforms ∷ E.EJson → Maybe Transform → Array Transform
+ejsonTransforms e = case project e of
+  ES.String _ → axisTransforms Ax.Category
+  ES.Integer _ → axisTransforms Ax.Measure
+  ES.Decimal _ → axisTransforms Ax.Measure
+  ES.Timestamp _ → axisTransforms Ax.DateTime
+  ES.Date _ → axisTransforms Ax.Date
+  ES.Time _ → axisTransforms Ax.Time
+  _ → const (pure Count)
+
+varTransforms ∷ VM.VarMapValue → Maybe Transform → Array Transform
+varTransforms _ _ = pure Count
 
 derive instance eqTransform ∷ Eq Transform
 derive instance ordTransform ∷ Ord Transform

@@ -156,7 +156,7 @@ render st =
     _ → default
 
   columnHeading default col = case col ^? D._value ∘ D._projection of
-    Just All → "*"
+    Just (Right All) → "*"
     Just _   → default
     Nothing  → ""
 
@@ -175,10 +175,11 @@ render st =
           let text = renderValue rowIx (col ^. D._value) <$> J.cursorGet (topField c) row
           in HH.td_ [ HH.text (fromMaybe "" text) ]
 
-  renderValue = case _, _ of
+  renderValue a b = case a, b of
     0, D.Static _ → renderJson
     0, D.Projection (Just T.Count) _ → J.foldJsonNumber "" (FN.format numFormatter)
-    0, D.Projection _ (Column _) → foldJsonArray' renderJson (maybe "" renderJson ∘ flip Array.index 0)
+    0, D.Projection _ (Right (Column _)) → foldJsonArray' renderJson (maybe "" renderJson ∘ flip Array.index 0)
+    0, D.Projection _ (Left _) → foldJsonArray' renderJson (maybe "" renderJson ∘ flip Array.index 0)
     i, D.Projection _ _ → foldJsonArray' (const "") (maybe "" renderJson ∘ flip Array.index i)
     _, _ → const ""
 

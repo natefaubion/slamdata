@@ -38,26 +38,30 @@ import Control.Comonad.Cofree (Cofree)
 import Data.Argonaut (JCursor)
 import Data.Array as Array
 import Data.Lens as Lens
-import Data.List (List, (:))
+import Data.List (List)
 import Data.List as List
+import Data.StrMap as SM
 
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Setups.Axis (Axes, initialAxes)
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.Query (ForDimension)
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
 import SlamData.Workspace.Card.Setups.Dimension as D
-import SlamData.Workspace.Card.Setups.DimensionPicker.Column (groupColumns, ColumnNode)
-import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (groupJCursors, JCursorNode)
+import SlamData.Workspace.Card.Setups.DimensionPicker.Column (groupColumns)
+import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (groupJCursors)
+import SlamData.Workspace.Card.Setups.DimensionPicker.Variables (groupVariables, Variables, VariablesNode)
 import SlamData.Workspace.Card.Setups.Transform as T
 
 data Selecting
-  = SelectGroupBy (PickerTree JCursor)
-  | SelectColumn (PickerTree PTM.Column)
+  = SelectGroupBy (PickerTree (Variables JCursor))
+  | SelectColumn (PickerTree (Variables PTM.Column))
   | SelectTransform ForDimension (Maybe T.Transform) (Array T.Transform)
 
 type PickerTree a = Cofree List (Either a a)
 
 type State =
   { axes ∷ Axes
+  , vars ∷ VM.VarMap
   , fresh ∷ Int
   , dimensions ∷ Array (Int × PTM.GroupByDimension)
   , columns ∷ Array (Int × PTM.ColumnDimension)
@@ -75,6 +79,7 @@ type OrderingOpts =
 initialState ∷ State
 initialState =
   { axes: initialAxes
+  , vars: SM.empty
   , fresh: 0
   , dimensions: []
   , columns: []
@@ -133,15 +138,18 @@ setColumnTransform = modifyDimension _columns ∘ Lens.set (D._value ∘ D._tran
 setGroupByTransform ∷ Maybe T.Transform → Int → State → State
 setGroupByTransform = modifyDimension _dimensions ∘ Lens.set (D._value ∘ D._transform)
 
-selectColumnValues ∷ Axes → Cofree List ColumnNode
-selectColumnValues axes =
-  groupColumns
-    (PTM.All : List.fromFoldable
-      (map PTM.Column
-        (axes.category <> axes.value <> axes.time <> axes.date <> axes.datetime)))
+selectColumnValues ∷ List VM.Var → Axes → Cofree List (VariablesNode PTM.Column)
+selectColumnValues vars axes =
+  groupVariables vars
+    $ groupColumns
+    $ List.Cons PTM.All
+    $ List.fromFoldable
+    $ map PTM.Column
+    $ axes.category <> axes.value <> axes.time <> axes.date <> axes.datetime
 
-selectGroupByValues ∷ Axes → Cofree List JCursorNode
-selectGroupByValues axes =
-  groupJCursors
-    (List.fromFoldable
-      (axes.category <> axes.value <> axes.time <> axes.date <> axes.datetime))
+selectGroupByValues ∷ List VM.Var → Axes → Cofree List (VariablesNode JCursor)
+selectGroupByValues vars axes =
+  groupVariables vars
+    $ groupJCursors
+    $ List.fromFoldable
+    $ axes.category <> axes.value <> axes.time <> axes.date <> axes.datetime

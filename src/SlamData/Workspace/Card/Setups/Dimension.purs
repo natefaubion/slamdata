@@ -18,10 +18,13 @@ module SlamData.Workspace.Card.Setups.Dimension where
 
 import SlamData.Prelude
 
-import Data.Argonaut (JCursor, class EncodeJson, class DecodeJson, decodeJson, (~>), (:=), (.?), jsonEmptyObject)
+import Data.Argonaut (JCursor(..), class EncodeJson, class DecodeJson, decodeJson, (~>), (:=), (.?), jsonEmptyObject, insideOut)
+import Data.Array as Array
 import Data.Lens (Lens', lens, Traversal', wander)
 import Data.Newtype (un)
+import Data.String as String
 
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Setups.Transform (Transform(..))
 import SlamData.Workspace.Card.Setups.Transform.Aggregation as Ag
 
@@ -75,6 +78,16 @@ isStatic ∷ ∀ p. Category p → Boolean
 isStatic = case _ of
   Static _ → true
   _ → false
+
+defaultJCursorCategory ∷ ∀ a. JCursor → Category a
+defaultJCursorCategory = Static ∘ String.joinWith "_" ∘ go [] ∘ insideOut
+  where
+  go label (JField field _) = Array.cons field label
+  go label (JIndex ix next) = go (Array.cons (show ix) label) next
+  go label _ = Array.cons "value" label
+
+defaultVariableCategory ∷ ∀ a. VM.Var → Category a
+defaultVariableCategory = Static ∘ unwrap
 
 derive instance eqDimension ∷ (Eq a, Eq b) ⇒ Eq (Dimension a b)
 derive instance eqCategory ∷ Eq p ⇒ Eq (Category p)

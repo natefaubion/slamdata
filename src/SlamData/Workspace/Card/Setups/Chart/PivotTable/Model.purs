@@ -18,13 +18,12 @@ module SlamData.Workspace.Card.Setups.Chart.PivotTable.Model where
 
 import SlamData.Prelude
 
-import Data.Argonaut (JCursor(..), Json, class EncodeJson, class DecodeJson, decodeJson, (~>), (:=), isNull, (.?), jsonEmptyObject)
-import Data.Argonaut.JCursor (insideOut)
+import Data.Argonaut (JCursor, Json, class EncodeJson, class DecodeJson, decodeJson, (~>), (:=), isNull, (.?), jsonEmptyObject)
 import Data.Array as Array
 import Data.Foldable as F
 import Data.Newtype (un)
-import Data.String as String
 
+import SlamData.Workspace.Card.Port.VarMap (Var)
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.Transform as T
 
@@ -39,9 +38,9 @@ type Model =
 
 data Column = All | Column JCursor
 
-type ColumnDimension = D.Dimension Void Column
+type ColumnDimension = D.Dimension Void (Either Var Column)
 
-type GroupByDimension = D.Dimension Void JCursor
+type GroupByDimension = D.Dimension Void (Either Var JCursor)
 
 initialModel ∷ Model
 initialModel =
@@ -54,7 +53,7 @@ eqModel r1 r2 = r1.dimensions == r2.dimensions && r1.columns == r2.columns
 
 genModel ∷ Gen.Gen Model
 genModel = do
-  dimensions ← map (map runArbJCursor ∘ un D.DimensionWithStaticCategory) <$> arbitrary
+  dimensions ← map (map (map runArbJCursor) ∘ un D.DimensionWithStaticCategory) <$> arbitrary
   columns ← map (un D.DimensionWithStaticCategory) <$> arbitrary
   pure { dimensions, columns }
 
@@ -83,7 +82,7 @@ decode js
   decodeLegacyDimension ∷ Json → Either String GroupByDimension
   decodeLegacyDimension json = do
     value ← decodeJson json
-    pure $ D.projectionWithCategory (defaultJCursorCategory value) value
+    pure $ D.projectionWithCategory (D.defaultJCursorCategory value) (Right value)
 
   decodeColumn ∷ Json → Either String ColumnDimension
   decodeColumn json = decodeJson json <|> decodeLegacyColumn json
@@ -97,11 +96,11 @@ decode js
         valueAggregation ← map T.Aggregation <$> obj .? "valueAggregation"
         pure $ D.Dimension
           (Just (defaultColumnCategory value))
-          (D.Projection valueAggregation value)
+          (D.Projection valueAggregation (Right value))
       "count" → do
         pure $ D.Dimension
           (Just (D.Static "count"))
-          (D.Projection (Just T.Count) All)
+          (D.Projection (Just T.Count) (Right All))
       ty → throwError $ "Invalid column type: " <> ty
 
 derive instance eqColumn ∷ Eq Column
@@ -133,14 +132,7 @@ isSimple { dimensions, columns } =
     D.Dimension _ (D.Projection (Just (T.Aggregation _)) _) → false
     _ → true
 
-defaultJCursorCategory ∷ ∀ a. JCursor → D.Category a
-defaultJCursorCategory = D.Static ∘ String.joinWith "_" ∘ go [] ∘ insideOut
-  where
-  go label (JField field _) = Array.cons field label
-  go label (JIndex ix next) = go (Array.cons (show ix) label) next
-  go label _ = Array.cons "value" label
-
 defaultColumnCategory ∷ ∀ a. Column → D.Category a
 defaultColumnCategory = case _ of
   All → D.Static "all"
-  Column j → defaultJCursorCategory j
+  Column j → D.defaultJCursorCategory j

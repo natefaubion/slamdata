@@ -12,20 +12,24 @@ limitations under the License.
 -}
 
 module SlamData.Workspace.Card.Port.VarMap
-  ( VarMap
+  ( Var(..)
+  , VarMap
   , URLVarMap
   , VarMapValue(..)
   , renderVarMapValue
   , emptyVarMap
   , escapeIdentifier
+  , variables
   ) where
 
 import SlamData.Prelude
 
+import Data.Array as A
 import Data.Foldable as F
 import Data.HugeNum as HN
 import Data.Json.Extended as EJSON
 import Data.Json.Extended.Signature.Render as EJR
+import Data.List as L
 import Data.String.Regex (test, replace) as Regex
 import Data.String.Regex.Flags (ignoreCase, global) as Regex
 import Data.String.Regex.Unsafe (unsafeRegex) as Regex
@@ -43,13 +47,21 @@ import Text.Markdown.SlamDown.Syntax.Value as SDV
 import Test.StrongCheck.Gen as Gen
 import Test.StrongCheck.Arbitrary as SC
 
+newtype Var = Var String
+
+derive newtype instance eqVar ∷ Eq Var
+derive newtype instance ordVar ∷ Ord Var
+derive newtype instance decodeVar ∷ DecodeJson Var
+derive newtype instance encodeVar ∷ EncodeJson Var
+derive newtype instance arbitraryVar ∷ SC.Arbitrary Var
+derive instance newtypeVar :: Newtype Var _
+
 data VarMapValue
   = Literal EJSON.EJson
   | SetLiteral (Array VarMapValue)
   | QueryExpr String -- TODO: syntax of SQL^2 queries
 
 derive instance eqVarMapValue ∷ Eq VarMapValue
-
 derive instance ordVarMapValue ∷ Ord VarMapValue
 
 instance showVarMapValue ∷ Show VarMapValue where
@@ -152,6 +164,9 @@ type URLVarMap = SM.StrMap String
 
 emptyVarMap ∷ VarMap
 emptyVarMap = SM.empty
+
+variables ∷ VarMap → L.List Var
+variables = L.fromFoldable ∘ map Var ∘ A.sort ∘ SM.keys
 
 escapeIdentifier ∷ String → String
 escapeIdentifier str =

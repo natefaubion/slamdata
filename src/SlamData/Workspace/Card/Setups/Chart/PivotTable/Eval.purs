@@ -37,6 +37,7 @@ import SlamData.Quasar.Query as QQ
 import SlamData.Workspace.Card.Eval.Common as CEC
 import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.Transform as T
@@ -71,10 +72,11 @@ eval options varMap resource = do
     view = Port.View r (snd query) varMap
     output = Port.PivotTable (fst query) × SM.singleton Port.defaultResourceVar (Left view)
     backendPath = Left $ fromMaybe Path.rootDir (Path.parentDir r)
+    vm = Port.renderVarMapValue <$> Port.flattenResources varMap
   put (Just (CEM.Analysis state'))
   when (Array.null options.columns) do
     CEM.throw "Please select a column to display"
-  CEM.liftQ $ QQ.viewQuery backendPath r (snd query) SM.empty
+  CEM.liftQ $ QQ.viewQuery backendPath r (snd query) vm
   pure output
 
 mkSql ∷ PTM.Model → FilePath → Port.PivotTablePort × String
@@ -131,13 +133,16 @@ genPort isSimpleQuery model =
           , taken: Set.insert name taken
           }
 
+  genName ∷ Either PTM.GroupByDimension PTM.ColumnDimension → String
   genName = case _ of
-    Left  (D.Dimension _ (D.Static _)) → "static"
-    Left  (D.Dimension _ (D.Projection _ value)) → topName value
-    Right (D.Dimension _ (D.Static _)) → "static"
-    Right (D.Dimension _ (D.Projection (Just T.Count) PTM.All)) → "count"
-    Right (D.Dimension _ (D.Projection _ PTM.All)) → "all"
-    Right (D.Dimension _ (D.Projection _ (PTM.Column value))) → topName value
+    Left  (D.Dimension _ (D.Static str)) → str
+    Left  (D.Dimension _ (D.Projection _ (Left _))) → "var"
+    Left  (D.Dimension _ (D.Projection _ (Right value))) → topName value
+    Right (D.Dimension _ (D.Static str)) → str
+    Right (D.Dimension _ (D.Projection _ (Left _))) → "var"
+    Right (D.Dimension _ (D.Projection (Just T.Count) (Right PTM.All))) → "count"
+    Right (D.Dimension _ (D.Projection _ (Right PTM.All))) → "all"
+    Right (D.Dimension _ (D.Projection _ (Right (PTM.Column value)))) → topName value
 
   uniqueTag n taken a =
     let name = if n ≡ 1 then a else a <> "_" <> show n
@@ -163,13 +168,18 @@ columnTransform Nothing b   = "[" <> b <> " ...]"
 escapeString ∷ String → String
 escapeString = J.printJson <<< J.encodeJson
 
-escapeDimension ∷ ∀ a. D.Dimension a J.JCursor → Maybe T.Transform × String
+escapeDimension ∷ ∀ a. D.Dimension a (Either VM.Var J.JCursor) → Maybe T.Transform × String
 escapeDimension = case _ of
   D.Dimension _ (D.Static str) → Nothing × escapeString str
-  D.Dimension _ (D.Projection tr cur) → tr × "row" <> CEC.escapeCursor cur
+  D.Dimension _ (D.Projection tr (Left var)) → tr × escapeVariable var
+  D.Dimension _ (D.Projection tr (Right cur)) → tr × "row" <> CEC.escapeCursor cur
 
-escapeColumn ∷ ∀ a. D.Dimension a PTM.Column → Maybe T.Transform × String
+escapeColumn ∷ ∀ a. D.Dimension a (Either VM.Var PTM.Column) → Maybe T.Transform × String
 escapeColumn = case _ of
   D.Dimension _ (D.Static str) → Nothing × escapeString str
-  D.Dimension _ (D.Projection tr PTM.All) → tr × "row"
-  D.Dimension _ (D.Projection tr (PTM.Column cur)) → tr × "row" <> CEC.escapeCursor cur
+  D.Dimension _ (D.Projection tr (Left var)) → tr × escapeVariable var
+  D.Dimension _ (D.Projection tr (Right PTM.All)) → tr × "row"
+  D.Dimension _ (D.Projection tr (Right (PTM.Column cur))) → tr × "row" <> CEC.escapeCursor cur
+
+escapeVariable ∷ VM.Var → String
+escapeVariable var = "(SELECT :" <> VM.escapeIdentifier (unwrap var) <> " FROM row)"
