@@ -225,4 +225,5 @@ querySettings q = (map MCS.scheme <$> H.gets _.settings) >>= \s →
     Just MS.Couchbase → H.query' CS.cpCouchbase unit q
     Just MS.MarkLogic → H.query' CS.cpMarkLogic unit q
     Just MS.SparkHDFS → H.query' CS.cpSpark unit q
-    _ → pure Nothing
+    Just MS.SparkLocal → H.query' CS.cpSparkLocal unit q
+    Nothing → pure Nothing
