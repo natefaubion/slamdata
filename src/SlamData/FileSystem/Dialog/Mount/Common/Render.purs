@@ -50,12 +50,11 @@ section title inner =
         inner
     ]
 
-propList
-  :: forall s p
-   . Lens' s (Array (Tuple String String))
-  -> s
-  -> H.HTML p (SettingsQuery s)
-propList _props state =
+propListTable
+  ∷ ∀ s p
+  . Array (H.HTML p (SettingsQuery s))
+  → H.HTML p (SettingsQuery s)
+propListTable inner =
   HH.div
     [ HP.class_ Rc.mountProps ]
     [ HH.table
@@ -72,12 +71,19 @@ propList _props state =
                     [ HP.colSpan 2 ]
                     [ HH.div
                         [ HP.class_ Rc.mountPropsScrollbox ]
-                        [ HH.table_ propRows ]
+                        [ HH.table_ inner ]
                     ]
                 ]
             ]
         ]
     ]
+
+propList
+  :: forall s p
+   . Lens' s (Array (Tuple String String))
+  -> s
+  -> H.HTML p (SettingsQuery s)
+propList _props state = propListTable propRows
   where
   propRows = prop <$> 0 .. (Arr.length (state ^. _props) - 1)
 

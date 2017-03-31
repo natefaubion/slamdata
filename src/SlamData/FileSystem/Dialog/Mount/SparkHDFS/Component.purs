@@ -23,11 +23,14 @@ module SlamData.FileSystem.Dialog.Mount.SparkHDFS.Component
 
 import SlamData.Prelude
 
+import Data.Array as Array
 import Data.Path.Pathy (dir, (</>))
 
 import Halogen as H
 import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+import Halogen.Themes.Bootstrap3 as B
 
 import Quasar.Mount as QM
 
@@ -62,7 +65,39 @@ render state =
             [ HP.class_ Rc.mountPath ]
             [ MCR.label "Path" [ MCR.input state MCS._path [] ] ]
         ]
+    , MCR.section "Advanced Settings"
+        [ MCR.propListTable (Array.mapWithIndex renderPropRow (state.props <> [ "" × "" ])) ]
     ]
+  where
+  renderPropRow ∷ Int → String × String → H.ComponentHTML Query
+  renderPropRow ix (key × value) =
+    let
+      values =
+        (guard (key ≠ "") $> "")
+          <> [ key ]
+          <> state.availableProps
+      updateFnKey = MCS.updatePropAt ix ∘ flip Tuple value
+      updateFnVal = MCS.updatePropAt ix ∘ Tuple key
+      classes = [ B.formControl, B.inputSm ]
+    in
+    HH.tr_
+      [ HH.td_
+          [ HH.select
+              [ HP.value key
+              , HP.classes classes
+              , HE.onSelectedIndexChange (map (H.action ∘ ModifyState ∘ updateFnKey) ∘ Array.index values)
+              ]
+              (values <#> HH.option_ ∘ pure ∘ HH.text)
+          ]
+      , HH.td_
+          [ HH.input
+              [ HP.value value
+              , HP.type_ HP.InputText
+              , HP.classes classes
+              , HE.onValueInput (HE.input (ModifyState ∘ updateFnVal))
+              ]
+          ]
+      ]
 
 eval ∷ Query ~> H.ComponentDSL MCS.State Query SettingsMessage Slam
 eval = case _ of
