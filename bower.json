@@ -49,7 +49,7 @@
     "purescript-parallel": "^2.1.0",
     "purescript-pathy": "^3.0.1",
     "purescript-profunctor-lenses": "^2.1.0",
-    "purescript-quasar": "^19.0.0",
+    "purescript-quasar": "^20.0.0",
     "purescript-rationals": "^2.1.0",
     "purescript-routing": "^3.0.0",
     "purescript-search": "^2.0.0",
