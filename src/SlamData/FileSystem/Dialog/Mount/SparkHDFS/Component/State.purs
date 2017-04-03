@@ -116,11 +116,13 @@ toConfig { sparkHost, hdfsHost, path, props } = do
   when (MCS.isEmpty (fst hdfsHost)) $ Left "Please enter an HDFS host"
   hdfsHost' ← lmap ("HDFS host: " <> _) $ MCS.parseHost hdfsHost
   let
+    path' = MCS.parsePath' =<< MCS.nonEmptyString path
     props' = props <#> \(Tuple key value) →
       if key ≡ "" ∨ value ≡ "" then Nothing else Just (Tuple key (Just value))
+  when (maybe false isRight path') $ Left "Path must be a directory"
   pure
     { sparkHost: sparkHost'
     , hdfsHost: hdfsHost'
-    , path: MCS.parsePath' =<< MCS.nonEmptyString path
+    , path: path'
     , props: SM.fromFoldable $ Array.catMaybes props'
     }
