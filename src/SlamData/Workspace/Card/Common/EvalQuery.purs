@@ -18,8 +18,11 @@ module SlamData.Workspace.Card.Common.EvalQuery
   ( CardEvalQuery(..)
   , CardEvalMessage(..)
   , ModelUpdateType(..)
+  , ModelUpdateOption(..)
   , modelUpdate
+  , modelUpdateSilently
   , stateUpdate
+  , shouldTriggerEval
   ) where
 
 import SlamData.Prelude
@@ -67,14 +70,26 @@ data CardEvalMessage
 -- | the model changes in a way that will affect the evaluated output of the
 -- | card.
 data ModelUpdateType
-  = EvalModelUpdate
+  = EvalModelUpdate ModelUpdateOption
   | EvalStateUpdate (Maybe EvalState → Maybe EvalState)
 
+data ModelUpdateOption
+  = TriggerEval
+  | Silent
+
 modelUpdate ∷ CardEvalMessage
-modelUpdate = ModelUpdated EvalModelUpdate
+modelUpdate = ModelUpdated (EvalModelUpdate TriggerEval)
+
+modelUpdateSilently ∷ CardEvalMessage
+modelUpdateSilently = ModelUpdated (EvalModelUpdate Silent)
 
 stateUpdate ∷ EvalState → CardEvalMessage
 stateUpdate = ModelUpdated ∘ EvalStateUpdate ∘ const ∘ Just
 
 stateAlter ∷ (Maybe EvalState → Maybe EvalState) → CardEvalMessage
 stateAlter = ModelUpdated ∘ EvalStateUpdate
+
+shouldTriggerEval ∷ ModelUpdateOption → Boolean
+shouldTriggerEval = case _ of
+  TriggerEval → true
+  _ → false

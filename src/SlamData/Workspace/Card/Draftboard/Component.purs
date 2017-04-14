@@ -162,7 +162,7 @@ evalBoard opts = case _ of
           $ updateLayout (fromMaybe st.layout result)
           ∘ _ { splitOpts = Nothing, splitLocation = Nothing }
         H.queryAll $ H.action DCQ.UpdateCardSize
-        H.raise CC.modelUpdate
+        H.raise CC.modelUpdateSilently
     pure next
   ResizeStart edge ev next → do
     let
@@ -231,7 +231,7 @@ evalBoard opts = case _ of
           $ updateLayout (fromMaybe st.layout result)
           ∘ _ { resizeLocation = Nothing }
         H.queryAll $ H.action DCQ.UpdateCardSize
-        H.raise CC.modelUpdate
+        H.raise CC.modelUpdateSilently
     pure next
   DeleteCell cursor next → do
     st ← H.get
@@ -239,7 +239,7 @@ evalBoard opts = case _ of
       result = Layout.deleteCell cursor st.layout
     H.modify (updateLayout (fromMaybe st.layout result))
     H.queryAll $ H.action DCQ.UpdateCardSize
-    H.raise CC.modelUpdate
+    H.raise CC.modelUpdateSilently
     pure next
   GrabStart deckId ev next → do
     st ← H.get
@@ -281,6 +281,7 @@ evalBoard opts = case _ of
             for_ cell.value \deckId' → do
               H.modify _ { moveLocation = Nothing }
               groupDeck orn bias deckId deckId'
+              H.raise CC.modelUpdate
           Move cell → do
             let
               result =
@@ -291,7 +292,7 @@ evalBoard opts = case _ of
               $ updateLayout (fromMaybe st.layout result)
               ∘ _ { moveLocation = Nothing }
             void $ H.query deckId $ H.action DCQ.UpdateCardSize
-        H.raise CC.modelUpdate
+            H.raise CC.modelUpdateSilently
     pure next
   AddDeck cursor next → do
     H.lift $ P.addDeckToDraftboard opts.cardId cursor >>= Wiring.focusDeck

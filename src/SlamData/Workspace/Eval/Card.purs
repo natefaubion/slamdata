@@ -24,6 +24,7 @@ module SlamData.Workspace.Eval.Card
   , DisplayCoord
   , toAll
   , module SlamData.Workspace.Card.CardId
+  , module SlamData.Workspace.Card.Common.EvalQuery
   , module SlamData.Workspace.Card.Eval
   , module SlamData.Workspace.Card.Eval.Monad
   , module SlamData.Workspace.Card.Eval.State
@@ -39,6 +40,7 @@ import Data.List (List)
 import Data.Set (Set)
 
 import SlamData.Workspace.Card.CardId (CardId)
+import SlamData.Workspace.Card.Common.EvalQuery (ModelUpdateOption(..), shouldTriggerEval)
 import SlamData.Workspace.Card.Eval (Eval, runCard, modelToEval)
 import SlamData.Workspace.Card.Eval.Monad (CardEnv(..), ChildOut, AdditionalSource(..))
 import SlamData.Workspace.Card.Eval.State (initialEvalState, EvalState)

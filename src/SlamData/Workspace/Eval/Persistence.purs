@@ -182,18 +182,22 @@ getCardModel =
 getCards ∷ ∀ m. PersistEnv m (Array Card.Id → m (Maybe (Array Card.Cell)))
 getCards = map sequence ∘ traverse getCard
 
-publishCardChange ∷ ∀ f m. Persist f m (Card.DisplayCoord → Card.Model → m Unit)
-publishCardChange source@(_ × cardId) model = do
+publishCardChange ∷ ∀ f m. Persist f m (Card.ModelUpdateOption → Card.DisplayCoord → Card.Model → m Unit)
+publishCardChange updateTy source@(_ × cardId) model = do
   { eval } ← Wiring.expose
   putCard cardId model
   card ← noteError "Card not found" =<< Cache.get cardId eval.cards
-  graph ← snapshotGraph cardId
-  queueEval' defaultEvalDebounce source graph
+  when (Card.shouldTriggerEval updateTy) do
+    graph ← snapshotGraph cardId
+    queueEval' defaultEvalDebounce source graph
   queueSaveDefault $ Just cardId
   Eval.publish card (Card.ModelChange source model)
   for_ card.decks \deckId →
     getDeck deckId >>= traverse_
       (flip Eval.publish (Deck.CardChange cardId))
+
+publishCardChange' ∷ ∀ f m. Persist f m (Card.DisplayCoord → Card.Model → m Unit)
+publishCardChange' = publishCardChange Card.TriggerEval
 
 publishCardStateChange
   ∷ ∀ m
@@ -367,7 +371,7 @@ deleteDeck deckId = do
       oldParentModel ← updatePointer deckId Nothing oldParentId
       putCard oldParentId oldParentModel
       rebuildGraph
-      publishCardChange (Card.toAll oldParentId) oldParentModel
+      publishCardChange' (Card.toAll oldParentId) oldParentModel
       queueSaveDefault Nothing
   pure cell.parent
 
@@ -406,7 +410,7 @@ mirrorDeck parentId cardId deckId = do
   cloneActiveStateTo ({ cardIndex: _ } <$> mstate.index) mirrorDeckId deckId
   putCard parentId parentModel
   rebuildGraph
-  publishCardChange (Card.toAll parentId) parentModel
+  publishCardChange' (Card.toAll parentId) parentModel
   queueSaveDefault Nothing
   pure mirrorDeckId
 
@@ -442,7 +446,7 @@ collapseDeck deckId cardId = do
   parentModel' ← noteError "Cannot collapse deck" $ collapse parentModel cardModels
   putCard cardId parentModel'
   rebuildGraph
-  publishCardChange (Card.toAll cardId) parentModel'
+  publishCardChange' (Card.toAll cardId) parentModel'
   queueSaveDefault Nothing
   where
     collapse ∷ Card.Model → Array Card.Model → Maybe Card.Model
@@ -476,7 +480,7 @@ wrapAndGroupDeck orn bias deckId siblingId = do
           CM.Draftboard { layout: layout' }
       putCard oldParentId oldParent'
       rebuildGraph
-      publishCardChange (Card.toAll oldParentId) oldParent'
+      publishCardChange' (Card.toAll oldParentId) oldParent'
     _ → throw (Exn.error "Cannot group deck")
 
 groupDeck ∷ ∀ f m. Persist f m (Orn.Orientation → Layout.SplitBias → Deck.Id → Deck.Id → Card.Id → m Unit)
@@ -496,8 +500,8 @@ groupDeck orn bias deckId siblingId newParentId = do
           a → a
         child' = CM.Draftboard { layout: inner' }
         parent' = CM.Draftboard { layout: layout' }
-      publishCardChange (Card.toAll newParentId) child'
-      publishCardChange (Card.toAll oldParentId) parent'
+      publishCardChange' (Card.toAll newParentId) child'
+      publishCardChange' (Card.toAll oldParentId) parent'
       queueSaveDefault Nothing
     _, _ →
       wrapAndGroupDeck orn bias deckId siblingId
@@ -522,7 +526,7 @@ addDeckToDraftboard parentId cursor = do
         parent' = CM.Draftboard { layout: fromMaybe layout layout' }
       putCard parentId parent'
       rebuildGraph
-      publishCardChange (Card.toAll parentId) parent'
+      publishCardChange' (Card.toAll parentId) parent'
       pure deckId
     _ → throw (Exn.error "Not a draftboard")
 
@@ -535,7 +539,7 @@ addDeckToTabs parentId = do
       let parent' = CM.Tabs { tabs: Array.snoc tabs deckId }
       putCard parentId parent'
       rebuildGraph
-      publishCardChange (Card.toAll parentId) parent'
+      publishCardChange' (Card.toAll parentId) parent'
       pure deckId
     _ → throw (Exn.error "Not a tab set")
 
@@ -559,19 +563,19 @@ removeCard ∷ ∀ f m. Persist f m (Deck.Id → Card.Id → m Unit)
 removeCard deckId cardId = do
   { eval } ← Wiring.expose
   deck ← noteError "Deck not found" =<< getDeck deckId
-  let
-    cardIds = Array.span (not ∘ eq cardId) deck.model.cards
-    deck' = deck.model { cards = cardIds.init }
-  output ← runMaybeT do
+  let cardIds = Array.span (not ∘ eq cardId) deck.model.cards
+  output ← fromMaybe Card.emptyOut <$> runMaybeT do
     last ← MaybeT $ pure $ Array.last cardIds.init
     card ← MaybeT $ getCard last
     let next' = Set.insert (Left deckId) $ Set.delete (Right cardId) card.next
     lift $ Cache.put last (card { next = next' }) eval.cards
     MaybeT $ pure card.output
-  putDeck deckId deck'
+  let deck' = deck { model { cards = cardIds.init }, status = Deck.Completed output }
+  Cache.put deckId deck' eval.decks
   rebuildGraph
   queueSaveDefault Nothing
-  Eval.publish deck (Deck.Complete cardIds.init (fromMaybe Card.emptyOut output))
+  Eval.publish deck (Deck.Complete cardIds.init output)
+  for_ deck.parent (queueEvalImmediate ∘ Card.toAll)
 
 updateRootOrParent ∷ ∀ f m. Persist f m (Deck.Id → Deck.Id → Maybe Card.Id → m Unit)
 updateRootOrParent oldId newId = case _ of
@@ -582,7 +586,7 @@ updateRootOrParent oldId newId = case _ of
     oldParentModel ← updatePointer oldId (Just newId) oldParentId
     putCard oldParentId oldParentModel
     rebuildGraph
-    publishCardChange (Card.toAll oldParentId) oldParentModel
+    publishCardChange' (Card.toAll oldParentId) oldParentModel
 
 updatePointer ∷ ∀ f m. Persist f m (Deck.Id → Maybe Deck.Id → Card.Id → m Card.Model)
 updatePointer oldId newId parentId = do

@@ -209,9 +209,9 @@ makeCardComponent cardType component options =
       pure next
     CQ.HandleCardMessage msg next → do
       case msg of
-        EQ.ModelUpdated EQ.EvalModelUpdate → do
+        EQ.ModelUpdated (EQ.EvalModelUpdate evalOpts) → do
           model ← H.query unit (left (H.request EQ.Save))
-          for_ model (H.lift ∘ P.publishCardChange displayCoord)
+          for_ model (H.lift ∘ P.publishCardChange evalOpts displayCoord)
         EQ.ModelUpdated (EQ.EvalStateUpdate fn) → do
           H.lift $ P.publishCardStateChange displayCoord fn
       pure next

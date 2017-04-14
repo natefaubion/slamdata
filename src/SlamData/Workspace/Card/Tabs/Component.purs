@@ -229,7 +229,7 @@ evalTabs cardOpts = case _ of
                 , activeTab = Just ix'
                 , tabs = reorder ix ix' st.tabs
                 }
-              H.raise CC.modelUpdate
+              H.raise CC.modelUpdateSilently
               H.raise $ CC.stateUpdate $ ES.ActiveTab ix'
             Nothing →
               H.modify _ { ordering = Nothing }
