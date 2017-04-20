@@ -71,7 +71,7 @@ toolbar state =
       )
     <> [ H.ul
          [ P.classes [ B.listInline, B.pullRight ] ]
-         $ [ workspace, folder, showHide, download, file, mount ] <> configure
+         $ configure <> [ mount, workspace, folder, showHide, download, file ]
        ]
   where
   configure ∷ Array (HTML p (Query Unit))
@@ -104,8 +104,11 @@ toolbar state =
           ]
       , H.label
           [ P.for "upload"
-          , P.title "Upload file"
-          , P.class_ $ H.ClassName "tool-item"
+          , P.classes
+              [ H.ClassName "tool-item"
+              , H.ClassName "sd-tooltip"
+              , H.ClassName "sd-tooltip-r"
+              ]
           , ARIA.label "Upload file"
           ]
           [ I.uploadSm ]
@@ -119,8 +122,10 @@ toolItem func title icon =
   H.li_
     [ H.button
         [ ARIA.label title
-        , P.title title
-        , P.class_ $ H.ClassName "tool-item"
+        , P.classes
+            [ H.ClassName "tool-item"
+            , H.ClassName "sd-tooltip"
+            ]
         , E.onClick (E.input_ func)
         ]
         [ icon ]

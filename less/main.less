@@ -155,15 +155,22 @@ ol.breadcrumb {
     }
 }
 
-.toolbar-menu button, .item-toolbar button {
-    background: none;
-    border: 0;
+.toolbar-menu,
+.item-toolbar {
+  .list-inline > li {
     padding: 0;
-    color: #337ab7;
+  }
 
-    &:hover {
-        color: #23527c
-    }
+  button, label {
+      background: none;
+      border: 0;
+      padding: 0 .5rem;
+      color: #337ab7;
+
+      &:hover {
+          color: #23527c
+      }
+  }
 }
 
 .new-card-menu {
@@ -405,3 +412,4 @@ button {
 @import "workspace";
 @import "button";
 @import "icon";
+@import "tooltip";

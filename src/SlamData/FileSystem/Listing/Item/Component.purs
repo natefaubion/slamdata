@@ -235,7 +235,7 @@ itemActions presentActions item | otherwise =
           [ HE.onClick $ HE.input $ HandleAction $ act (itemResource item)
           , HP.title label
           , ARIA.label label
-          , HP.class_ CSS.fileAction
+          , HP.classes [ CSS.fileAction, HH.ClassName "sd-tooltip" ]
           ]
           [ icon ]
       ]

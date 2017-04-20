@@ -1,0 +1,55 @@
+.sd-tooltip {
+  position: relative;
+
+  // Toolip label
+  &::before {
+    transform: translateX(50%);
+    background-color: rgba(225,225,225,.8);
+    color: #fff;
+    content: attr(aria-label);
+    padding: 0 .5rem;
+    line-height: 1.5rem;
+    text-transform: none;
+    font-weight: normal;
+    white-space: nowrap;
+    font-size: 11px;
+    margin-bottom: 5px;
+  }
+
+  // Tooltip arrow
+  &::after {
+    transform: translateX(50%);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid rgba(225,225,225,.8);
+    content: " ";
+    font-size: 0;
+    line-height: 0;
+    width: 0;
+  }
+
+  &.sd-tooltip-r {
+    &::before {
+      right: 0;
+      transform: translateX(0);
+    }
+  }
+
+  &::before,
+  &::after {
+    position: absolute;
+    right: 50%;
+    bottom: 100%;
+    color: #666;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &:focus::before,
+  &:focus::after,
+  &:hover::before,
+  &:hover::after {
+    opacity: 1;
+    transition: all 0.2s ease;
+  }
+}
