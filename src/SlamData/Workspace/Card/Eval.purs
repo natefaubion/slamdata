@@ -106,6 +106,7 @@ evalCard trans port varMap = map (_ `union` varMap) <$> case trans, port of
   Pass, _ → pure (port × varMap)
   Table m, _ → Table.eval m port varMap
   Chart, Port.ChartInstructions { options } → CEM.tapResource (Chart.eval options) varMap
+  Chart, _ → pure (Port.ResourceKey Port.defaultResourceVar × varMap)
   Composite, _ → Port.varMapOut <$> Common.evalComposite
   Terminal, _ → pure Port.terminalOut
   Query sql, _ → Query.evalQuery sql varMap
