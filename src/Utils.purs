@@ -25,8 +25,8 @@ import Data.Array as Array
 import Data.Formatter.Number as FN
 import Data.Int as Int
 import Data.String as S
-
 import Global (readFloat, isNaN, isFinite)
+import SqlSquared.Signature.Ident (printIdent)
 
 stringToNumber ∷ String → Maybe Number
 stringToNumber s =
@@ -115,6 +115,21 @@ showFormattedNumber = FN.format
   , abbreviations: false
   , sign: false
   }
+
+showPrettyJCursor ∷ J.JCursor → String
+showPrettyJCursor = go ""
+  where
+  go = case _, _ of
+    "", J.JCursorTop  → "*"
+    "", J.JField k js → go (printIdent k) js
+    "", J.JIndex i js → go ("*" <> printIndex i) js
+    pr, J.JCursorTop  → pr
+    pr, J.JField k js → go (pr <> "." <> printIdent k) js
+    pr, J.JIndex i js → go (pr <> printIndex i) js
+
+  printIndex ∷ Int → String
+  printIndex i =
+    "[" <> show i <> "]"
 
 foreign import prettyJson ∷ J.Json → String
 

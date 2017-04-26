@@ -31,6 +31,8 @@ import SlamData.Workspace.Card.Setups.DimensionMap.Defaults as DMD
 import SlamData.Workspace.Card.Setups.Transform as Tr
 import SlamData.Workspace.Card.Setups.Package.DSL as T
 
+import Utils (showPrettyJCursor)
+
 type Package = T.Package M.AnyCardModel (Set.Set J.JCursor)
 
 interpret ∷ ∀ m. T.PackageM m Unit → T.Package m (Set.Set J.JCursor)
@@ -123,7 +125,7 @@ setValue fld cursor state
 
 showValue ∷ T.Projection → Maybe J.JCursor → String
 showValue fld c = do
-  fromMaybe (DMD.getDefaults fld).value $ map showJCursor c
+  fromMaybe (DMD.getDefaults fld).value $ map showPrettyJCursor c
 
 chooseLabel ∷ T.Projection → String
 chooseLabel = _.select ∘ DMD.getDefaults
@@ -151,10 +153,3 @@ deselect = _selected .~ Nothing
 
 getSelected ∷ T.Projection → State → Maybe D.LabeledJCursor
 getSelected fld state = state ^. _dimMap ∘ T.unpackProjection fld
-
--- TODO: move it somewhere, it should live in different place with group/flatten
-showJCursor ∷ J.JCursor → String
-showJCursor = case _ of
-  J.JCursorTop → "value"
-  J.JField i c → i ⊕ show c
-  c → show c
