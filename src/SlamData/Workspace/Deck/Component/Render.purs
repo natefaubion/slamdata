@@ -73,7 +73,7 @@ renderDeck opts deckComponent st =
               [ HP.class_ CSS.deckFrame
               , HE.onMouseDown $ HE.input Defocus
               ]
-              $ frameElements opts st ⊕ [ renderName st.name ]
+              $ frameElements opts st
           , HH.div
               [ HP.class_ CSS.deck
               ]
@@ -161,6 +161,7 @@ rootFrameElements st =
   [ zoomOutButton
   , flipButton
   , deckIndicator st
+  , renderName st.name
   ]
 
 childFrameElements ∷ DCS.State → Array DeckHTML
@@ -169,6 +170,7 @@ childFrameElements st =
   , flipButton
   , moveGripper
   , deckIndicator st
+  , renderName st.name
   ]
 
 dialogSlot ∷ DeckHTML
