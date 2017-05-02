@@ -347,8 +347,8 @@ handleBackSide opts = case _ of
         deck ← H.lift $ P.getDeck opts.deckId
         case deck >>= _.parent, mirrorCard <#> _.cardId of
           Just parentId, Just cardId | not (L.null opts.displayCursor) → do
-            _ ← H.lift $ P.mirrorDeck parentId cardId opts.deckId
             switchToFrontside
+            void $ H.lift $ P.mirrorDeck parentId cardId opts.deckId
           _, Just cardId → do
             parentId ← H.lift $ P.wrapAndMirrorDeck cardId opts.deckId
             navigateToDeck (parentId L.: opts.cursor)
@@ -368,10 +368,10 @@ handleBackSide opts = case _ of
   where
   wrapDeck ∷ (DeckId → Card.AnyCardModel) → DeckDSL Unit
   wrapDeck wrapper = do
+    switchToFrontside
     parentId ← H.lift $ P.wrapDeck opts.deckId (wrapper opts.deckId)
-    if L.null opts.displayCursor
-      then navigateToDeck (parentId L.: opts.cursor)
-      else switchToFrontside
+    when (L.null opts.displayCursor) do
+      navigateToDeck (parentId L.: opts.cursor)
 
 handleBackSideFilter ∷ ActionFilter.Message → DeckDSL Unit
 handleBackSideFilter = case _ of
