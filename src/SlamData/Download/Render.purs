@@ -109,11 +109,12 @@ optionsJSON func opts =
 
 fldName
   ∷ ∀ q
-  . Either D.CSVOptions D.JSONOptions
+  . Boolean
+  → Either D.CSVOptions D.JSONOptions
   → String
   → (String → H.Action q)
   → H.ComponentHTML q
-fldName options tgtValue query =
+fldName compressed options tgtValue query =
   HH.div
     [ HP.classes [ B.formGroup, Rc.downloadTarget ] ]
     [ HH.label_
@@ -126,7 +127,7 @@ fldName options tgtValue query =
         , HH.div
             [ HP.classes [ Rc.downloadTargetBox ] ]
             [ HH.span_ [ HH.text tgtValue ]
-            , HH.span_ [ HH.text (D.extension false options) ]
+            , HH.span_ [ HH.text (D.extension compressed options) ]
             ]
         ]
     ]

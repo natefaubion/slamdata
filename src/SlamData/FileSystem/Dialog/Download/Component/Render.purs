@@ -52,7 +52,7 @@ render state =
           , HP.classes [ Rc.dialogDownload ]
           ]
       [ resField state
-      , Rd.fldName state.options (either id id state.targetName) TargetTyped
+      , Rd.fldName (D.shouldCompress state) state.options (either id id state.targetName) TargetTyped
       , options state
       , message state
       ]
@@ -72,9 +72,6 @@ resField state =
         ]
     ]
 
-compressed ∷ State → Boolean
-compressed state = not isFile state.source || state.compress
-
 chkCompress ∷ State → H.ComponentHTML Query
 chkCompress state =
   HH.div
@@ -84,7 +81,7 @@ chkCompress state =
       , HH.input
           [ HP.type_ HP.InputCheckbox
           , HP.enabled $ isFile state.source
-          , HP.checked $ compressed state
+          , HP.checked $ D.shouldCompress state
           , HE.onValueChange (HE.input_ ToggleCompress)
           ]
       ]
@@ -137,7 +134,7 @@ btnDownload state =
       $ append state.authHeaders
       $ D.toHeaders state
       $ Just
-      $ either id id state.targetName <> D.extension false state.options
+      $ either id id state.targetName <> D.extension (D.shouldCompress state) state.options
 
     url =
       (encodeURI $ printPath Config.data_ ⊕ resourcePath state.source)

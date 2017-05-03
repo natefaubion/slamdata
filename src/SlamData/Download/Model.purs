@@ -24,6 +24,7 @@ import Data.MediaType (MediaType(..))
 import Data.String as Str
 import Data.String.Regex as Rx
 import Data.String.Regex.Flags as RXF
+import SlamData.FileSystem.Resource (Resource, isFile)
 
 import Global as Global
 
@@ -189,6 +190,9 @@ instance decodeJsonPrecision :: DecodeJson PrecisionMode where
       "Readable" -> pure Readable
       "Precise" -> pure Precise
       _ -> Left "Incorrect Precision"
+
+shouldCompress ∷ ∀ r. { source ∷ Resource, compress ∷ Boolean | r } → Boolean
+shouldCompress state = not isFile state.source || state.compress
 
 extension :: Boolean -> Either CSVOptions JSONOptions -> String
 extension compress options
