@@ -36,6 +36,7 @@ import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor as DJ
 import SlamData.Workspace.Card.Setups.Package.DSL as T
 import SlamData.Workspace.Card.Setups.Inputs as I
 import SlamData.Workspace.Card.Setups.Transform as Tr
+import Utils (showJCursorTip)
 
 type HTML = H.ParentHTML Q.Query CS.ChildQuery CS.ChildSlot Slam
 type DSL = H.ParentDSL ST.State Q.Query CS.ChildQuery CS.ChildSlot Q.Message Slam
@@ -72,8 +73,8 @@ renderSelection pack state = case state ^. ST._selected of
     let
       conf =
         { title: ST.chooseLabel pf
-        , label: DPC.labelNode DJ.showJCursorTip
-        , render: DPC.renderNode DJ.showJCursorTip
+        , label: DPC.labelNode showJCursorTip
+        , render: DPC.renderNode showJCursorTip
         , values: DJ.groupJCursors $ ST.selectedCursors pack state
         , isSelectable: DPC.isLeafPath
         }

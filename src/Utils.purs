@@ -131,6 +131,14 @@ showPrettyJCursor = go ""
   printIndex i =
     "[" <> show i <> "]"
 
+showJCursorTip ∷ J.JCursor → String
+showJCursorTip = case _ of
+  J.JCursorTop → "*"
+  J.JField i J.JCursorTop → i
+  J.JIndex i J.JCursorTop → "*[" <> show i <> "]"
+  J.JField i cur → showJCursorTip cur
+  J.JIndex i cur → showJCursorTip cur
+
 foreign import prettyJson ∷ J.Json → String
 
 foreign import isFirefox ∷ Boolean

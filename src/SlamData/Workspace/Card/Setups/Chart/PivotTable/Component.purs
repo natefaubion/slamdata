@@ -41,7 +41,7 @@ import SlamData.Workspace.Card.Setups.ActionSelect.Component as AS
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
 import SlamData.Workspace.Card.Setups.DimensionPicker.Column (flattenColumns, showColumn)
-import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (flattenJCursors, showJCursor, showJCursorTip)
+import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (flattenJCursors)
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.ChildSlot as PCS
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.Query (Query(..), ForDimension(..))
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.State as PS
@@ -57,6 +57,7 @@ import SlamData.Workspace.Card.Eval.State (_Axes)
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.LevelOfDetails (LevelOfDetails(..))
 
+import Utils (showPrettyJCursor, showJCursorTip)
 import Utils.Lens as UL
 
 type DSL = CC.InnerCardParentDSL PS.State Query PCS.ChildQuery PCS.ChildSlot
@@ -167,8 +168,8 @@ render st =
               { configurable: true
               , dimension
               , showLabel: absurd
-              , showDefaultLabel: showJCursor
-              , showValue: showJCursor
+              , showDefaultLabel: showPrettyJCursor
+              , showValue: showPrettyJCursor
               , onLabelChange: HE.input (\l → right ∘ ChangeLabel (ForGroupBy slot) l)
               , onDismiss: HE.input_ (right ∘ Remove (ForGroupBy slot))
               , onConfigure: HE.input_ (right ∘ Configure (ForGroupBy slot))
@@ -241,8 +242,8 @@ render st =
               { configurable: true
               , dimension
               , showLabel: absurd
-              , showDefaultLabel: showColumn showJCursor
-              , showValue: showColumn showJCursor
+              , showDefaultLabel: showColumn showPrettyJCursor
+              , showValue: showColumn showPrettyJCursor
               , onLabelChange: HE.input (\l → right ∘ ChangeLabel (ForColumn slot) l)
               , onDismiss: HE.input_ (right ∘ Remove (ForColumn slot))
               , onConfigure: HE.input_ (right ∘ Configure (ForColumn slot))

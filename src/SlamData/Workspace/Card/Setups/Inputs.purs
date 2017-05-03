@@ -34,10 +34,10 @@ import SlamData.Form.Select (Select(..), stringVal, class OptionVal)
 import SlamData.Render.Icon as I
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
-import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (groupJCursors, showJCursorTip)
+import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (groupJCursors)
 import SlamData.Workspace.Card.Setups.Transform as T
 
-import Utils (showPrettyJCursor)
+import Utils (showPrettyJCursor, showJCursorTip)
 import Utils.DOM as DOM
 
 type Select' a = Boolean × Select a
