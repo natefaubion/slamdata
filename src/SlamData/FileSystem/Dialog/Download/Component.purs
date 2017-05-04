@@ -67,16 +67,12 @@ eval = case _ of
   ModifyJSONOpts fn next → do
     H.modify $ validate ∘ (_options ∘ _Right %~ fn)
     pure next
-  NewTab url ev next → do
-    H.liftEff do
-      DOM.preventDefault ev
-      newTab url
+  PreventDefaultAndNewTab url ev next → do
+    H.liftEff $ DOM.preventDefault ev
+    H.liftEff $ newTab url
     pure next
   RaiseDismiss next → do
     H.raise Dismiss
     pure next
   SetAuthHeaders as next → do
     H.modify (_ { authHeaders = as }) $> next
-  PreventDefault ev next → do
-    H.liftEff $ DOM.preventDefault ev
-    pure next

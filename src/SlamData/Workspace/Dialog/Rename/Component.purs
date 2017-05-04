@@ -32,8 +32,7 @@ type State = { name ∷ String }
 
 data Query a
   = UpdateName String a
-  | PreventDefault DOM.Event a
-  | Save a
+  | PreventDefaultAndSave DOM.Event a
   | Cancel a
 
 data Message
@@ -51,25 +50,26 @@ component =
 
 render ∷ State → H.ComponentHTML Query
 render { name } =
-  HH.div [ HP.classes [ HH.ClassName "deck-dialog-rename" ] ]
+  HH.form
+    [ HP.classes [ HH.ClassName "deck-dialog-rename" ]
+    , HE.onSubmit (HE.input PreventDefaultAndSave)
+    ]
     [ HH.h4_ [ HH.text  "Rename deck" ]
-    , HH.div [ HP.classes [ HH.ClassName "deck-dialog-body" ] ]
-        [ HH.form
-          [ HE.onSubmit (HE.input PreventDefault) ]
-          [ HH.div
-              [ HP.classes [ B.formGroup ]
-              ]
-              [ HH.input
-                  [ HE.onValueInput (HE.input UpdateName)
-                  , HP.value name
-                  , HP.type_ HP.InputText
-                  , HP.classes [ B.formControl ]
-                  , ARIA.label "Deck name"
-                  ]
-              ]
-          ]
+    , HH.div
+        [ HP.classes [ HH.ClassName "deck-dialog-body" ] ]
+        [ HH.div
+            [ HP.classes [ B.formGroup ] ]
+            [ HH.input
+                [ HE.onValueInput (HE.input UpdateName)
+                , HP.value name
+                , HP.type_ HP.InputText
+                , HP.classes [ B.formControl ]
+                , ARIA.label "Deck name"
+                ]
+            ]
         ]
-    , HH.div [ HP.classes [ HH.ClassName "deck-dialog-footer" ] ]
+    , HH.div
+        [ HP.classes [ HH.ClassName "deck-dialog-footer" ] ]
         [ HH.button
             [ HP.classes [ B.btn, B.btnDefault ]
             , HE.onClick (HE.input_ Cancel)
@@ -77,12 +77,8 @@ render { name } =
             ]
             [ HH.text "Dismiss" ]
         , HH.button
-            [ HP.classes [ B.btn, B.btnPrimary ]
-            , HE.onClick (HE.input_ Save)
-            , HP.type_ HP.ButtonButton
-            ]
-            [ HH.text "Save"
-            ]
+            [ HP.classes [ B.btn, B.btnPrimary ] ]
+            [ HH.text "Save" ]
         ]
     ]
 
@@ -90,9 +86,8 @@ eval ∷ Query ~> H.ComponentDSL State Query Message Slam
 eval = case _ of
   UpdateName name next →
     H.modify _ { name = name } $> next
-  PreventDefault ev next →
-    H.liftEff (DOM.preventDefault ev) $> next
-  Save next → do
+  PreventDefaultAndSave ev next → do
+    H.liftEff (DOM.preventDefault ev)
     H.raise ∘ Rename =<< H.gets _.name
     pure next
   Cancel next →

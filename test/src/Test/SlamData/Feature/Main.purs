@@ -29,6 +29,7 @@ import Node.Process as Process
 import Node.Rimraf (rimraf)
 import Node.Stream (Readable, Duplex, pipe, onClose)
 
+import Quasar.Spawn.Util.Process (spawnQuasar, spawnQuasarInit)
 import Quasar.Spawn.Util.Starter (expectStdOut, starter)
 
 import Selenium (quit)
@@ -165,14 +166,6 @@ mongoArgs config =
   , "--dbpath", "tmp/data"
   ]
 
-quasarArgs ∷ Config → Array String
-quasarArgs config =
-  [ "-jar", resolve [config.quasar.jar] ""
-  , "-c", resolve ["tmp", config.quasar.config] ""
-  , "-C", resolve ["public"] ""
-  , "-L", "/slamdata"
-  ]
-
 mongoConnectionString ∷ Config → String
 mongoConnectionString config =
   "mongodb://"
@@ -216,6 +209,10 @@ main = do
       "test/quasar-config.json"
       "tmp/test/quasar-config.json"
 
+    spawnQuasarInit
+      (resolve ["tmp", rawConfig.quasar.config] "")
+      (resolve [rawConfig.quasar.jar] "")
+
     mongo ←
       startProc
         "MongoDB"
@@ -225,11 +222,10 @@ main = do
     liftEff $ modifyRef procs (Arr.cons mongo)
 
     quasar ←
-      startProc
-        "Quasar"
-        "java"
-        (quasarArgs rawConfig)
-        (expectStdOut "Server started listening on port")
+      spawnQuasar
+        (resolve ["tmp", rawConfig.quasar.config] "")
+        (resolve [rawConfig.quasar.jar] "")
+        ("-C " <> resolve ["public"] "")
     liftEff $ modifyRef procs (Arr.cons quasar)
 
     log $ gray "Restoring database"

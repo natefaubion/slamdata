@@ -28,8 +28,7 @@ data Query a
   = ModifyState (State -> State) a
   | SelectScheme (Maybe Scheme) a
   | RaiseDismiss a
-  | NotifySave a
   | Save (Maybe Mount -> a)
-  | PreventDefault Event a
+  | PreventDefaultAndNotifySave Event a
   | Validate a
   | RaiseMountDelete a

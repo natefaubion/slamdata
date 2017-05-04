@@ -113,7 +113,6 @@ initialState sharingInput =
 
 data Query a
   = Init a
-  | Share a
   | ChangeGroup String a
   | ChangeEmail String a
   | ChangeShareResume ShareResume a
@@ -121,6 +120,7 @@ data Query a
   | ChangeTokenName String a
   | DismissError a
   | SelectElement DOM.Event a
+  | PreventDefaultAndShare DOM.Event a
   | PreventDefault DOM.Event a
   | Cancel a
 
@@ -142,8 +142,10 @@ component =
 
 render ∷ State → HTML
 render state =
-  HH.div
-    [ HP.classes [ HH.ClassName "deck-dialog-share" ] ]
+  HH.form
+    [ HP.classes [ HH.ClassName "deck-dialog-share" ]
+    , HE.onSubmit (HE.input PreventDefaultAndShare)
+    ]
     ( renderTitle
     ⊕ renderBody
     ⊕ renderFooter
@@ -226,13 +228,11 @@ render state =
         _ -> false
     in
       [ HH.fieldset [ HP.disabled (isFatalError state.error) ] c ]
-
+      
   renderSubjectForm ∷ Array HTML
   renderSubjectForm =
-    [ HH.form
-        [ HE.onSubmit (HE.input PreventDefault)
-        , HP.classes $ guard (isJust state.tokenSecret ∨ state.loading) $> B.hidden
-        ]
+    [ HH.div
+        [ HP.classes $ guard (isJust state.tokenSecret ∨ state.loading) $> B.hidden ]
         [ HH.label_
             [ HH.text "Subject type"
             , HH.select
@@ -367,8 +367,6 @@ render state =
             $ [ B.btn, B.btnPrimary ]
             ⊕ (guard state.loading $> B.hidden)
             ⊕ (guard (isJust state.error && state.showError) $> B.hasError)
-        , HP.type_ HP.ButtonButton
-        , HE.onClick (HE.input_ Share)
         , HP.disabled $
             state.submitting
             ∨ ((state.email ≡ "" ∨ state.error ≡ Just Validation)
@@ -398,7 +396,10 @@ eval = case _ of
           , loading = false
           }
     pure next
-  Share next → do
+  PreventDefault ev next ->
+     H.liftEff (DOM.preventDefault ev) $> next
+  PreventDefaultAndShare ev next → do
+    H.liftEff (DOM.preventDefault ev)
     H.modify _
       { error = Nothing
       , showError = false
@@ -450,8 +451,6 @@ eval = case _ of
       # runExcept
       # traverse_ select
     pure next
-  PreventDefault ev next →
-    H.liftEff (DOM.preventDefault ev) $> next
   Cancel next →
     H.raise Dismiss $> next
 
