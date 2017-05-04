@@ -103,6 +103,7 @@ import SlamData.Wiring as Wiring
 import SlamData.Workspace.Action (Action(..), AccessType(..))
 import SlamData.Workspace.Routing (mkWorkspaceURL)
 
+import Utils (finally)
 import Utils.DOM as D
 import Utils.Path (DirPath, getNameStr)
 
@@ -263,9 +264,9 @@ eval = case _ of
         dirRes = R.Directory dirPath
         dirItem = PhantomItem dirRes
         hiddenFile = dirPath </> file (Config.folderMark)
+        cleanupItem = void $ H.lift $ H.query' CS.cpListing unit $ H.action $ Listing.Filter (_ ≠ dirItem)
       _ ← H.lift $ H.query' CS.cpListing unit $ H.action $ Listing.Add dirItem
-      ExceptT $ API.save hiddenFile jsonEmptyObject
-      _ ← H.lift $ H.query' CS.cpListing unit $ H.action $ Listing.Filter (_ ≠ dirItem)
+      finally cleanupItem $ ExceptT $ API.save hiddenFile jsonEmptyObject
       pure dirRes
     case result of
       Left err → case GE.fromQError err of

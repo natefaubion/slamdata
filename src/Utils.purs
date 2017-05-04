@@ -142,3 +142,6 @@ showJCursorTip = case _ of
 foreign import prettyJson ∷ J.Json → String
 
 foreign import isFirefox ∷ Boolean
+
+finally ∷ ∀ m e a. MonadError e m ⇒ m Unit → m a → m a
+finally handler action = catchError (action <* handler) \e → handler *> throwError e
