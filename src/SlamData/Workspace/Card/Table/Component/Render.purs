@@ -18,6 +18,7 @@ module SlamData.Workspace.Card.Table.Component.Render (HTML, render) where
 
 import SlamData.Prelude
 
+import Data.Argonaut.JCursor (runJsonPrim)
 import Data.Array as A
 import Data.Char (fromCharCode)
 import Data.Int as Int
@@ -34,6 +35,8 @@ import SlamData.Render.Icon as I
 import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Table.Component.Query (PageStep(..), Query(..))
 import SlamData.Workspace.Card.Table.Component.State (State, currentPageInfo)
+
+import Utils (showPrettyNumber)
 
 type HTML = CC.InnerCardHTML Query
 
@@ -79,9 +82,12 @@ render st =
      ]
 jTableOpts ∷ JT.JTableOpts
 jTableOpts = JT.jTableOptsDefault
-  { style = JT.noStyle
+  { style = JT.noStyle renderJson
   , columnOrdering = JT.alphaOrdering
   }
+  where
+  renderJson j =
+    runJsonPrim j (const "") show showPrettyNumber id
 
 prevButtons ∷ Boolean → HTML
 prevButtons enabled =

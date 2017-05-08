@@ -41,7 +41,7 @@
     "purescript-halogen-menu": "5.0.0",
     "purescript-halogen-vdom-string-renderer": "^0.2.0",
     "purescript-js-timers": "^3.0.0",
-    "purescript-jtable": "^5.1.0",
+    "purescript-jtable": "^6.0.0",
     "purescript-maps": "^3.0.0",
     "purescript-markdown": "^10.0.0",
     "purescript-markdown-halogen": "^6.0.0",
