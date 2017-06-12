@@ -21,19 +21,15 @@ module SlamData.Workspace.Card.Open.Eval
 import SlamData.Prelude
 
 import Control.Monad.Writer.Class (class MonadTell)
-import Data.Functor.Mu (Mu)
-import Data.Json.Extended as EJ
-import Data.Lens ((^?), (?~), (.~))
-import Data.List as L
+import Data.Lens ((^?), (?~))
 import Data.Path.Pathy as Path
-import Data.StrMap as SM
-import Matryoshka as M
 import SlamData.FileSystem.Resource as R
 import SlamData.Quasar.Class (class QuasarDSL)
 import SlamData.Quasar.FS as QFS
 import SlamData.Quasar.Query as QQ
 import SlamData.Workspace.Card.Error as CE
 import SlamData.Workspace.Card.Eval.Monad as CEM
+import SlamData.Workspace.Card.Eval.Process as Process
 import SlamData.Workspace.Card.Open.Model as Open
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Port.VarMap as VM
@@ -47,7 +43,7 @@ evalOpen
   ⇒ MonadAsk CEM.CardEnv m
   ⇒ QuasarDSL m
   ⇒ Open.Model
-  → Port.DataMap
+  → Port.VarMap
   → m Port.Out
 evalOpen model varMap = case model of
   Nothing → CE.throwOpenError CE.OpenNoResourceSelected
@@ -56,51 +52,25 @@ evalOpen model varMap = case model of
     checkPath filePath >>= case _ of
       Nothing → do
         CEM.addSource filePath
-        pure (Port.resourceOut (Port.Path filePath))
+        CEM.resourceOut (Port.Path filePath)
       Just err → CE.throwOpenError err
   Just (Open.Variable (VM.Var var)) → do
-    tmpPath × res ← CEM.temporaryOutputResource
+    CEM.CardEnv { cardId } ← ask
     let
-      sql =
-        case SM.lookup var varMap of
-          Just (Right v) → do
-            -- If the var is an ident, use `SELECT * FROM :ident`
-            -- If the var is an literal, use `SELECT :literal AS literal`
-            -- If the var is any other expr, use it directly
-            case unwrapParens (unwrap v) of
-              Sql.Ident _ →
-                Sql.buildSelect
-                  $ all
-                  ∘ (Sql._relations ?~ Sql.VariRelation { vari: var, alias: Nothing })
-              Sql.Literal _ →
-                selectVarAsVar var v
-              Sql.SetLiteral _ →
-                selectVarAsVar var v
-              _ →
-                unwrap v
-          _ →
-            -- This case should be impossible - if we selected a var in the
-            -- card, the var should exist during eval
-            Sql.set L.Nil
-      varMap' =
-        map (Sql.print ∘ unwrap) $ Port.flattenResources varMap
-      backendPath =
-        fromMaybe Path.rootDir $ Path.parentDir tmpPath
-    CE.liftQ $ QQ.viewQuery tmpPath (Sql.Query mempty sql) varMap'
-    pure $ Port.resourceOut $ Port.View res (Sql.Query mempty sql) varMap
+      body =
+        Sql.buildSelect
+          $ all
+          ∘ (Sql._relations ?~ Sql.VariRelation { vari: var, alias: Nothing })
+      sqlQuery = Sql.Query mempty body
+      Path.FileName fileName × sqlResult = Process.elaborate cardId varMap sqlQuery
+    case sqlResult of
+      Right sqlModule → do
+        tmpPath × res ← CEM.temporaryOutputModule
+        CE.liftQ $ QQ.mountModule tmpPath sqlModule
+        CEM.resourceOut $ Port.Process (res Path.</> Path.file fileName) sqlModule varMap
+      Left sql →
+        throwError $ CE.StringlyTypedError "Invariant violation: SQL Module"
 
   where
-
-  selectVarAsVar ∷ String → VM.VarMapValue → Sql.Sql
-  selectVarAsVar var v =
-    Sql.buildSelect
-      $ Sql._projections .~ pure (Sql.projection (unwrap v) # Sql.as var)
-
-  unwrapParens ∷ Sql.Sql → Sql.SqlF EJ.EJsonF (Mu (Sql.SqlF EJ.EJsonF))
-  unwrapParens expr =
-    case M.project expr of
-      Sql.Parens expr' → unwrapParens expr'
-      expr' → expr'
-
   checkPath filePath =
     CE.liftQ $ QFS.messageIfFileNotFound filePath $ CE.OpenFileNotFound (Path.printPath filePath)

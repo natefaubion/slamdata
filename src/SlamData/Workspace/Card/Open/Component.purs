@@ -51,7 +51,6 @@ import SlamData.Workspace.Card.Open.Component.Query as Q
 import SlamData.Workspace.Card.Open.Component.State (State, initialState)
 import SlamData.Workspace.Card.Open.Item (AnyItem(..), AnyItem', AnyPath', anyItemToOpen)
 import SlamData.Workspace.Card.Open.Model as Open
-import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.LevelOfDetails as LOD
 import SlamData.Workspace.MillerColumns.BasicItem.Component as MCI
@@ -180,7 +179,7 @@ evalCard = case _ of
   CC.Load _ next →
     pure next
   CC.ReceiveInput _ varMap next → do
-    let vars = VM.variables $ Port.flattenResources varMap
+    let vars = VM.variables varMap
     selection ← CMS.state \st -> st.selection × (st { currentVars = vars })
     -- We need to reload the variables column in response to a new varMap,
     -- but only if it might be visible.

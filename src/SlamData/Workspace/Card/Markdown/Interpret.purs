@@ -28,6 +28,7 @@ import Matryoshka (embed, project)
 
 import SqlSquared as Sql
 
+import SlamData.Workspace.Card.Markdown.Model as Model
 import SlamData.Workspace.Card.Port.VarMap as VM
 
 import Text.Markdown.SlamDown as SD
@@ -48,10 +49,10 @@ getLiteral
   ∷ ∀ m
   . Plus m
   ⇒ Applicative m
-  ⇒ VM.VarMapValue
+  ⇒ Model.MarkdownExpr
   → m Sql.Sql
-getLiteral (VM.VarMapValue s) = project s # case _ of
-  Sql.Literal e → pure s
+getLiteral = case _ of
+  Model.MarkdownExpr sql | Sql.Literal _ ← project sql → pure sql
   _ → empty
 
 formFieldEmptyValue
@@ -59,7 +60,7 @@ formFieldEmptyValue
   . SD.FormFieldP f a
   → VM.VarMapValue
 formFieldEmptyValue field =
-  VM.VarMapValue case field of
+  VM.Expr case field of
     SD.TextBox tb →
       case tb of
         SD.PlainText _ → Sql.string ""
@@ -74,10 +75,10 @@ formFieldEmptyValue field =
 formFieldValueToVarMapValue
   ∷ ∀ m
   . Monad m
-  ⇒ SDS.FormFieldValue VM.VarMapValue
+  ⇒ SDS.FormFieldValue Model.MarkdownExpr
   → m (M.Maybe VM.VarMapValue)
 formFieldValueToVarMapValue v = runMaybeT case v of
-  SD.TextBox tb → map VM.VarMapValue do
+  SD.TextBox tb → map VM.Expr do
     tb' ←
       liftMaybe $ SD.traverseTextBox unwrap tb
     case tb' of
@@ -102,13 +103,13 @@ formFieldValueToVarMapValue v = runMaybeT case v of
           Sql.invokeFunction "TIMESTAMP" $ pure $ Sql.string s
   SD.CheckBoxes (Identity sel) _ →
       pure
-      $ VM.VarMapValue
+      $ VM.Expr
       $ embed
       $ Sql.SetLiteral
       $ L.mapMaybe (getLiteral) sel
   SD.RadioButtons (Identity x) _ →
-    map VM.VarMapValue $ getLiteral x
-  SD.DropDown mx _ → map VM.VarMapValue do
+    map VM.Expr $ getLiteral x
+  SD.DropDown mx _ → map VM.Expr do
     Identity x ← liftMaybe mx
     getLiteral x
 

@@ -64,7 +64,6 @@ evalSearch queryText resource = do
   tmpPath × outputResource ← CEM.temporaryOutputResource
 
   let
-    -- TODO: handle relative
     sql = Sql.Query mempty $ Search.queryToSql fields query filePath
     backendPath = fromMaybe Path.rootDir $ Path.parentDir filePath
 
@@ -83,4 +82,4 @@ evalSearch queryText resource = do
       tmpPath
       "Error making search temporary resource"
 
-  pure $ Port.resourceOut $ Port.View outputResource sql SM.empty
+  CEM.resourceOut $ Port.View outputResource sql SM.empty

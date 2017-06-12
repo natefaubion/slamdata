@@ -84,7 +84,7 @@ runCard
   → CEM.CardState
   → Eval
   → Port.Port
-  → Port.DataMap
+  → Port.VarMap
   → m (CEM.CardResult CE.CardError Port.Out)
 runCard env state trans input varMap =
   CEM.runCardEvalM env state (evalCard trans input varMap ∷ CEM.CardEval CE.CardError Port.Out)
@@ -100,7 +100,7 @@ evalCard
   ⇒ ParQuasarDSL m
   ⇒ Eval
   → Port.Port
-  → Port.DataMap
+  → Port.VarMap
   → m Port.Out
 evalCard trans port varMap = map (_ `SM.union` varMap) <$> case trans, port of
   Error msg, _ → CE.throw msg
@@ -199,14 +199,14 @@ modelToEval = case _ of
   _ → Pass
 
 -- TODO(Christoph): Get rid of this monstrosity of an error message
-extractResourceVar ∷ ∀ m. MonadThrow CE.CardError m ⇒ Port.DataMap → m (String × Port.Resource)
+extractResourceVar ∷ ∀ m. MonadThrow CE.CardError m ⇒ Port.VarMap → m (String × Port.Resource)
 extractResourceVar dm = case SM.toUnfoldable (Port.filterResources dm) of
   _ : _ : _ → CE.throw "Multiple resources selected"
   r : _ → pure r
   _ → CE.throw "No resource selected"
 
-extractResource ∷ ∀ m. MonadThrow CE.CardError m ⇒ Port.DataMap → m (Port.Resource)
+extractResource ∷ ∀ m. MonadThrow CE.CardError m ⇒ Port.VarMap → m (Port.Resource)
 extractResource = map snd ∘ extractResourceVar
 
-tapResource ∷ ∀ m. MonadThrow CE.CardError m ⇒ (Port.Resource → m Port.Port) → Port.DataMap → m Port.Out
+tapResource ∷ ∀ m. MonadThrow CE.CardError m ⇒ (Port.Resource → m Port.Port) → Port.VarMap → m Port.Out
 tapResource f dm = map (_ × dm) (f =<< extractResource dm)

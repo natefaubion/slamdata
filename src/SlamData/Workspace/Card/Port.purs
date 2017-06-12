@@ -16,8 +16,6 @@ limitations under the License.
 
 module SlamData.Workspace.Card.Port
   ( Port(..)
-  , Resource(..)
-  , DataMap
   , Out
   , DownloadPort
   , MetricPort
@@ -30,13 +28,10 @@ module SlamData.Workspace.Card.Port
   , terminalOut
   , varMapOut
   , resourceOut
-  , portOut
   , defaultResourceVar
   , filterResources
   , extractResource
   , extractAnyFilePath
-  , flattenResources
-  , resourceToVarMapValue
   , _Initial
   , _Terminal
   , _Variables
@@ -45,8 +40,6 @@ module SlamData.Workspace.Card.Port
   , _Metric
   , _ChartInstructions
   , _PivotTable
-  , _absFilePath
-  , _relFilePath
   , filePath
   , module SlamData.Workspace.Card.Port.VarMap
   ) where
@@ -56,6 +49,7 @@ import SlamData.Prelude
 import Data.Argonaut (JCursor, Json)
 import Data.Lens (Prism', prism', Traversal', wander)
 import Data.List as List
+import Data.List.NonEmpty as NL
 import Data.Map as Map
 import Data.Set as Set
 import Data.StrMap as SM
@@ -64,28 +58,20 @@ import ECharts.Monad (DSL)
 import ECharts.Types.Phantom (OptionI)
 
 import SlamData.Download.Model (DownloadOptions)
+import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.Error as CE
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
 import SlamData.Workspace.Card.Setups.Semantics as Sem
 import SlamData.Workspace.Card.CardType.ChartType (ChartType)
 import SlamData.Workspace.Card.CardType.FormInputType (FormInputType)
-import SlamData.Workspace.Card.Port.VarMap (VarMap, URLVarMap, VarMapValue(..), emptyVarMap, _VarMapValue)
-
-import SqlSquared as Sql
+import SlamData.Workspace.Card.Markdown.Model as MD
+import SlamData.Workspace.Card.Port.VarMap (VarMap, URLVarMap, VarMapValue(..), Resource(..))
+import SlamData.Workspace.Card.Port.VarMap as VM
 
 import Text.Markdown.SlamDown as SD
 import Utils.Path as PU
 
-data Resource
-  = Path PU.FilePath
-  | View PU.RelFilePath Sql.SqlQuery DataMap
-  | Process PU.RelFilePath Sql.SqlModule DataMap
-
-derive instance eqResource ∷ Eq Resource
-
-type DataMap = SM.StrMap (Either Resource VarMapValue)
-
-type Out = Port × DataMap
+type Out = Port × VarMap
 
 type DownloadPort =
   { resource ∷ PU.AnyFilePath
@@ -132,7 +118,7 @@ data Port
   | ResourceKey String
   | SetupLabeledFormInput SetupLabeledFormInputPort
   | SetupTextLikeFormInput SetupTextLikeFormInputPort
-  | SlamDown (SD.SlamDownP VarMapValue)
+  | SlamDown (SD.SlamDownP MD.MarkdownExpr)
   | ChartInstructions ChartInstructionsPort
   | DownloadOptions DownloadPort
   | ValueMetric MetricPort
@@ -148,34 +134,24 @@ tagPort  = case _ of
   ResourceKey str → "ResourceKey: " ⊕ show str
   SetupLabeledFormInput _ → "SetupLabeledFormInput"
   SetupTextLikeFormInput _ → "SetupTextLikeFormInput"
-  SlamDown sd → "SlamDown: " ⊕ show sd
+  SlamDown sd → "SlamDown"
   ChartInstructions _ → "ChartInstructions"
   DownloadOptions _ → "DownloadOptions"
   ValueMetric _ → "ValueMetric"
   CategoricalMetric _ → "CategoricalMetric"
   PivotTable _ → "PivotTable"
 
-filterResources ∷ DataMap → SM.StrMap Resource
+filterResources ∷ VarMap → SM.StrMap Resource
 filterResources = SM.fold go SM.empty
   where
-    go m key (Left res) = SM.insert key res m
+    go m key scope | Resource res ← snd (NL.head scope) = SM.insert key res m
     go m _ _ = m
 
-extractResource ∷ DataMap → Maybe Resource
+extractResource ∷ VarMap → Maybe Resource
 extractResource = map snd ∘ List.head ∘ SM.toUnfoldable ∘ filterResources
 
-extractAnyFilePath ∷ DataMap → Maybe PU.AnyFilePath
+extractAnyFilePath ∷ VarMap → Maybe PU.AnyFilePath
 extractAnyFilePath = map filePath ∘ extractResource
-
-flattenResources ∷ DataMap → VarMap
-flattenResources = map go
-  where
-    go (Left val) = resourceToVarMapValue val
-    go (Right val) = val
-
-resourceToVarMapValue ∷ Resource → VarMapValue
-resourceToVarMapValue r =
-  VarMapValue $ Sql.ident $ PU.printAnyFilePath $ filePath r
 
 defaultResourceVar ∷ String
 defaultResourceVar = "results"
@@ -186,14 +162,11 @@ emptyOut = Initial × SM.empty
 terminalOut ∷ Out
 terminalOut = Terminal × SM.empty
 
-varMapOut ∷ DataMap → Out
+varMapOut ∷ VarMap → Out
 varMapOut v = Variables × v
 
-resourceOut ∷ Resource → Out
-resourceOut r = ResourceKey defaultResourceVar × SM.singleton defaultResourceVar (Left r)
-
-portOut ∷ Port → Out
-portOut p = p × SM.empty
+resourceOut ∷ CID.CardId → Resource → VarMap → Out
+resourceOut cid r vm = ResourceKey defaultResourceVar × VM.insert cid (VM.Var defaultResourceVar) (Resource r) vm
 
 _Initial ∷ Prism' Port Unit
 _Initial = prism' (const Initial) case _ of
@@ -210,7 +183,7 @@ _Variables = prism' (const Variables) case _ of
   Variables → Just unit
   _ → Nothing
 
-_SlamDown ∷ Traversal' Port (SD.SlamDownP VarMapValue)
+_SlamDown ∷ Traversal' Port (SD.SlamDownP MD.MarkdownExpr)
 _SlamDown = wander \f s → case s of
   SlamDown sd → SlamDown <$> f sd
   _ → pure s
@@ -235,17 +208,6 @@ _PivotTable ∷ Prism' Port PivotTablePort
 _PivotTable = prism' PivotTable case _ of
   PivotTable u → Just u
   _ → Nothing
-
-_absFilePath ∷ Traversal' Resource PU.FilePath
-_absFilePath = wander \f s → case s of
-  Path fp → Path <$> f fp
-  _ → pure s
-
-_relFilePath ∷ Traversal' Resource PU.RelFilePath
-_relFilePath = wander \f s → case s of
-  View fp a b → (\fp' → View fp' a b) <$> f fp
-  Process fp a b → (\fp' → Process fp' a b) <$> f fp
-  _ → pure s
 
 filePath ∷ Resource → Either PU.FilePath PU.RelFilePath
 filePath = case _ of

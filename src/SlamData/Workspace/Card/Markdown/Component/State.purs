@@ -21,6 +21,7 @@ import Control.Monad.Eff.Class (class MonadEff)
 import SlamData.Prelude
 import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Markdown.Interpret as MDI
+import SlamData.Workspace.Card.Markdown.Model as Model
 import Text.Markdown.SlamDown.Halogen.Component.State as SDS
 
 import Data.BrowserFeatures (BrowserFeatures)
@@ -31,7 +32,7 @@ import Text.Markdown.SlamDown.Halogen.Component as SDH
 
 type State =
   { browserFeatures ∷ Maybe BrowserFeatures
-  , state ∷ SDS.SlamDownFormState VM.VarMapValue
+  , state ∷ SDS.SlamDownFormState Model.MarkdownExpr
   }
 
 initialState ∷ State
@@ -44,9 +45,9 @@ formStateToVarMap
   ∷ ∀ m e
   . MonadEff (locale ∷ LOCALE | e) m
   ⇒ Applicative m
-  ⇒ SDH.SlamDownFormState VM.VarMapValue
-  → SDH.SlamDownFormState VM.VarMapValue
-  → m VM.VarMap
+  ⇒ SDH.SlamDownFormState Model.MarkdownExpr
+  → SDH.SlamDownFormState Model.MarkdownExpr
+  → m (SM.StrMap VM.VarMapValue)
 formStateToVarMap desc st =
   SM.foldM
     (\m k field → do
@@ -58,7 +59,7 @@ formStateToVarMap desc st =
   where
     valueForKey
       ∷ String
-      → SDH.FormFieldValue VM.VarMapValue
+      → SDH.FormFieldValue Model.MarkdownExpr
       → m VM.VarMapValue
     valueForKey k field =
       fromMaybe (MDI.formFieldEmptyValue field) <$>

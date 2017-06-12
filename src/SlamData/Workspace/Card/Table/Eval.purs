@@ -38,7 +38,7 @@ eval
   ⇒ QuasarDSL m
   ⇒ M.Model
   → Port.Port
-  → Port.DataMap
+  → Port.VarMap
   → m Port.Out
 eval model port varMap =
   Port.extractResource varMap

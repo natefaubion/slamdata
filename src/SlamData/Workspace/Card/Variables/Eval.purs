@@ -40,7 +40,7 @@ eval
 eval model = do
   CEM.CardEnv { cardId, urlVarMaps } ← ask
   varMap ← V.unV CE.throwVariablesError pure $ buildVarMap cardId urlVarMaps model
-  pure (Port.Variables × map Right varMap)
+  pure (Port.Variables × varMap)
 
 buildVarMap ∷ CardId → Map.Map CardId Port.URLVarMap → Model → V CE.VariablesError Port.VarMap
 buildVarMap cardId urlVarMaps model =
@@ -71,7 +71,7 @@ buildVarMap cardId urlVarMaps model =
         parseValue toError value =
           either
             (accumError ∘ toError name)
-            (\v → map (SM.insert (unwrap name) v) acc)
+            (\v → map (SM.insert (unwrap name) (pure $ cardId × v)) acc)
             -- TODO: sanitiseValueFromForm can be removed at some point in the
             -- future, but for now ommitting it may cause some glitches with
             -- existing workspaces (will start complaining about incorrect

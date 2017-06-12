@@ -81,12 +81,7 @@ eval sql r = do
   _ ← CE.liftQ do
     _ ← QQ.viewQuery tmpPath sql SM.empty
     QFS.messageIfFileNotFound tmpPath "Requested collection doesn't exist"
-  let
-    varMap =
-      SM.fromFoldable
-        [ Port.defaultResourceVar × Left (Port.View resource sql SM.empty)
-        ]
-  pure (Port.ResourceKey Port.defaultResourceVar × varMap)
+  CEM.resourceOut (Port.View resource sql SM.empty)
 
 evalLabeled
   ∷ ∀ m

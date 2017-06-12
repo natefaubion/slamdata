@@ -38,7 +38,7 @@ import Data.Json.Extended.Type as EJT
 import Data.Lens (preview)
 import Data.String as Str
 import SlamData.SqlSquared.Tagged as SqlT
-import SlamData.Workspace.Card.Port.VarMap as Port
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.FormBuilder.Item.FieldType (FieldType(..), _FieldTypeDisplayName, allFieldTypes, fieldTypeToInputType)
 import SqlSquared as Sql
 import Test.StrongCheck.Arbitrary as SC
@@ -130,9 +130,9 @@ sanitiseValueForForm ty s = case ty of
 defaultValueToVarMapValue
   ∷ FieldType
   → String
-  → Either SqlT.ParseError Port.VarMapValue
+  → Either SqlT.ParseError VM.VarMapValue
 defaultValueToVarMapValue ty str =
-  map Port.VarMapValue case ty of
+  map VM.Expr case ty of
     StringFieldType →
       pure $ Sql.string str
     DateTimeFieldType →

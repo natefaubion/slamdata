@@ -28,8 +28,12 @@ module SlamData.Workspace.Card.Eval.Monad
   , addCaches
   , additionalSources
   , temporaryOutputResource
+  , temporaryOutputModule
   , anyTemporaryPath
   , localUrlVarMap
+  , localVarMap
+  , localCardId
+  , resourceOut
   , runCardEvalM
   , module SlamData.Workspace.Card.Eval.State
   , module SlamData.Workspace.Deck.AdditionalSource
@@ -58,7 +62,7 @@ import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.Eval.State (EvalState(..))
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Deck.AdditionalSource (AdditionalSource(..))
-import Utils.Path (DirPath, AnyFilePath, FilePath, RelFilePath, tmpDir)
+import Utils.Path (DirPath, RelDirPath, AnyFilePath, FilePath, RelFilePath, tmpDir)
 
 type CardEval = CardEvalM SlamDataEffects
 
@@ -74,12 +78,13 @@ type CardResult err a =
 
 type ChildOut =
   { namespace ∷ String
-  , varMap ∷ Port.DataMap
+  , varMap ∷ Port.VarMap
   }
 
 newtype CardEnv = CardEnv
   { path ∷ DirPath
   , cardId ∷ CID.CardId
+  , varMap ∷ Port.VarMap
   , urlVarMaps ∷ Map.Map CID.CardId Port.URLVarMap
   , children ∷ List ChildOut
   }
@@ -159,6 +164,12 @@ temporaryOutputResource = do
   let res = Path.file ("out" ⊕ CID.toString cardId)
   pure $ path </> tmpDir </> res × Path.currentDir </> res
 
+temporaryOutputModule ∷ ∀ m. MonadAsk CardEnv m ⇒ m (DirPath × RelDirPath)
+temporaryOutputModule = do
+  CardEnv { cardId, path } ← ask
+  let res = Path.dir ("out" ⊕ CID.toString cardId)
+  pure $ path </> tmpDir </> res × Path.currentDir </> res
+
 anyTemporaryPath ∷ ∀ m. MonadAsk CardEnv m ⇒ AnyFilePath → m FilePath
 anyTemporaryPath = case _ of
   Left p → pure p
@@ -172,6 +183,21 @@ localUrlVarMap = do
   pure
     (fromMaybe mempty
       (Map.lookup cardId urlVarMaps))
+
+localVarMap ∷ ∀ m. MonadAsk CardEnv m ⇒ m Port.VarMap
+localVarMap = do
+  CardEnv { varMap } ← ask
+  pure varMap
+
+localCardId ∷ ∀ m. MonadAsk CardEnv m ⇒ m CID.CardId
+localCardId = do
+  CardEnv { cardId } ← ask
+  pure cardId
+
+resourceOut ∷ ∀ m. MonadAsk CardEnv m ⇒ Port.Resource → m Port.Out
+resourceOut res = do
+  CardEnv { cardId, varMap } ← ask
+  pure (Port.resourceOut cardId res varMap)
 
 runCardEvalM
   ∷ ∀ eff err f m a

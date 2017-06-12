@@ -28,7 +28,7 @@ import SlamData.Render.ClassName as CN
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Model as Card
-import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Troubleshoot.Component.Query (Query)
 import SlamData.Workspace.Card.Troubleshoot.Component.State (State, initialState)
 import SlamData.Workspace.LevelOfDetails as LOD
@@ -62,15 +62,18 @@ render { varMap } =
             , HH.th_ [ HH.text "Value" ]
             ]
         ]
-    , HH.tbody_ $ SM.foldMap renderItem varMap
+    , HH.tbody_ $ SM.foldMap renderItem (VM.snapshot varMap)
     ]
 
   where
-    renderItem ∷ String → Port.VarMapValue → Array HTML
+    renderItem ∷ String → VM.VarMapValue → Array HTML
     renderItem name val =
       [ HH.tr_
           [ HH.td_ [ HH.text name ]
-          , HH.td_ [ HH.code_ [ HH.text $ Sql.print $ unwrap val ] ]
+          , HH.td_ case val of
+              VM.Expr expr → [ HH.code_ [ HH.text $ Sql.print expr ] ]
+              -- TODO
+              _ → []
           ]
       ]
 
@@ -85,7 +88,7 @@ evalCard = case _ of
   CC.Load _ next →
     pure next
   CC.ReceiveInput _ varMap next → do
-    H.modify (_ { varMap = Port.flattenResources varMap })
+    H.modify _ { varMap = varMap }
     pure next
   CC.ReceiveOutput _ _ next →
     pure next

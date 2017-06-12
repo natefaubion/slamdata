@@ -49,6 +49,7 @@ import SlamData.Quasar.Query as QQ
 import SlamData.Workspace.Card.Error as CE
 import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Setups.Axis (Axes, buildAxes)
 import SqlSquared as Sql
 import Utils (hush')
@@ -104,7 +105,6 @@ chartSetupEval buildSql buildPort m resource = do
     Just r → do
       filePath ← CEM.anyTemporaryPath $ Port.filePath resource
       let
-        -- TODO: Handle relative
         backendPath = fromMaybe Path.rootDir $ Path.parentDir filePath
         sql = buildSql r filePath
 
@@ -119,10 +119,12 @@ chartSetupEval buildSql buildPort m resource = do
         QFS.messageIfFileNotFound
           tmpPath
           "Error making search temporary resource"
+      CEM.CardEnv { varMap, cardId } ← ask
       let
         view = Port.View outputResource (Sql.Query mempty sql) SM.empty
         port = buildPort r axes
-      pure (port × SM.singleton Port.defaultResourceVar (Left view))
+        varMap' = VM.insert cardId (VM.Var Port.defaultResourceVar) (VM.Resource view) varMap
+      pure (port × varMap')
 
 analyze
   ∷ ∀ m

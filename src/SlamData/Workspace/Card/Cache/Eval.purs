@@ -43,9 +43,8 @@ eval
   → Port.Resource
   → m Port.Out
 eval mfp resource =
-  Port.resourceOut <$> case mfp of
+  CEM.resourceOut =<< case mfp of
     Nothing → do
-      CEM.CardEnv env ← ask
       tmp ← fst <$> CEM.temporaryOutputResource
       eval' tmp resource
     Just pt →

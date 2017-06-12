@@ -109,7 +109,7 @@ runEvalLoop path decks cards tick urlVarMaps source = goInit
     evalCard history cardInput@(cardPort × varMap) cardId card children = do
       publish card $ Card.Pending source cardInput
       let
-        cardEnv = Card.CardEnv { path, cardId, urlVarMaps, children }
+        cardEnv = Card.CardEnv { path, cardId, urlVarMaps, children, varMap }
         cardTrans = Card.modelToEval card.model
 
       for_ card.decks \deckId → runMaybeT do
@@ -130,7 +130,7 @@ runEvalLoop path decks cards tick urlVarMaps source = goInit
         cardOutput =
           case result.output of
             Right out → out
-            Left err → Card.portOut (Card.CardError err)
+            Left err → Card.CardError err × varMap
         card' = card
           { pending = Nothing
           , output = Just cardOutput
