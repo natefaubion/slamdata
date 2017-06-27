@@ -57,7 +57,7 @@
     "purescript-rationals": "^3.1.1",
     "purescript-routing": "^5.1.0",
     "purescript-search": "^3.0.0",
-    "purescript-sqlsquare": "^0.4.1",
+    "purescript-sqlsquare": "^0.6.2",
     "purescript-these": "^3.0.0",
     "purescript-tuples": "^4.0.0",
     "purescript-type-equality": "^2.1.0",
