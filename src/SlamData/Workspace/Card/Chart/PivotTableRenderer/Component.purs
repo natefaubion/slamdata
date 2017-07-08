@@ -22,27 +22,24 @@ import Data.Argonaut as J
 import Data.Array as Array
 import Data.Int as Int
 import Data.Lens ((^.), (^?))
-
 import DOM.Event.Event (preventDefault)
 import DOM.Event.Types (Event)
-
+import Global (readFloat)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-
 import SlamData.Monad (Slam)
 import SlamData.Render.CSS.New as CSS
 import SlamData.Render.Icon as I
-import SlamData.Workspace.Card.Eval.State as ES
-import SlamData.Workspace.Card.Chart.PivotTableRenderer.Model as PTRM
 import SlamData.Workspace.Card.Chart.PivotTableRenderer.Common (PTree, foldTree, sizeOfRow, topField)
+import SlamData.Workspace.Card.Chart.PivotTableRenderer.Model as PTRM
+import SlamData.Workspace.Card.Eval.State as ES
 import SlamData.Workspace.Card.Port as Port
-import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model (Column(..))
+import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
+import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.Transform as T
-
-import Global (readFloat)
 import Utils (showPrettyNumber, showFormattedNumber)
 
 type State =
@@ -125,8 +122,8 @@ render st =
 
 renderTable
   ∷ Int
-  → Array (Tuple String (D.Dimension Void J.JCursor))
-  → Array (Tuple String (D.Dimension Void Column))
+  → Array (String × PTM.GroupByDimension)
+  → Array (String × PTM.ColumnDimension)
   → PTree J.Json J.Json
   → HTML
 renderTable pageCount dims cols tree
@@ -147,20 +144,20 @@ headingText default = case _ of
   D.Dimension (Just (D.Static str)) _ → str
   _ → default
 
-columnHeading ∷ String → D.Dimension Void Column → String
+columnHeading ∷ String → PTM.ColumnDimension → String
 columnHeading default col = case col ^? D._value ∘ D._projection of
   Just All → "*"
   Just _   → default
   Nothing  → ""
 
 renderRows
-  ∷ Array (Tuple String (D.Dimension Void Column))
+  ∷ Array (String × PTM.ColumnDimension)
   → PTree J.Json J.Json
   → Array HTML
 renderRows cols =
   map HH.tr_ ∘ foldTree (foldMap (renderLeaf cols)) (foldMap renderHeading)
 
-renderHeading ∷ Tuple J.Json (Array (Array HTML)) → Array (Array HTML)
+renderHeading ∷ J.Json × Array (Array HTML) → Array (Array HTML)
 renderHeading (k × rs) =
   case Array.uncons rs of
     Just { head, tail } →
@@ -173,7 +170,7 @@ renderHeading (k × rs) =
       []
 
 renderLeaf
-  ∷ Array (Tuple String (D.Dimension Void Column))
+  ∷ Array (String × PTM.ColumnDimension)
   → J.Json
   → Array (Array HTML)
 renderLeaf cols row =
