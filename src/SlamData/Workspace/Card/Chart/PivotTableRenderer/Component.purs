@@ -105,149 +105,161 @@ render st =
         [ HP.classes [ HH.ClassName "sd-pivot-table" ] ]
         [ HH.div
             [ HP.classes [ HH.ClassName "sd-pivot-table-content" ] ]
-            [ maybe (HH.text "") (renderTable port.dimensions port.columns) st.buckets ]
+            [ maybe (HH.text "") (renderTable st.pageCount port.dimensions port.columns) st.buckets ]
         , HH.div
             [ HP.classes
                 [ HH.ClassName "sd-pagination"
                 , HH.ClassName "sd-form"
                 ]
             ]
-            [ prevButtons (st.pageIndex > 0)
-            , pageField st.pageIndex st.customPage st.pageCount
-            , nextButtons (st.pageIndex < st.pageCount - 1)
-            , pageSizeControls st.pageSize
+            [ renderPrevButtons (st.pageIndex > 0)
+            , renderPageField st.pageIndex st.customPage st.pageCount
+            , renderNextButtons (st.pageIndex < st.pageCount - 1)
+            , renderPageSizeControls st.pageSize
             ]
             , if st.loading
                 then HH.div [ HP.classes [ HH.ClassName "loading" ] ] []
                 else HH.text ""
         ]
     _ → HH.text ""
-  where
-  renderTable dims cols tree =
-    if st.pageCount ≡ 0
-      then
-        HH.div
-          [ HP.classes [ HH.ClassName "no-results" ] ]
-          [ HH.text "No results" ]
-      else
-        HH.table_
-            $ [ HH.tr_
-                $ (dims <#> \(n × dim) → HH.th_ [ HH.text (headingText n dim) ])
-                ⊕ (cols <#> \(n × col) → HH.th_ [ HH.text (headingText (columnHeading n col) col) ])
-            ]
-            ⊕ renderRows cols tree
 
-  headingText ∷ ∀ a. String → D.Dimension Void a → String
-  headingText default = case _ of
-    D.Dimension (Just (D.Static str)) _ → str
-    _ → default
-
-  columnHeading default col = case col ^? D._value ∘ D._projection of
-    Just All → "*"
-    Just _   → default
-    Nothing  → ""
-
-  renderRows cols =
-    map HH.tr_ ∘ foldTree (renderLeaves cols) renderHeadings
-
-  renderLeaves cols =
-    foldMap (renderLeaf cols)
-
-  renderLeaf cols row =
-    let
-      rowLen = sizeOfRow cols row
-    in
-      Array.range 0 (rowLen - 1) <#> \rowIx →
-        cols <#> \(c × col) →
-          let text = renderValue rowIx (col ^. D._value) <$> J.cursorGet (topField c) row
-          in HH.td_ [ HH.text (fromMaybe "" text) ]
-
-  renderValue = case _, _ of
-    0, D.Static _ → renderJson
-    0, D.Projection (Just T.Count) _ → J.foldJsonNumber "" showFormattedNumber
-    0, D.Projection _ (Column _) → foldJsonArray' renderJson (maybe "" renderJson ∘ flip Array.index 0)
-    i, D.Projection _ _ → foldJsonArray' (const "") (maybe "" renderJson ∘ flip Array.index i)
-    _, _ → const ""
-
-  jsonNumbers =
-    Array.mapMaybe (J.foldJsonNumber Nothing Just)
-
-  renderHeadings =
-    foldMap renderHeading
-
-  renderHeading (k × rs) =
-    case Array.uncons rs of
-      Just { head, tail } →
-        Array.cons
-          (Array.cons
-            (HH.th [ HP.rowSpan (Array.length rs) ] [ HH.text (renderJson k) ])
-            head)
-          tail
-      Nothing →
-        []
-
-  renderJson =
-    J.foldJson show show showPrettyNumber id (show ∘ J.fromArray) (show ∘ J.fromObject)
-
-  prevButtons enabled =
-    HH.div
-      [ HP.class_ CSS.formButtonGroup ]
-      [ HH.button
-          [ HP.class_ CSS.formButton
-          , HP.disabled (not enabled)
-          , HE.onClick $ HE.input_ (StepPage First)
+renderTable
+  ∷ Int
+  → Array (Tuple String (D.Dimension Void J.JCursor))
+  → Array (Tuple String (D.Dimension Void Column))
+  → PTree J.Json J.Json
+  → HTML
+renderTable pageCount dims cols tree
+  | pageCount == 0 =
+      HH.div
+        [ HP.classes [ HH.ClassName "no-results" ] ]
+        [ HH.text "No results" ]
+  | otherwise =
+      HH.table_
+          $ [ HH.tr_
+              $ (dims <#> \(n × dim) → HH.th_ [ HH.text (headingText n dim) ])
+              ⊕ (cols <#> \(n × col) → HH.th_ [ HH.text (headingText (columnHeading n col) col) ])
           ]
-          [ I.playerRewind ]
-      , HH.button
-          [ HP.class_ CSS.formButton
-          , HP.disabled (not enabled)
-          , HE.onClick $ HE.input_ (StepPage Prev)
-          ]
-          [ I.playerPrevious ]
-      ]
+          ⊕ renderRows cols tree
 
-  pageField currentPage customPage totalPages =
-    HH.div_
-      [ HH.form
-          [ HE.onSubmit (HE.input UpdatePage) ]
-          [ HH.text "Page"
-          , HH.input
-              [ HP.type_ HP.InputNumber
-              , HP.value (fromMaybe (show (currentPage + 1)) customPage)
-              , HE.onValueInput (HE.input SetCustomPage)
-              ]
-          , HH.text $ "of " <> show totalPages
-          ]
-      ]
+headingText ∷ ∀ a. String → D.Dimension Void a → String
+headingText default = case _ of
+  D.Dimension (Just (D.Static str)) _ → str
+  _ → default
 
-  nextButtons enabled =
-    HH.div
-      [ HP.class_ CSS.formButtonGroup ]
-      [ HH.button
-          [ HP.disabled (not enabled)
-          , HE.onClick $ HE.input_ (StepPage Next)
-          ]
-          [ I.playerNext ]
-      , HH.button
-          [ HP.disabled (not enabled)
-          , HE.onClick $ HE.input_ (StepPage Last)
-          ]
-          [ I.playerFastForward ]
-      ]
+columnHeading ∷ String → D.Dimension Void Column → String
+columnHeading default col = case col ^? D._value ∘ D._projection of
+  Just All → "*"
+  Just _   → default
+  Nothing  → ""
 
-  pageSizeControls pageSize =
-    let
-      sizeValues = [10, 25, 50, 100]
-      options = sizeValues <#> \value →
-        HH.option
-          [ HP.selected (value ≡ pageSize) ]
-          [ HH.text (show value) ]
-    in
-      HH.div_
-        [ HH.select
-            [ HE.onValueChange (HE.input ChangePageSize) ]
-            options
+renderRows
+  ∷ Array (Tuple String (D.Dimension Void Column))
+  → PTree J.Json J.Json
+  → Array HTML
+renderRows cols =
+  map HH.tr_ ∘ foldTree (foldMap (renderLeaf cols)) (foldMap renderHeading)
+
+renderHeading ∷ Tuple J.Json (Array (Array HTML)) → Array (Array HTML)
+renderHeading (k × rs) =
+  case Array.uncons rs of
+    Just { head, tail } →
+      Array.cons
+        (Array.cons
+          (HH.th [ HP.rowSpan (Array.length rs) ] [ HH.text (renderJson k) ])
+          head)
+        tail
+    Nothing →
+      []
+
+renderLeaf
+  ∷ Array (Tuple String (D.Dimension Void Column))
+  → J.Json
+  → Array (Array HTML)
+renderLeaf cols row =
+  let
+    rowLen = sizeOfRow cols row
+  in
+    Array.range 0 (rowLen - 1) <#> \rowIx →
+      cols <#> \(c × col) →
+        let text = renderValue rowIx (col ^. D._value) <$> J.cursorGet (topField c) row
+        in HH.td_ [ HH.text (fromMaybe "" text) ]
+
+renderValue ∷ Int → D.Category Column → J.Json → String
+renderValue = case _, _ of
+  0, D.Static _ → renderJson
+  0, D.Projection (Just T.Count) _ → J.foldJsonNumber "" showFormattedNumber
+  0, D.Projection _ (Column _) → foldJsonArray' renderJson (maybe "" renderJson ∘ flip Array.index 0)
+  i, D.Projection _ _ → foldJsonArray' (const "") (maybe "" renderJson ∘ flip Array.index i)
+  _, _ → const ""
+
+renderJson ∷ J.Json → String
+renderJson =
+  J.foldJson show show showPrettyNumber id (show ∘ J.fromArray) (show ∘ J.fromObject)
+
+renderPrevButtons ∷ Boolean → HTML
+renderPrevButtons enabled =
+  HH.div
+    [ HP.class_ CSS.formButtonGroup ]
+    [ HH.button
+        [ HP.class_ CSS.formButton
+        , HP.disabled (not enabled)
+        , HE.onClick $ HE.input_ (StepPage First)
         ]
+        [ I.playerRewind ]
+    , HH.button
+        [ HP.class_ CSS.formButton
+        , HP.disabled (not enabled)
+        , HE.onClick $ HE.input_ (StepPage Prev)
+        ]
+        [ I.playerPrevious ]
+    ]
+
+renderPageField ∷ Int → Maybe String → Int → HTML
+renderPageField currentPage customPage totalPages =
+  HH.div_
+    [ HH.form
+        [ HE.onSubmit (HE.input UpdatePage) ]
+        [ HH.text "Page"
+        , HH.input
+            [ HP.type_ HP.InputNumber
+            , HP.value (fromMaybe (show (currentPage + 1)) customPage)
+            , HE.onValueInput (HE.input SetCustomPage)
+            ]
+        , HH.text $ "of " <> show totalPages
+        ]
+    ]
+
+renderNextButtons ∷ Boolean → HTML
+renderNextButtons enabled =
+  HH.div
+    [ HP.class_ CSS.formButtonGroup ]
+    [ HH.button
+        [ HP.disabled (not enabled)
+        , HE.onClick $ HE.input_ (StepPage Next)
+        ]
+        [ I.playerNext ]
+    , HH.button
+        [ HP.disabled (not enabled)
+        , HE.onClick $ HE.input_ (StepPage Last)
+        ]
+        [ I.playerFastForward ]
+    ]
+
+renderPageSizeControls ∷ Int → HTML
+renderPageSizeControls pageSize =
+  let
+    sizeValues = [10, 25, 50, 100]
+    options = sizeValues <#> \value →
+      HH.option
+        [ HP.selected (value ≡ pageSize) ]
+        [ HH.text (show value) ]
+  in
+    HH.div_
+      [ HH.select
+          [ HE.onValueChange (HE.input ChangePageSize) ]
+          options
+      ]
 
 eval ∷ Query ~> DSL
 eval = case _ of
