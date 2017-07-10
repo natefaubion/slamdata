@@ -20,43 +20,41 @@ module SlamData.Workspace.Card.Setups.Chart.PivotTable.Component
 
 import SlamData.Prelude
 
+import CSS as C
 import Data.Argonaut as J
 import Data.Array as Array
 import Data.Foldable as F
 import Data.Int (toNumber)
 import Data.Lens ((^?), (.~), _Just)
-
-import CSS as C
+import Data.Lens as Lens
 import Halogen as H
 import Halogen.Component.Proxy as HCP
 import Halogen.Component.Utils.Drag as Drag
 import Halogen.HTML as HH
+import Halogen.HTML.CSS as HC
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
-import Halogen.HTML.CSS as HC
-
-import SlamData.Workspace.Card.Setups.Axis as Ax
-import SlamData.Workspace.Card.Setups.ActionSelect.Component as AS
-import SlamData.Workspace.Card.Setups.Dimension as D
-import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
-import SlamData.Workspace.Card.Setups.DimensionPicker.Column (flattenColumns, showColumn)
-import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (flattenJCursors)
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.ChildSlot as PCS
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.Query (Query(..), ForDimension(..))
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.State as PS
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
-import SlamData.Workspace.Card.Setups.Inputs as I
-import SlamData.Workspace.Card.Setups.Transform as T
-import SlamData.Workspace.Card.Setups.Transform.Numeric as N
-import SlamData.Workspace.Card.Setups.Transform.Place.Component as TPC
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.CardType.ChartType as CHT
 import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Eval.State (_Axes)
 import SlamData.Workspace.Card.Model as Card
+import SlamData.Workspace.Card.Setups.ActionSelect.Component as AS
+import SlamData.Workspace.Card.Setups.Axis as Ax
+import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.ChildSlot as PCS
+import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.Query (Query(..), ForDimension(..))
+import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.State as PS
+import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
+import SlamData.Workspace.Card.Setups.Dimension as D
+import SlamData.Workspace.Card.Setups.DimensionPicker.Column (flattenColumns, showColumn)
+import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
+import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (flattenJCursors)
+import SlamData.Workspace.Card.Setups.Inputs as I
+import SlamData.Workspace.Card.Setups.Transform as T
+import SlamData.Workspace.Card.Setups.Transform.Numeric as N
+import SlamData.Workspace.Card.Setups.Transform.Place.Component as TPC
 import SlamData.Workspace.LevelOfDetails (LevelOfDetails(..))
-
 import Utils (showPrettyJCursor, showJCursorTip)
 import Utils.Lens as UL
 
@@ -229,7 +227,7 @@ render st =
           ]
       ]
 
-  renderColumn size (slot × dimension@(D.Dimension label cat)) =
+  renderColumn size (slot × formatOptions × dimension@(D.Dimension label cat)) =
     HH.div
       ([ HP.classes (columnClasses slot)
        , HC.style (C.width (C.pct size))
@@ -337,7 +335,7 @@ evalOptions = case _ of
       ForGroupBy slot →
         H.modify (PS._dimensions ∘ UL.lookup slot ∘ D._category .~ label')
       ForColumn slot →
-        H.modify (PS._columns ∘ UL.lookup slot ∘ D._category .~ label')
+        H.modify (PS._columns ∘ UL.lookup slot ∘ Lens._2 ∘ D._category .~ label')
     H.raise CC.modelUpdate
     pure next
   Configure (ForGroupBy slot) next → do
@@ -355,7 +353,7 @@ evalOptions = case _ of
   Configure (ForColumn slot) next → do
     st ← H.get
     let
-      col = st.columns ^? UL.lookup slot ∘ D._value
+      col = st.columns ^? UL.lookup slot ∘ Lens._2 ∘ D._value
       selection = join $ col ^? _Just ∘ D._transform
       options = case col of
         Just (D.Projection mbTr (PTM.Column cursor)) →
@@ -472,7 +470,7 @@ evalOptions = case _ of
             _ → D.projectionWithCategory (PTM.defaultColumnCategory value') value'
         H.modify _
           { fresh = st.fresh + 1
-          , columns = Array.snoc st.columns (st.fresh × cell)
+          , columns = Array.snoc st.columns (st.fresh × PTM.Automatic × cell)
           , selecting = Nothing
           }
         H.raise CC.modelUpdate

@@ -138,12 +138,28 @@ genPort isSimpleQuery model =
     (foldl go { names: Map.empty, taken: Set.empty }
       (map Left model.dimensions <> map Right model.columns))
   where
+  toPort
+    ∷ { taken ∷ Set.Set String
+      , names ∷ Map.Map (Either PTM.GroupByDimension PTM.ColumnDimension) String
+      }
+    → { dimensions ∷ Array (Tuple String PTM.GroupByDimension)
+      , columns ∷ Array (Tuple String PTM.ColumnDimension)
+      , isSimpleQuery ∷ Boolean
+      }
   toPort res =
     let
       dimensions = flip Array.mapMaybe model.dimensions \j → (_ × j) <$> Map.lookup (Left j) res.names
       columns = flip Array.mapMaybe model.columns \j → (_ × j) <$> Map.lookup (Right j) res.names
     in { dimensions, columns, isSimpleQuery }
 
+  go
+    ∷ { taken ∷ Set.Set String
+      , names ∷ Map.Map (Either PTM.GroupByDimension PTM.ColumnDimension) String
+      }
+    → Either PTM.GroupByDimension PTM.ColumnDimension
+    → { names ∷ Map.Map (Either PTM.GroupByDimension PTM.ColumnDimension) String
+      , taken ∷ Set.Set String
+      }
   go { names, taken } a
     | Map.member a names = { names, taken }
     | otherwise =
@@ -153,14 +169,16 @@ genPort isSimpleQuery model =
           , taken: Set.insert name taken
           }
 
+  genName ∷ Either PTM.GroupByDimension PTM.ColumnDimension → String
   genName = case _ of
     Left  (D.Dimension _ (D.Static _)) → "static"
     Left  (D.Dimension _ (D.Projection _ value)) → topName value
-    Right (D.Dimension _ (D.Static _)) → "static"
-    Right (D.Dimension _ (D.Projection (Just T.Count) PTM.All)) → "count"
-    Right (D.Dimension _ (D.Projection _ PTM.All)) → "all"
-    Right (D.Dimension _ (D.Projection _ (PTM.Column value))) → topName value
+    Right (_ × D.Dimension _ (D.Static _)) → "static"
+    Right (_ × D.Dimension _ (D.Projection (Just T.Count) PTM.All)) → "count"
+    Right (_ × D.Dimension _ (D.Projection _ PTM.All)) → "all"
+    Right (_ × D.Dimension _ (D.Projection _ (PTM.Column value))) → topName value
 
+  uniqueTag ∷ Int → Set.Set String → String → String
   uniqueTag n taken a =
     let name = if n ≡ 1 then a else a <> "_" <> show n
     in if Set.member name taken then uniqueTag (n + 1) taken a else name
@@ -183,15 +201,15 @@ columnTransform (Just tr) b = T.applyTransform tr b
 columnTransform Nothing (Sql.Projection {alias, expr}) =
   Sql.Projection { alias, expr: Sql.unop Sql.UnshiftArray expr }
 
-escapeDimension ∷ ∀ a. D.Dimension a J.JCursor → Maybe T.Transform × Sql.Projection Sql
+escapeDimension ∷ PTM.GroupByDimension → Maybe T.Transform × Sql.Projection Sql
 escapeDimension = case _ of
   D.Dimension _ (D.Static str) → Nothing × (Sql.projection $ Sql.ident str)
   D.Dimension _ (D.Projection tr cur) →
     tr × (Sql.projection $ Sql.binop Sql.FieldDeref (Sql.ident "row") $ QQ.jcursorToSql cur)
 
-escapeColumn ∷ ∀ a. D.Dimension a PTM.Column → Maybe T.Transform × Sql.Projection Sql
+escapeColumn ∷ PTM.ColumnDimension → Maybe T.Transform × Sql.Projection Sql
 escapeColumn = case _ of
-  D.Dimension _ (D.Static str) → Nothing × (Sql.projection $ Sql.ident str)
-  D.Dimension _ (D.Projection tr PTM.All) → tr × (Sql.projection $ Sql.ident "row")
-  D.Dimension _ (D.Projection tr (PTM.Column cur)) →
+  _ × D.Dimension _ (D.Static str) → Nothing × (Sql.projection $ Sql.ident str)
+  _ × D.Dimension _ (D.Projection tr PTM.All) → tr × (Sql.projection $ Sql.ident "row")
+  _ × D.Dimension _ (D.Projection tr (PTM.Column cur)) →
     tr × (Sql.projection $ Sql.binop Sql.FieldDeref (Sql.ident "row") $ QQ.jcursorToSql cur)

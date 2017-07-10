@@ -18,17 +18,16 @@ module SlamData.Workspace.Card.Setups.Chart.PivotTable.Model where
 
 import SlamData.Prelude
 
+import Control.Monad.Gen as Gen
 import Data.Argonaut (JCursor, Json, class EncodeJson, class DecodeJson, decodeJson, (~>), (:=), isNull, (.?), jsonEmptyObject)
 import Data.Array as Array
 import Data.Foldable as F
 import Data.Newtype (un)
-
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.Transform as T
-
 import Test.StrongCheck.Arbitrary (class Arbitrary, arbitrary)
-import Test.StrongCheck.Gen as Gen
 import Test.StrongCheck.Data.Argonaut (ArbJCursor(..))
+import Test.StrongCheck.Gen as SCG
 
 type Model =
   { dimensions ∷ Array GroupByDimension
@@ -37,7 +36,12 @@ type Model =
 
 data Column = All | Column JCursor
 
-type ColumnDimension = D.Dimension Void Column
+data FormatOptions = Automatic
+
+derive instance eqFormatOptions ∷ Eq FormatOptions
+derive instance ordFormatOptions ∷ Ord FormatOptions
+
+type ColumnDimension = FormatOptions × D.Dimension Void Column
 
 type GroupByDimension = D.Dimension Void JCursor
 
@@ -50,17 +54,21 @@ initialModel =
 eqModel ∷ Model → Model → Boolean
 eqModel r1 r2 = r1.dimensions == r2.dimensions && r1.columns == r2.columns
 
-genModel ∷ Gen.Gen Model
+genFormatOptions ∷ SCG.Gen FormatOptions
+genFormatOptions = pure Automatic
+
+genModel ∷ SCG.Gen Model
 genModel = do
+  formatOptions ← Gen.unfoldable genFormatOptions
   dimensions ← map (map (un ArbJCursor) ∘ un D.DimensionWithStaticCategory) <$> arbitrary
   columns ← map (un D.DimensionWithStaticCategory) <$> arbitrary
-  pure { dimensions, columns }
+  pure { dimensions, columns: Array.zip formatOptions columns }
 
 encode ∷ Model → Json
 encode r =
   "configType" := "pivot"
   ~> "dimensions" := r.dimensions
-  ~> "columns" := r.columns
+  ~> "columns" := (snd <$> r.columns)
   ~> jsonEmptyObject
 
 decode ∷ Json → Either String Model
@@ -83,7 +91,9 @@ decode js
     map D.defaultJCursorDimension $ decodeJson json
 
   decodeColumn ∷ Json → Either String ColumnDimension
-  decodeColumn json = decodeJson json <|> decodeLegacyColumn json
+  decodeColumn json =
+    (Tuple Automatic <$> decodeJson json)
+      <|> decodeLegacyColumn json
 
   decodeLegacyColumn ∷ Json → Either String ColumnDimension
   decodeLegacyColumn json = do
@@ -92,11 +102,11 @@ decode js
       "value" → do
         value ← Column <$> obj .? "value"
         valueAggregation ← map T.Aggregation <$> obj .? "valueAggregation"
-        pure $ D.Dimension
+        pure $ Automatic × D.Dimension
           (Just (defaultColumnCategory value))
           (D.Projection valueAggregation value)
       "count" → do
-        pure $ D.Dimension
+        pure $ Automatic × D.Dimension
           (Just (D.Static "count"))
           (D.Projection (Just T.Count) All)
       ty → throwError $ "Invalid column type: " <> ty
@@ -127,7 +137,7 @@ isSimple { dimensions, columns } =
   Array.null dimensions && F.all simpleCol columns
   where
   simpleCol = case _ of
-    D.Dimension _ (D.Projection (Just (T.Aggregation _)) _) → false
+    _ × D.Dimension _ (D.Projection (Just (T.Aggregation _)) _) → false
     _ → true
 
 defaultColumnCategory ∷ ∀ a. Column → D.Category a

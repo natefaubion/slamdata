@@ -22,6 +22,7 @@ import Data.Argonaut as J
 import Data.Array as Array
 import Data.Int as Int
 import Data.Lens ((^.), (^?))
+import Data.Lens as Lens
 import DOM.Event.Event (preventDefault)
 import DOM.Event.Types (Event)
 import Global (readFloat)
@@ -135,7 +136,7 @@ renderTable pageCount dims cols tree
       HH.table_
           $ [ HH.tr_
               $ (dims <#> \(n × dim) → HH.th_ [ HH.text (headingText n dim) ])
-              ⊕ (cols <#> \(n × col) → HH.th_ [ HH.text (headingText (columnHeading n col) col) ])
+              ⊕ (cols <#> \(n × _ × col) → HH.th_ [ HH.text (headingText (columnHeading n col) col) ])
           ]
           ⊕ renderRows cols tree
 
@@ -144,7 +145,7 @@ headingText default = case _ of
   D.Dimension (Just (D.Static str)) _ → str
   _ → default
 
-columnHeading ∷ String → PTM.ColumnDimension → String
+columnHeading ∷ ∀ a. String → D.Dimension a PTM.Column → String
 columnHeading default col = case col ^? D._value ∘ D._projection of
   Just All → "*"
   Just _   → default
@@ -179,7 +180,7 @@ renderLeaf cols row =
   in
     Array.range 0 (rowLen - 1) <#> \rowIx →
       cols <#> \(c × col) →
-        let text = renderValue rowIx (col ^. D._value) <$> J.cursorGet (topField c) row
+        let text = renderValue rowIx (col ^. Lens._2 ∘ D._value) <$> J.cursorGet (topField c) row
         in HH.td_ [ HH.text (fromMaybe "" text) ]
 
 renderValue ∷ Int → D.Category Column → J.Json → String
