@@ -36,6 +36,7 @@ data Query a
   | Remove ForDimension a
   | ChangeLabel ForDimension String a
   | Configure ForDimension a
+  | SetupFormatting ForDimension a
   | OrderStart ForDimension DOM.MouseEvent a
   | Ordering ForDimension DragEvent a
   | OrderOver ForDimension a

@@ -164,6 +164,7 @@ render st =
           ]
           [ I.dimensionButton
               { configurable: true
+              , formattable: false
               , dimension
               , showLabel: absurd
               , showDefaultLabel: showPrettyJCursor
@@ -171,6 +172,7 @@ render st =
               , onLabelChange: HE.input (\l → right ∘ ChangeLabel (ForGroupBy slot) l)
               , onDismiss: HE.input_ (right ∘ Remove (ForGroupBy slot))
               , onConfigure: HE.input_ (right ∘ Configure (ForGroupBy slot))
+              , onSetupFormatting: const Nothing
               , onMouseDown: HE.input (\e → right ∘ OrderStart (ForGroupBy slot) e)
               , onClick: const Nothing
               , onLabelClick: const Nothing
@@ -238,6 +240,7 @@ render st =
           ]
           [ I.dimensionButton
               { configurable: true
+              , formattable: true
               , dimension
               , showLabel: absurd
               , showDefaultLabel: showColumn showPrettyJCursor
@@ -245,6 +248,7 @@ render st =
               , onLabelChange: HE.input (\l → right ∘ ChangeLabel (ForColumn slot) l)
               , onDismiss: HE.input_ (right ∘ Remove (ForColumn slot))
               , onConfigure: HE.input_ (right ∘ Configure (ForColumn slot))
+              , onSetupFormatting: HE.input_ (right ∘ SetupFormatting (ForColumn slot))
               , onMouseDown: HE.input (\e → right ∘ OrderStart (ForColumn slot) e)
               , onClick: const Nothing
               , onLabelClick: const Nothing
@@ -363,6 +367,8 @@ evalOptions = case _ of
         _ → mempty
       selecting = PS.SelectTransform (ForColumn slot) selection options
     H.modify _ { selecting = Just selecting }
+    pure next
+  SetupFormatting slot next → do
     pure next
   OrderStart (ForGroupBy slot) ev next → do
     let

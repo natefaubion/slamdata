@@ -226,6 +226,7 @@ dimensionPicker options title =
 
 type DimensionOptions a b i =
   { configurable ∷ Boolean
+  , formattable ∷ Boolean
   , dimension ∷ D.Dimension a b
   , showLabel ∷ a → String
   , showDefaultLabel ∷ b → String
@@ -233,6 +234,7 @@ type DimensionOptions a b i =
   , onLabelChange ∷ String → Maybe (i Unit)
   , onDismiss ∷ DOM.MouseEvent → Maybe (i Unit)
   , onConfigure ∷ DOM.MouseEvent → Maybe (i Unit)
+  , onSetupFormatting ∷ DOM.MouseEvent → Maybe (i Unit)
   , onMouseDown ∷ DOM.MouseEvent → Maybe (i Unit)
   , onClick ∷ DOM.MouseEvent → Maybe (i Unit)
   , onLabelClick ∷ DOM.MouseEvent → Maybe (i Unit)
@@ -261,18 +263,17 @@ dimensionButton opts =
         ]
     , HH.div
         [ HP.classes [ HH.ClassName "sd-dimension-button-toolbar" ] ]
-        $ ( guard opts.dismissable $>
-          ( HH.button
-            [ HP.classes [ HH.ClassName "sd-dismiss-button" ]
-            , HP.title "Dismiss"
-            , ARIA.label "Dismiss"
-            , HE.onClick opts.onDismiss
-            , HP.disabled opts.disabled
-            ]
-            [ I.closeSm ]
-          ) )
-        ⊕ [ if opts.configurable && not (D.isStatic value)
-            then
+        $ join
+          [ guard opts.dismissable $>
+              HH.button
+                [ HP.classes [ HH.ClassName "sd-dismiss-button" ]
+                , HP.title "Dismiss"
+                , ARIA.label "Dismiss"
+                , HE.onClick opts.onDismiss
+                , HP.disabled opts.disabled
+                ]
+                [ I.closeSm ]
+          , guard (opts.configurable && not (D.isStatic value)) $>
               HH.button
                 [ HP.classes
                     [ HH.ClassName "sd-configure-button"
@@ -284,7 +285,18 @@ dimensionButton opts =
                 , HP.disabled opts.disabled
                 ]
                 [ I.cog ]
-            else HH.text ""
+          , guard opts.formattable $>
+              HH.button
+                [ HP.classes
+                    [ HH.ClassName "sd-formatting-options-button"
+                    , HH.ClassName "sd-discrete-button"
+                    ]
+                , HP.title "Formatting options"
+                , ARIA.label "Formatting options"
+                , HE.onClick opts.onSetupFormatting
+                , HP.disabled opts.disabled
+                ]
+                [ I.editSm ]
           ]
     , HH.button
         [ HP.classes [ HH.ClassName "sd-dimension-button-display" ]
