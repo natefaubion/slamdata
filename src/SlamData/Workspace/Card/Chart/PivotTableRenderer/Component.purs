@@ -22,7 +22,6 @@ import Data.Argonaut as J
 import Data.Array as Array
 import Data.Int as Int
 import Data.Lens ((^.), (^?))
-import Data.Lens as Lens
 import DOM.Event.Event (preventDefault)
 import DOM.Event.Types (Event)
 import Global (readFloat)
@@ -179,12 +178,12 @@ renderLeaf cols row =
     rowLen = sizeOfRow cols row
   in
     Array.range 0 (rowLen - 1) <#> \rowIx →
-      cols <#> \(c × col) →
-        let text = renderValue rowIx (col ^. Lens._2 ∘ D._value) <$> J.cursorGet (topField c) row
+      cols <#> \(c × opts × col) →
+        let text = renderValue opts rowIx (col ^. D._value) <$> J.cursorGet (topField c) row
         in HH.td_ [ HH.text (fromMaybe "" text) ]
 
-renderValue ∷ Int → D.Category Column → J.Json → String
-renderValue = case _, _ of
+renderValue ∷ PTM.FormatOptions → Int → D.Category Column → J.Json → String
+renderValue opts = case _, _ of
   0, D.Static _ → renderJson
   0, D.Projection (Just T.Count) _ → J.foldJsonNumber "" showFormattedNumber
   0, D.Projection _ (Column _) → foldJsonArray' renderJson (maybe "" renderJson ∘ flip Array.index 0)
