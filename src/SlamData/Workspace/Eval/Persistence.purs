@@ -658,7 +658,7 @@ debounce
   → m Unit
   → m Unit )
 debounce ms key make cache init run = do
-  avar ← laterVar ms $ void $ run *> Cache.remove key cache
+  avar ← laterVar ms $ Cache.remove key cache *> run
   prev ← Cache.remove key cache
   Cache.put key (make avar) cache
   case prev of
