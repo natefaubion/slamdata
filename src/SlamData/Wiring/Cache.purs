@@ -33,7 +33,7 @@ module SlamData.Wiring.Cache
 
 import SlamData.Prelude
 
-import Control.Monad.Aff.AVar (AVar, AVAR, makeVar', takeVar, putVar, modifyVar)
+import Control.Monad.Aff.AVar (AVar, AVAR, makeVar', takeVar, peekVar, putVar, modifyVar)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 
 import Data.Map (Map)
@@ -77,9 +77,7 @@ get
   → Cache k v
   → m (Maybe v)
 get key (Cache cache) = liftAff do
-  vals ← takeVar cache
-  putVar cache vals
-  pure (Map.lookup key vals)
+  Map.lookup key <$> peekVar cache
 
 alter
   ∷ ∀ eff m k v
