@@ -16,7 +16,6 @@ limitations under the License.
 
 module SlamData.Wiring.Cache
   ( Cache
-  , unCache
   , make
   , make'
   , restore
@@ -33,127 +32,117 @@ module SlamData.Wiring.Cache
 
 import SlamData.Prelude
 
-import Control.Monad.Aff.AVar (AVar, AVAR, makeVar', takeVar, peekVar, putVar, modifyVar)
-import Control.Monad.Aff.Class (class MonadAff, liftAff)
-
+import Control.Monad.Eff.Class (class MonadEff, liftEff)
+import Control.Monad.Eff.Ref (Ref, REF, newRef, readRef, writeRef)
 import Data.Map (Map)
 import Data.Map as Map
 
-newtype Cache k v = Cache (AVar (Map k v))
-
-unCache ∷ ∀ k v. Cache k v → AVar (Map k v)
-unCache (Cache m) = m
+newtype Cache k v = Cache (Ref (Map k v))
 
 make
   ∷ ∀ eff m k v
-  . MonadAff (avar ∷ AVAR | eff) m
+  . MonadEff (ref ∷ REF | eff) m
   ⇒ Ord k
   ⇒ m (Cache k v)
-make = liftAff (Cache <$> makeVar' mempty)
+make = make' Map.empty
 
 make'
   ∷ ∀ eff m k v
-  . MonadAff (avar ∷ AVAR | eff) m
+  . MonadEff (ref ∷ REF | eff) m
   ⇒ Ord k
   ⇒ Map k v
   → m (Cache k v)
-make' = liftAff ∘ map Cache ∘ makeVar'
+make' initial = liftEff do
+  Cache <$> newRef initial
 
 restore
   ∷ ∀ eff m k v
-  . MonadAff (avar ∷ AVAR | eff) m
+  . MonadEff (ref ∷ REF | eff) m
   ⇒ Ord k
   ⇒ Map k v
   → Cache k v
   → m Unit
-restore m (Cache c) =
-  liftAff (modifyVar (const m) c)
+restore m (Cache cache) = liftEff do
+  writeRef cache m
 
 get
   ∷ ∀ eff m k v
-  . MonadAff (avar ∷ AVAR | eff) m
+  . MonadEff (ref ∷ REF | eff) m
   ⇒ Ord k
   ⇒ k
   → Cache k v
   → m (Maybe v)
-get key (Cache cache) = liftAff do
-  Map.lookup key <$> peekVar cache
+get key (Cache cache) = liftEff do
+  Map.lookup key <$> readRef cache
 
 alter
   ∷ ∀ eff m k v
-  . MonadAff (avar ∷ AVAR | eff) m
+  . MonadEff (ref ∷ REF | eff) m
   ⇒ Ord k
   ⇒ k
-  → (Maybe v → m (Maybe v))
+  → (Maybe v → Maybe v)
   → Cache k v
   → m Unit
-alter key fn (Cache cache) = do
-  vals ← liftAff $ takeVar cache
-  let val = Map.lookup key vals
-  val' ← fn val
-  liftAff $ case val, val' of
-    Nothing, Nothing → putVar cache vals
-    Just _ , Nothing → putVar cache (Map.delete key vals)
-    _      , Just v  → putVar cache (Map.insert key v vals)
+alter key fn (Cache cache) = liftEff do
+  writeRef cache ∘ Map.alter fn key =<< readRef cache
 
 modify
   ∷ ∀ eff m k v
-  . MonadAff (avar ∷ AVAR | eff) m
+  . MonadEff (ref ∷ REF | eff) m
   ⇒ Ord k
   ⇒ k
   → (v → v)
   → Cache k v
   → m Unit
-modify key fn (Cache cache) = liftAff do
-  modifyVar (Map.update (Just ∘ fn) key) cache
+modify key fn (Cache cache) = liftEff do
+  writeRef cache ∘ Map.update (Just ∘ fn) key =<< readRef cache
 
 put
   ∷ ∀ eff m k v
-  . MonadAff (avar ∷ AVAR | eff) m
+  . MonadEff (ref ∷ REF | eff) m
   ⇒ Ord k
   ⇒ k
   → v
   → Cache k v
   → m Unit
-put key val (Cache cache) = liftAff do
-  modifyVar (Map.insert key val) cache
+put key val (Cache cache) = liftEff do
+  writeRef cache ∘ Map.insert key val =<< readRef cache
 
 remove
   ∷ ∀ eff m k v
-  . MonadAff (avar ∷ AVAR | eff) m
+  . MonadEff (ref ∷ REF | eff) m
   ⇒ Ord k
   ⇒ k
   → Cache k v
   → m (Maybe v)
-remove key (Cache cache) = liftAff do
-  vals ← takeVar cache
+remove key (Cache cache) = liftEff do
+  vals ← readRef cache
   case Map.pop key vals of
-    Just (Tuple val vals') →
-      putVar cache vals'
-        $> Just val
+    Just (Tuple val vals') → do
+      writeRef cache vals'
+      pure (Just val)
     Nothing →
-      putVar cache vals
-        $> Nothing
+      pure Nothing
 
 clear
   ∷ ∀ eff m k v
-  . MonadAff (avar ∷ AVAR | eff) m
+  . MonadEff (ref ∷ REF | eff) m
   ⇒ Ord k
   ⇒ Cache k v
   → m Unit
-clear (Cache cache) = liftAff do
-  modifyVar (const mempty) cache
+clear = restore Map.empty
 
 snapshot
   ∷ ∀ eff m k v
-  . MonadAff (avar ∷ AVAR | eff) m
+  . MonadEff (ref ∷ REF | eff) m
   ⇒ Cache k v
   → m (Map k v)
-snapshot (Cache cache) = liftAff (peekVar cache)
+snapshot (Cache cache) = liftEff do
+  readRef cache
 
 merge
   ∷ ∀ eff m k v
-  . MonadAff (avar ∷ AVAR | eff) m
+  . MonadEff (ref ∷ REF | eff) m
   ⇒ Ord k
   ⇒ Map k v
   → Cache k v
@@ -162,11 +151,11 @@ merge = mergeWith const
 
 mergeWith
   ∷ ∀ eff m k v
-  . MonadAff (avar ∷ AVAR | eff) m
+  . MonadEff (ref ∷ REF | eff) m
   ⇒ Ord k
   ⇒ (v → v → v)
   → Map k v
   → Cache k v
   → m Unit
-mergeWith f ks (Cache cache) = liftAff do
-  modifyVar (Map.unionWith f ks) cache
+mergeWith f ks (Cache cache) = liftEff do
+  writeRef cache ∘ Map.unionWith f ks =<< readRef cache

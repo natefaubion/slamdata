@@ -172,7 +172,7 @@ cardMapFromJson =
 putDeck ∷ ∀ m. PersistEnv m (Deck.Id → Deck.Model → m Unit)
 putDeck deckId deck = do
   { eval } ← Wiring.expose
-  Cache.alter deckId (pure ∘ map _ { model = deck }) eval.decks
+  Cache.alter deckId (map _ { model = deck }) eval.decks
 
 getDeck ∷ ∀ m. PersistEnv m (Deck.Id → m (Maybe Deck.Cell))
 getDeck deckId = do
@@ -182,7 +182,7 @@ getDeck deckId = do
 putCard ∷ ∀ m. PersistEnv m (Card.Id → Card.Model → m Unit)
 putCard cardId card = do
   { eval } ← Wiring.expose
-  Cache.alter cardId (pure ∘ map _ { model = card }) eval.cards
+  Cache.alter cardId (map _ { model = card }) eval.cards
 
 getCard ∷ ∀ m. PersistEnv m (Card.Id → m (Maybe Card.Cell))
 getCard cardId = do
@@ -659,13 +659,13 @@ debounce
   → m Unit )
 debounce ms key make cache init run = do
   avar ← laterVar ms $ void $ run *> Cache.remove key cache
-  Cache.alter key (alterFn (make avar)) cache
-  where
-    alterFn a b = do
-      case b of
-        Just { avar } → liftAff $ killVar avar (Exn.error "debounce")
-        Nothing → void $ fork init
-      pure (Just a)
+  prev ← Cache.remove key cache
+  Cache.put key (make avar) cache
+  case prev of
+    Just { avar } →
+      liftAff $ killVar avar (Exn.error "debounce")
+    Nothing →
+      void $ fork init
 
 detectCycle ∷ ∀ m. PersistEnv m (Card.Id → Deck.Id → m Boolean)
 detectCycle cardId deckId = do
