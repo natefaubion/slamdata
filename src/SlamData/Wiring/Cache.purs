@@ -149,10 +149,7 @@ snapshot
   . MonadAff (avar ∷ AVAR | eff) m
   ⇒ Cache k v
   → m (Map k v)
-snapshot (Cache cache) = liftAff do
-  vals ← takeVar cache
-  putVar cache vals
-  pure vals
+snapshot (Cache cache) = liftAff (peekVar cache)
 
 merge
   ∷ ∀ eff m k v
