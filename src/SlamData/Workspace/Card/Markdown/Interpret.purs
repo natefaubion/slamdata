@@ -13,12 +13,13 @@ limitations under the License.
 
 module SlamData.Workspace.Card.Markdown.Interpret
   ( formFieldValueToVarMapValue
-  , formFieldEmptyValue
+  , formFieldDefaultValue
   ) where
 
 import SlamData.Prelude
 
 import Data.DateTime as DT
+import Data.Foldable as F
 import Data.Identity (Identity(..))
 import Data.List as L
 import Data.Formatter.DateTime as FD
@@ -52,50 +53,46 @@ getLiteral (VM.VarMapValue s) = project s # case _ of
   Sql.Literal e → pure s
   _ → empty
 
-formFieldEmptyValue
-  ∷ ∀ f a
-  . SD.FormFieldP f a
-  → VM.VarMapValue
-formFieldEmptyValue field =
-  VM.VarMapValue case field of
-    SD.TextBox tb →
-      case tb of
-        SD.PlainText _ → Sql.string ""
-        SD.Numeric _ → Sql.int 0
-        SD.Date _ → Sql.null
-        SD.Time _ _ → Sql.null
-        SD.DateTime _ _ → Sql.null
-    SD.CheckBoxes _ _ → Sql.set []
-    SD.RadioButtons _ _ → Sql.null
-    SD.DropDown _ _ → Sql.null
+formFieldDefaultValue ∷ SDS.FormFieldValue VM.VarMapValue → VM.VarMapValue
+formFieldDefaultValue = case _ of
+  formField@(SD.TextBox tb) → case tb of
+    SD.PlainText _ → defaultValue (VM.VarMapValue $ Sql.string "") formField
+    SD.Numeric _ → defaultValue (VM.VarMapValue $ Sql.int 0) formField
+    _ → defaultValue (VM.VarMapValue Sql.null) formField
+  SD.CheckBoxes (Identity sels) (Identity options) →
+    VM.VarMapValue $ Sql.set $
+      L.mapMaybe (\sel → unwrap <$> F.find (eq sel) options) sels
+  SD.RadioButtons (Identity sel) (Identity options)
+    | F.elem sel options → sel
+    | otherwise → VM.VarMapValue $ Sql.null
+  SD.DropDown mbSel (Identity options)
+    | Just (Identity sel) ← mbSel, F.elem sel options → sel
+    | Just sel ← L.head options → sel
+    | otherwise → VM.VarMapValue $ Sql.null
 
-formFieldValueToVarMapValue
-  ∷ ∀ m
-  . Monad m
-  ⇒ SDS.FormFieldValue VM.VarMapValue
-  → m (M.Maybe VM.VarMapValue)
-formFieldValueToVarMapValue v = runMaybeT case v of
-  SD.TextBox tb → map VM.VarMapValue do
-    tb' ←
-      liftMaybe $ SD.traverseTextBox unwrap tb
+  where
+  defaultValue a f =
+    fromMaybe a $ formFieldValueToVarMapValue f
+
+formFieldValueToVarMapValue ∷ SDS.FormFieldValue VM.VarMapValue → M.Maybe VM.VarMapValue
+formFieldValueToVarMapValue v = case v of
+  SD.TextBox tb → VM.VarMapValue <$> do
+    tb' ← SD.traverseTextBox unwrap tb
     case tb' of
       SD.PlainText (Identity x) →
         pure $ Sql.string x
       SD.Numeric (Identity x) →
         pure $ Sql.hugeNum x
       SD.Date (Identity x) →
-        liftMaybe
-        $ hush
+        hush
         $ FD.formatDateTime "YYYY-MM-DD" (DT.DateTime x bottom) <#> \s →
           Sql.invokeFunction "DATE" $ pure $ Sql.string s
       SD.Time _ (Identity x) →
-        liftMaybe
-        $ hush
+        hush
         $ FD.formatDateTime "HH:mm:ss" (DT.DateTime bottom x) <#> \s →
           Sql.invokeFunction "TIME" $ pure $ Sql.string s
       SD.DateTime _ (Identity x) →
-        liftMaybe
-        $ hush
+        hush
         $ FD.formatDateTime "YYYY-MM-DDTHH:mm:ssZ" x <#> \s →
           Sql.invokeFunction "TIMESTAMP" $ pure $ Sql.string s
   SD.CheckBoxes (Identity sel) _ →
@@ -105,16 +102,7 @@ formFieldValueToVarMapValue v = runMaybeT case v of
       $ Sql.SetLiteral
       $ L.mapMaybe (getLiteral) sel
   SD.RadioButtons (Identity x) _ →
-    map VM.VarMapValue $ getLiteral x
-  SD.DropDown mx _ → map VM.VarMapValue do
-    Identity x ← liftMaybe mx
+    VM.VarMapValue <$> getLiteral x
+  SD.DropDown mx _ → VM.VarMapValue <$> do
+    Identity x ← mx
     getLiteral x
-
-  where
-  liftMaybe
-    ∷ ∀ n a
-    . (Applicative n)
-    ⇒ Maybe a
-    → MaybeT n a
-  liftMaybe =
-    MaybeT ∘ pure

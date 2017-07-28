@@ -54,7 +54,7 @@ checkVarMapConstruction =
   quickCheck \(SDS.SlamDownState { document, formState }) →
     let
       inputState = SDS.formStateFromDocument document
-      varMap = unsafeRunLocale $ MDS.formStateToVarMap inputState formState
+      varMap = MDS.formStateToVarMap inputState formState
       descKeys = Set.fromFoldable $ SM.keys inputState
       stateKeys = Set.fromFoldable $ SM.keys varMap
     in

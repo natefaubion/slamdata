@@ -18,7 +18,7 @@ module SlamData.Workspace.Card.Markdown.Eval
 
 import SlamData.Prelude
 
-import Control.Monad.Eff.Class (class MonadEff, liftEff)
+import Control.Monad.Eff.Class (class MonadEff)
 import Control.Monad.Writer.Class (class MonadTell)
 import Data.Array as A
 import Data.HugeInt as HI
@@ -51,15 +51,15 @@ import Utils.Path (DirPath)
 
 evalMarkdownForm
   ∷ ∀ m
-  . MonadEff SlamDataEffects m
-  ⇒ Monad m
+  . Monad m
   ⇒ MD.Model
   → SD.SlamDownP Port.VarMapValue
   → Port.DataMap
   → m Port.Out
 evalMarkdownForm model doc varMap = do
-  let inputState = SDH.formStateFromDocument doc
-  thisVarMap ← liftEff $ MDS.formStateToVarMap inputState model
+  let
+    inputState = SDH.formStateFromDocument doc
+    thisVarMap = MDS.formStateToVarMap inputState model
   pure (Port.Variables × map Right thisVarMap `SM.union` varMap)
 
 evalMarkdown

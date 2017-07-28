@@ -16,18 +16,16 @@ limitations under the License.
 
 module SlamData.Workspace.Card.Markdown.Component.State where
 
-import Control.Monad.Eff.Class (class MonadEff)
-
 import SlamData.Prelude
 import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Markdown.Interpret as MDI
 import Text.Markdown.SlamDown.Halogen.Component.State as SDS
 
 import Data.BrowserFeatures (BrowserFeatures)
-import Data.JSDate (LOCALE)
 import Data.StrMap as SM
 
 import Text.Markdown.SlamDown.Halogen.Component as SDH
+import Text.Markdown.SlamDown.Syntax.FormField as SDF
 
 type State =
   { browserFeatures ∷ Maybe BrowserFeatures
@@ -41,27 +39,34 @@ initialState =
   }
 
 formStateToVarMap
-  ∷ ∀ m e
-  . MonadEff (locale ∷ LOCALE | e) m
-  ⇒ Applicative m
-  ⇒ SDH.SlamDownFormState VM.VarMapValue
+  ∷ SDH.SlamDownFormState VM.VarMapValue
   → SDH.SlamDownFormState VM.VarMapValue
-  → m VM.VarMap
-formStateToVarMap desc st =
-  SM.foldM
-    (\m k field → do
-       v ← valueForKey k field
-       pure $ SM.insert k v m)
+  → VM.VarMap
+formStateToVarMap newState oldState =
+  SM.fold
+    (\m k v → SM.insert k (valueForKey k v) m)
     SM.empty
-    desc
-
+    newState
   where
     valueForKey
       ∷ String
       → SDH.FormFieldValue VM.VarMapValue
-      → m VM.VarMapValue
-    valueForKey k field =
-      fromMaybe (MDI.formFieldEmptyValue field) <$>
-        case SM.lookup k st of
-          Just v → MDI.formFieldValueToVarMapValue v
-          Nothing → MDI.formFieldValueToVarMapValue field
+      → VM.VarMapValue
+    valueForKey k newField = case SM.lookup k oldState of
+      Nothing → MDI.formFieldDefaultValue newField
+      Just oldField → case oldField, newField of
+        SDF.DropDown oldSel _, SDF.DropDown _ newOptions →
+          MDI.formFieldDefaultValue (SDF.DropDown oldSel newOptions)
+        SDF.CheckBoxes oldSel _, SDF.CheckBoxes _ newOptions →
+          MDI.formFieldDefaultValue (SDF.CheckBoxes oldSel newOptions)
+        SDF.RadioButtons oldSel _, SDF.RadioButtons _ newOptions →
+          MDI.formFieldDefaultValue (SDF.RadioButtons oldSel newOptions)
+        SDF.TextBox oldSel, SDF.TextBox newSel → case oldSel, newSel of
+          SDF.PlainText _, SDF.PlainText _ → MDI.formFieldDefaultValue oldField
+          SDF.Numeric _, SDF.Numeric _ → MDI.formFieldDefaultValue oldField
+          SDF.Date _, SDF.Date _ → MDI.formFieldDefaultValue oldField
+          SDF.Time _ _, SDF.Time _ _ → MDI.formFieldDefaultValue oldField
+          SDF.DateTime _ _, SDF.DateTime _ _ → MDI.formFieldDefaultValue oldField
+          _, _ → MDI.formFieldDefaultValue newField
+        _, _ →
+          MDI.formFieldDefaultValue newField
