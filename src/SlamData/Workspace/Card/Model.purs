@@ -22,7 +22,7 @@ import Data.Argonaut ((:=), (~>), (.?))
 import Data.Argonaut as J
 import Data.Array as Array
 import Data.Codec.Argonaut as CA
-import Data.Lens (Traversal', wander, Prism', prism', (^?))
+import Data.Lens (Traversal', wander, Prism', prism')
 import Data.List as L
 import Data.Path.Pathy (fileName, runFileName)
 import Data.Rational ((%))
@@ -79,7 +79,6 @@ import SlamData.Workspace.Card.Table.Model as JT
 import SlamData.Workspace.Card.Tabs.Model as Tabs
 import SlamData.Workspace.Card.Variables.Model as Variables
 import SlamData.Workspace.Deck.DeckId (DeckId)
-import Text.Markdown.SlamDown.Halogen.Component.State as SDS
 import Test.StrongCheck.Arbitrary as SC
 import Test.StrongCheck.Gen as Gen
 import Utils (decodec)
@@ -436,7 +435,7 @@ cardModelOfType (port × varMap) = case _ of
   CT.SetupFormInput Static → SetupStatic SetupStatic.initialModel
   CT.FormInput → FormInput FormInput.initialModel
   CT.Chart → Chart Chart.emptyModel
-  CT.Markdown → Markdown $ maybe MD.emptyModel SDS.formStateFromDocument $ port ^? Port._SlamDown
+  CT.Markdown → Markdown MD.emptyModel
   CT.Table → Table JT.emptyModel
   CT.Download → Download
   CT.Variables → Variables Variables.emptyModel
