@@ -26,6 +26,7 @@ import Data.Set as Set
 import Data.StrMap as SM
 
 import SlamData.Workspace.Card.Markdown.Model as M
+import SlamData.Workspace.Card.Markdown.Interpret (formFieldDefaultValue)
 import SlamData.Workspace.Card.Markdown.Component.State as MDS
 
 import Text.Markdown.SlamDown.Halogen.Component.State as SDS
@@ -54,7 +55,7 @@ checkVarMapConstruction =
   quickCheck \(SDS.SlamDownState { document, formState }) →
     let
       inputState = SDS.formStateFromDocument document
-      varMap = MDS.formStateToVarMap inputState formState
+      varMap = Right ∘ formFieldDefaultValue <$> MDS.updateFormState inputState formState
       descKeys = Set.fromFoldable $ SM.keys inputState
       stateKeys = Set.fromFoldable $ SM.keys varMap
     in
