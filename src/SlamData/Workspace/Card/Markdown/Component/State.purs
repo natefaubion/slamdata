@@ -47,6 +47,10 @@ updateFormState newState oldState =
     SM.empty
     newState
   where
+  valueForKey
+    ∷ String
+    → SDH.FormFieldValue VM.VarMapValue
+    → SDH.FormFieldValue VM.VarMapValue
   valueForKey k newField = case SM.lookup k oldState of
     Nothing → newField
     Just oldField → case oldField, newField of

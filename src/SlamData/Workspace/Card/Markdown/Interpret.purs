@@ -50,6 +50,9 @@ getLiteral (VM.VarMapValue s) = project s # case _ of
   Sql.Literal e → pure s
   _ → empty
 
+-- | A sanity check for form fields. When transitioning form state, you can end up with an
+-- | invalid selection for a given set of options. This just checks that it makes sense,
+-- | otherwise it will pick a sensible default.
 formFieldConstrainValue ∷ SDS.FormFieldValue VM.VarMapValue → SDS.FormFieldValue VM.VarMapValue
 formFieldConstrainValue formField = case formField of
   SD.CheckBoxes (Identity sels) (Identity options) →
