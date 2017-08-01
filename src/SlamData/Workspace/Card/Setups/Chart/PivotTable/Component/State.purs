@@ -45,12 +45,14 @@ import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.DimensionPicker.Column (groupColumns, ColumnNode)
 import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (groupJCursors, JCursorNode)
+import SlamData.Workspace.Card.Setups.FormatOptions.Model as FOM
 import SlamData.Workspace.Card.Setups.Transform as T
 
 data Selecting
   = SelectGroupBy (PickerTree JCursor)
   | SelectColumn (PickerTree PTM.Column)
   | SelectTransform ForDimension (Maybe T.Transform) (Array T.Transform)
+  | SelectFormatting ForDimension FOM.FormatOptions
 
 type PickerTree a = Cofree List (Either a a)
 

@@ -37,6 +37,7 @@ import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.DimensionPicker.Column (showColumn)
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
+import SlamData.Workspace.Card.Setups.FormatOptions.Component as FO
 import SlamData.Workspace.Card.Setups.Inputs as I
 import SlamData.Workspace.Card.Setups.Transform as T
 import SlamData.Workspace.Card.Setups.Transform.Numeric as N
@@ -104,6 +105,13 @@ renderSelect = case _ of
           _ → Nothing
       }
       (Just ∘ right ∘ H.action ∘ HandleTransformPicker slot)
+  PS.SelectFormatting slot options →
+    HH.slot'
+      PCS.cpFormatting
+      unit
+      FO.component
+      options
+      (Just ∘ right ∘ H.action ∘ HandleFormatting slot)
 
 renderedDimensions
   ∷ Maybe PS.OrderingOpts

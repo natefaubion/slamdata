@@ -43,13 +43,12 @@ import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.DimensionPicker.Column (flattenColumns)
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
 import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (flattenJCursors)
+import SlamData.Workspace.Card.Setups.FormatOptions.Component as FO
 import SlamData.Workspace.Card.Setups.Transform as T
 import SlamData.Workspace.LevelOfDetails (LevelOfDetails(..))
 import Utils.Lens as UL
 
 type DSL = CC.InnerCardParentDSL PS.State Query PCS.ChildQuery PCS.ChildSlot
-
-type HTML = CC.InnerCardParentHTML Query PCS.ChildQuery PCS.ChildSlot
 
 pivotTableBuilderComponent ∷ CC.CardOptions → CC.CardComponent
 pivotTableBuilderComponent =
@@ -149,7 +148,13 @@ evalOptions = case _ of
       selecting = PS.SelectTransform (ForColumn slot) selection options
     H.modify _ { selecting = Just selecting }
     pure next
-  SetupFormatting slot next → do
+  SetupFormatting (ForColumn slot) next → do
+    st ← H.get
+    for_ (st.columns ^? UL.lookup slot ∘ Lens._1) \formatting → do
+      let selecting = PS.SelectFormatting (ForColumn slot) formatting
+      H.modify _ { selecting = Just selecting }
+    pure next
+  SetupFormatting _ next →
     pure next
   OrderStart (ForGroupBy slot) ev next → do
     let
@@ -257,7 +262,7 @@ evalOptions = case _ of
             _ → D.projectionWithCategory (PTM.defaultColumnCategory value') value'
         H.modify _
           { fresh = st.fresh + 1
-          , columns = Array.snoc st.columns (st.fresh × PTM.Automatic × cell)
+          , columns = Array.snoc st.columns (st.fresh × FO.Automatic × cell)
           , selecting = Nothing
           }
         H.raise CC.modelUpdate
@@ -273,6 +278,13 @@ evalOptions = case _ of
               ForGroupBy slot → PS.setGroupByTransform mbt slot
               ForColumn slot → PS.setColumnTransform mbt slot
     H.raise CC.modelUpdate
+    pure next
+  HandleFormatting fd msg next → do
+    case msg of
+      FO.Dismiss →
+        H.modify _ { selecting = Nothing }
+      _ →
+        pure unit
     pure next
 
 transformOptions ∷ Array T.Transform → Maybe T.Transform → Array T.Transform
