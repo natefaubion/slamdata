@@ -21,6 +21,8 @@ import SlamData.Prelude
 import Control.Monad.Gen as Gen
 import Data.Argonaut (JCursor, Json, class EncodeJson, class DecodeJson, decodeJson, (~>), (:=), isNull, (.?), jsonEmptyObject)
 import Data.Array as Array
+import Data.Bitraversable (ltraverse)
+import Data.Codec.Argonaut as CA
 import Data.Foldable as F
 import Data.Newtype (un)
 import SlamData.Workspace.Card.Setups.Dimension as D
@@ -61,7 +63,7 @@ encode ∷ Model → Json
 encode r =
   "configType" := "pivot"
   ~> "dimensions" := r.dimensions
-  ~> "columns" := (snd <$> r.columns)
+  ~> "columns" := (lmap (CA.encode Display.codecDisplayOptions) <$> r.columns)
   ~> jsonEmptyObject
 
 decode ∷ Json → Either String Model
@@ -84,22 +86,30 @@ decode js
     map D.defaultJCursorDimension $ decodeJson json
 
   decodeColumn ∷ Json → Either String ColumnDimension
-  decodeColumn json =
-    (Tuple Display.initialDisplayOptions <$> decodeJson json)
-      <|> decodeLegacyColumn json
+  decodeColumn json
+    = decodeCurrentColumn json
+    <|> map (Tuple Display.initialDisplayOptions)
+          (decodeLegacyColumn json <|> decodeAncientLegacyColumn json)
 
-  decodeLegacyColumn ∷ Json → Either String ColumnDimension
-  decodeLegacyColumn json = do
+  decodeCurrentColumn ∷ Json → Either String ColumnDimension
+  decodeCurrentColumn =
+    ltraverse (lmap CA.printJsonDecodeError ∘ CA.decode Display.codecDisplayOptions) <=< decodeJson
+
+  decodeLegacyColumn ∷ Json → Either String (D.Dimension Void Column)
+  decodeLegacyColumn = decodeJson
+
+  decodeAncientLegacyColumn ∷ Json → Either String (D.Dimension Void Column)
+  decodeAncientLegacyColumn json = do
     obj ← decodeJson json
     obj .? "columnType" >>= case _ of
       "value" → do
         value ← Column <$> obj .? "value"
         valueAggregation ← map T.Aggregation <$> obj .? "valueAggregation"
-        pure $ Display.initialDisplayOptions × D.Dimension
+        pure $ D.Dimension
           (Just (defaultColumnCategory value))
           (D.Projection valueAggregation value)
       "count" → do
-        pure $ Display.initialDisplayOptions × D.Dimension
+        pure $ D.Dimension
           (Just (D.Static "count"))
           (D.Projection (Just T.Count) All)
       ty → throwError $ "Invalid column type: " <> ty
