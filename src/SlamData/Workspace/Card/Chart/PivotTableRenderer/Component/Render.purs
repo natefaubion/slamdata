@@ -33,7 +33,7 @@ import SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.State as S
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model (Column(..))
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
 import SlamData.Workspace.Card.Setups.Dimension as D
-import SlamData.Workspace.Card.Setups.FormatOptions.Model as FOM
+import SlamData.Workspace.Card.Setups.DisplayOptions.Model as Display
 import SlamData.Workspace.Card.Setups.Transform as T
 import Utils (showPrettyNumber, showFormattedNumber)
 
@@ -127,7 +127,7 @@ renderLeaf cols row =
         let text = renderValue opts rowIx (col ^. D._value) <$> J.cursorGet (topField c) row
         in HH.td_ [ HH.text (fromMaybe "" text) ]
 
-renderValue ∷ FOM.FormatOptions → Int → D.Category Column → J.Json → String
+renderValue ∷ Display.DisplayOptions → Int → D.Category Column → J.Json → String
 renderValue opts = case _, _ of
   0, D.Static _ → renderJson
   0, D.Projection (Just T.Count) _ → J.foldJsonNumber "" showFormattedNumber

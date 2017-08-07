@@ -24,7 +24,7 @@ import Data.Array as Array
 import Data.Foldable as F
 import Data.Newtype (un)
 import SlamData.Workspace.Card.Setups.Dimension as D
-import SlamData.Workspace.Card.Setups.FormatOptions.Model as FOM
+import SlamData.Workspace.Card.Setups.DisplayOptions.Model as Display
 import SlamData.Workspace.Card.Setups.Transform as T
 import Test.StrongCheck.Arbitrary (class Arbitrary, arbitrary)
 import Test.StrongCheck.Data.Argonaut (ArbJCursor(..))
@@ -37,7 +37,7 @@ type Model =
 
 data Column = All | Column JCursor
 
-type ColumnDimension = FOM.FormatOptions × D.Dimension Void Column
+type ColumnDimension = Display.DisplayOptions × D.Dimension Void Column
 
 type GroupByDimension = D.Dimension Void JCursor
 
@@ -52,10 +52,10 @@ eqModel r1 r2 = r1.dimensions == r2.dimensions && r1.columns == r2.columns
 
 genModel ∷ SCG.Gen Model
 genModel = do
-  formatOptions ← Gen.unfoldable FOM.genFormatOptions
+  displayOptions ← Gen.unfoldable Display.genDisplayOptions
   dimensions ← map (map (un ArbJCursor) ∘ un D.DimensionWithStaticCategory) <$> arbitrary
   columns ← map (un D.DimensionWithStaticCategory) <$> arbitrary
-  pure { dimensions, columns: Array.zip formatOptions columns }
+  pure { dimensions, columns: Array.zip displayOptions columns }
 
 encode ∷ Model → Json
 encode r =
@@ -85,7 +85,7 @@ decode js
 
   decodeColumn ∷ Json → Either String ColumnDimension
   decodeColumn json =
-    (Tuple FOM.Automatic <$> decodeJson json)
+    (Tuple Display.initialDisplayOptions <$> decodeJson json)
       <|> decodeLegacyColumn json
 
   decodeLegacyColumn ∷ Json → Either String ColumnDimension
@@ -95,11 +95,11 @@ decode js
       "value" → do
         value ← Column <$> obj .? "value"
         valueAggregation ← map T.Aggregation <$> obj .? "valueAggregation"
-        pure $ FOM.Automatic × D.Dimension
+        pure $ Display.initialDisplayOptions × D.Dimension
           (Just (defaultColumnCategory value))
           (D.Projection valueAggregation value)
       "count" → do
-        pure $ FOM.Automatic × D.Dimension
+        pure $ Display.initialDisplayOptions × D.Dimension
           (Just (D.Static "count"))
           (D.Projection (Just T.Count) All)
       ty → throwError $ "Invalid column type: " <> ty

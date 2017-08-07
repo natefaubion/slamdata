@@ -65,9 +65,10 @@
     "purescript-halogen-datepicker": "^0.1.0",
     "purescript-leafletjs-halogen": "^0.1.0",
     "purescript-variant": "^1.1.0",
-    "purescript-codec-argonaut": "^3.0.0",
+    "purescript-codec-argonaut": "^3.1.0",
     "purescript-record": "^0.1.0",
-    "purescript-safelist": "^1.0.0"
+    "purescript-safelist": "^1.0.0",
+    "purescript-generics-rep": "^5.2.0"
   },
   "devDependencies": {
     "purescript-chalky": "^2.0.0",

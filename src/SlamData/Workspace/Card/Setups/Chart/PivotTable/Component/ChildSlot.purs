@@ -24,7 +24,7 @@ import SlamData.Workspace.Card.Setups.ActionSelect.Component as AS
 import SlamData.Workspace.Card.Setups.DimensionPicker.Column (ColumnNode)
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DP
 import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (JCursorNode)
-import SlamData.Workspace.Card.Setups.FormatOptions.Component as FO
+import SlamData.Workspace.Card.Setups.DisplayOptions.Component as Display
 import SlamData.Workspace.Card.Setups.Transform (Transform)
 
 type ChildSlot
@@ -38,7 +38,7 @@ type ChildQuery
   = DP.Query JCursorNode
   ⨁ DP.Query ColumnNode
   ⨁ AS.Query Transform
-  ⨁ FO.Query
+  ⨁ Display.Query
   ⨁ Const Void
 
 type Path a b = ChildPath a ChildQuery b ChildSlot
@@ -52,5 +52,5 @@ cpCol = cp2
 cpTransform ∷ Path (AS.Query Transform) Unit
 cpTransform = cp3
 
-cpFormatting ∷ Path FO.Query Unit
+cpFormatting ∷ Path Display.Query Unit
 cpFormatting = cp4

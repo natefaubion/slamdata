@@ -43,7 +43,7 @@ import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.DimensionPicker.Column (flattenColumns)
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
 import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (flattenJCursors)
-import SlamData.Workspace.Card.Setups.FormatOptions.Component as FO
+import SlamData.Workspace.Card.Setups.DisplayOptions.Component as Display
 import SlamData.Workspace.Card.Setups.Transform as T
 import SlamData.Workspace.LevelOfDetails (LevelOfDetails(..))
 import Utils.Lens as UL
@@ -262,7 +262,7 @@ evalOptions = case _ of
             _ → D.projectionWithCategory (PTM.defaultColumnCategory value') value'
         H.modify _
           { fresh = st.fresh + 1
-          , columns = Array.snoc st.columns (st.fresh × FO.Automatic × cell)
+          , columns = Array.snoc st.columns (st.fresh × Display.initialDisplayOptions × cell)
           , selecting = Nothing
           }
         H.raise CC.modelUpdate
@@ -281,10 +281,14 @@ evalOptions = case _ of
     pure next
   HandleFormatting fd msg next → do
     case msg of
-      FO.Dismiss →
+      Display.Confirm opts →
+        H.modify
+          $ _ { selecting = Nothing }
+          ∘ case fd of
+              ForColumn slot → PS.setColumnDisplayOptions opts slot
+              ForGroupBy _ → id
+      Display.Dismiss →
         H.modify _ { selecting = Nothing }
-      _ →
-        pure unit
     pure next
 
 transformOptions ∷ Array T.Transform → Maybe T.Transform → Array T.Transform
