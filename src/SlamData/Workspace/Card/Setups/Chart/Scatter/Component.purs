@@ -58,6 +58,7 @@ package = P.onPrism (M._BuildScatter ∘ _Just) $ DS.interpret do
   abscissa ←
     P.field PL._abscissa PP._abscissa
       >>= P.addSource _.value
+
   ordinate ←
     P.field PL._ordinate PP._scatterOrdinate
       >>= P.addSource _.value
@@ -67,13 +68,24 @@ package = P.onPrism (M._BuildScatter ∘ _Just) $ DS.interpret do
       >>= P.addSource _.value
       >>= P.isFilteredBy abscissa
       >>= P.isFilteredBy ordinate
+
   series ←
     P.optional PL._series PP._series
-      >>= P.addSource _.category
+      >>= P.addAll
+      >>= P.isFilteredBy abscissa
+      >>= P.isFilteredBy ordinate
+      >>= P.isFilteredBy size
+      >>= P.isActiveWhen abscissa
+      >>= P.isActiveWhen ordinate
+
   parallel ←
     P.optional PL._parallel PP._parallel
-      >>= P.addSource _.category
+      >>= P.addAll
       >>= P.isFilteredBy series
+      >>= P.isFilteredBy size
+      >>= P.isFilteredBy ordinate
+      >>= P.isFilteredBy abscissa
+
   pure unit
 
 scatterBuilderComponent ∷ CC.CardOptions → CC.CardComponent

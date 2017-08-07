@@ -29,6 +29,7 @@ import Halogen.Component.ChildPath as CP
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+import Quasar.Mount.Type as QMT
 import SlamData.Dialog.Component as D
 import SlamData.Dialog.Render as DR
 import SlamData.FileSystem.Dialog.Mount.Common.SettingsQuery as SQ
@@ -37,13 +38,14 @@ import SlamData.FileSystem.Dialog.Mount.Component.State (Input(..)) as Exports
 import SlamData.FileSystem.Dialog.Mount.Component.State as S
 import SlamData.FileSystem.Dialog.Mount.Couchbase.Component as Couchbase
 import SlamData.FileSystem.Dialog.Mount.MarkLogic.Component as MarkLogic
+import SlamData.FileSystem.Dialog.Mount.Mimir.Component as Mimir
+import SlamData.FileSystem.Dialog.Mount.Module.Component as Module
 import SlamData.FileSystem.Dialog.Mount.MongoDB.Component as MongoDB
-import SlamData.FileSystem.Dialog.Mount.Scheme (Scheme)
-import SlamData.FileSystem.Dialog.Mount.Scheme as MS
 import SlamData.FileSystem.Dialog.Mount.SparkFTP.Component as SparkFTP
 import SlamData.FileSystem.Dialog.Mount.SparkHDFS.Component as SparkHDFS
 import SlamData.FileSystem.Dialog.Mount.SparkLocal.Component as SparkLocal
-import SlamData.FileSystem.Dialog.Mount.SQL2.Component as SQL2
+import SlamData.FileSystem.Dialog.Mount.Unknown.Component as Unknown
+import SlamData.FileSystem.Dialog.Mount.View.Component as View
 import SlamData.FileSystem.Resource as R
 import SlamData.GlobalError as GE
 import SlamData.Monad (Slam)
@@ -54,7 +56,7 @@ import Utils.Path as UP
 
 data Query a
   = SetName String a
-  | SelectScheme (Maybe Scheme) a
+  | SelectScheme (Maybe QMT.MountType) a
   | Update (SQ.SettingsMessage QM.MountConfig) a
   | Dismiss a
   | Mount (UP.AnyPath × QM.MountConfig) a
@@ -101,7 +103,6 @@ dialog input =
         >>> D.withAction (\st → Mount <$> (Tuple <$> hush st.pathValue <*> hush st.configValue))
         >>> D.withPending (\st → st.status == S.Saving)
 
-
 render ∷ S.State → HTML
 render state@{ input, name, scheme, pathValue, configValue, error } =
   HH.div
@@ -117,16 +118,19 @@ render state@{ input, name, scheme, pathValue, configValue, error } =
     extractError ∷ ∀ a b. Either (Maybe a) b → Maybe a
     extractError = either id (const Nothing)
 
-renderSettings ∷ Maybe QM.MountConfig → MS.Scheme → HTML
+renderSettings ∷ Maybe QM.MountConfig → QMT.MountType → HTML
 renderSettings config =
   case _ of
-    MS.MongoDB → embed CS.cpMongoDB MongoDB.component QM._MongoDB
-    MS.SQL2 → embed CS.cpSQL SQL2.component QM._View
-    MS.Couchbase → embed CS.cpCouchbase Couchbase.component QM._Couchbase
-    MS.MarkLogic → embed CS.cpMarkLogic MarkLogic.component QM._MarkLogic
-    MS.SparkFTP → embed CS.cpSparkFTP SparkFTP.component QM._SparkFTP
-    MS.SparkHDFS → embed CS.cpSparkHDFS SparkHDFS.component QM._SparkHDFS
-    MS.SparkLocal → embed CS.cpSparkLocal SparkLocal.component QM._SparkLocal
+    QMT.MongoDB → embed CS.cpMongoDB MongoDB.component QM._MongoDB
+    QMT.View → embed CS.cpView View.component QM._View
+    QMT.Module → embed CS.cpModule Module.component QM._Module
+    QMT.Couchbase → embed CS.cpCouchbase Couchbase.component QM._Couchbase
+    QMT.MarkLogic → embed CS.cpMarkLogic MarkLogic.component QM._MarkLogic
+    QMT.SparkFTP → embed CS.cpSparkFTP SparkFTP.component QM._SparkFTP
+    QMT.SparkHDFS → embed CS.cpSparkHDFS SparkHDFS.component QM._SparkHDFS
+    QMT.SparkLocal → embed CS.cpSparkLocal SparkLocal.component QM._SparkLocal
+    QMT.Mimir → embed CS.cpMimir Mimir.component QM._Mimir
+    QMT.Unknown _ → embed CS.cpUnknown Unknown.component QM._Unknown
   where
     embed
       ∷ ∀ f a
@@ -153,7 +157,7 @@ renderNameField name =
         ]
     ]
 
-renderSelectScheme ∷ Maybe MS.Scheme → HTML
+renderSelectScheme ∷ Maybe QMT.MountType → HTML
 renderSelectScheme scheme =
   HH.div
     [ HP.class_ CN.formGroup ]
@@ -161,16 +165,22 @@ renderSelectScheme scheme =
         [ HH.span_ [ HH.text "Mount type" ]
         , HH.select
             [ HP.class_ CN.formControl
-            , HE.onValueChange (HE.input SelectScheme ∘ MS.schemeFromString)
+            , HE.onValueChange (HE.input SelectScheme ∘ typeFromString)
             ]
-            $ [ HH.option_ [] ] <> map renderOption MS.schemes
+            $ [ HH.option_ [] ] <> map renderOption mountTypes
         ]
     ]
   where
     renderOption s =
-      HH.option
-        [ HP.selected (scheme == Just s) ]
-        [ HH.text (MS.schemeToString s) ]
+      let
+        label = typeToString s
+      in
+        -- We do a string comparison on the label rather than the value to
+        -- allow for the `Unknown` case to match, regardless of the inner
+        -- mount type
+        HH.option
+          [ HP.selected (typeToString <$> scheme == Just label) ]
+          [ HH.text label ]
 
 eval ∷ ∀ o. Query ~> DSL o
 eval = case _ of
@@ -225,6 +235,47 @@ handleQuasar errorPrefix = case _ of
 
 modify ∷ ∀ o. (S.State → S.State) → DSL o Unit
 modify f = H.modify (S.validate ∘ f ∘ (_ { error = Nothing }))
+
+typeToString ∷ QMT.MountType → String
+typeToString = case _ of
+  QMT.MongoDB → "MongoDB"
+  QMT.View → "SQL² view"
+  QMT.Module → "SQL² module"
+  QMT.Couchbase → "Couchbase"
+  QMT.MarkLogic → "MarkLogic"
+  QMT.SparkHDFS → "HDFS on Spark"
+  QMT.SparkFTP → "FTP on Spark"
+  QMT.SparkLocal → "Local on Spark"
+  QMT.Mimir → "Mimir"
+  QMT.Unknown _ → "Advanced"
+
+typeFromString ∷ String → Maybe QMT.MountType
+typeFromString = case _ of
+  "MongoDB" → Just QMT.MongoDB
+  "SQL² view" → Just QMT.View
+  "SQL² module" → Just QMT.Module
+  "Couchbase" → Just QMT.Couchbase
+  "MarkLogic" → Just QMT.MarkLogic
+  "HDFS on Spark" → Just QMT.SparkHDFS
+  "FTP on Spark" → Just QMT.SparkFTP
+  "Local on Spark" → Just QMT.SparkLocal
+  "Mimir" → Just QMT.Mimir
+  "Advanced" → Just (QMT.Unknown Nothing)
+  _ → Nothing
+
+mountTypes :: Array QMT.MountType
+mountTypes =
+  [ QMT.MongoDB
+  , QMT.View
+  , QMT.Module
+  , QMT.Couchbase
+  , QMT.MarkLogic
+  , QMT.SparkHDFS
+  , QMT.SparkFTP
+  , QMT.SparkLocal
+  , QMT.Mimir
+  , QMT.Unknown Nothing
+  ]
 
 _deleted ∷ SProxy "deleted"
 _deleted = SProxy

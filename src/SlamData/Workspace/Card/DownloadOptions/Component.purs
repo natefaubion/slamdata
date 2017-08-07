@@ -19,12 +19,12 @@ module SlamData.Workspace.Card.DownloadOptions.Component (component) where
 import SlamData.Prelude
 
 import Data.Lens ((.~), _Left, _Right, (%~))
-
 import Halogen as H
-import Halogen.HTML.Events as HE
 import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-
+import Quasar.Data.CSV as CSV
+import Quasar.Data.Json as Json
 import SlamData.Download.Model as DL
 import SlamData.Download.Render as DLR
 import SlamData.Render.ClassName as CN
@@ -74,10 +74,10 @@ renderDownloadConfiguration state =
     , either optionsCSV optionsJSON state.options
     ]
 
-optionsCSV ∷ DL.CSVOptions → HTML
+optionsCSV ∷ CSV.Options → HTML
 optionsCSV = DLR.optionsCSV (\lens v → right ∘ (ModifyCSVOpts (lens .~ v)))
 
-optionsJSON ∷ DL.JSONOptions → HTML
+optionsJSON ∷ Json.Options → HTML
 optionsJSON = DLR.optionsJSON (\lens v → right ∘ (ModifyJSONOpts (lens .~ v)))
 
 compress ∷ State → HTML
@@ -130,7 +130,7 @@ evalCard = case _ of
       _ → pure unit
     pure next
   CC.ReceiveInput _ varMap next → do
-    H.modify (_ { source = Port.extractFilePath varMap })
+    H.modify (_ { source = Port.extractAnyFilePath varMap })
     pure next
   CC.ReceiveOutput _ _ next →
     pure next
@@ -148,7 +148,7 @@ evalComponent q = do
     SetOutput ty next → do
       options ← H.gets _.options
       case ty, options of
-        DL.CSV, (Right _) → H.modify _{options = Left DL.initialCSVOptions}
+        DL.CSV, (Right _) → H.modify _{options = Left CSV.defaultOptions}
         DL.JSON, (Left _) → H.modify _{options = Right DL.initialJSONOptions}
         _, _ → pure unit
       pure next

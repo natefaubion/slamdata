@@ -27,14 +27,16 @@ import DOM.HTML (window)
 import DOM.HTML.Event.EventTypes as Etp
 import DOM.HTML.Types as Ht
 import DOM.HTML.Window as Win
+import DOM.Node.Element (clientHeight)
 import DOM.Node.ParentNode as Pn
 import DOM.Node.Types as Dt
-import CSS.Geometry (marginTop)
-import CSS.Size (rem)
+import CSS.Animation (animation, iterationCount, normalAnimationDirection, forwards)
+import CSS.Property (value)
+import CSS.Size (Rel, Size, pct)
 import CSS.String (fromString)
 import CSS.Stylesheet (CSS, (?), keyframesFromTo)
-import CSS.Animation (animation, iterationCount, normalAnimationDirection, forwards)
 import CSS.Time (sec)
+import CSS.Transform (Transformation(Transformation), transform)
 import CSS.Transition (easeOut)
 import Halogen as H
 import Halogen.Component.Utils (busEventSource)
@@ -53,7 +55,7 @@ data Query a
   = Init a
   | StartDragging Number a
   | StopDragging a
-  | ChangePosition Number a
+  | ChangePosition Number Number a
   | Animated a
   | PreventDefault DET.Event (Query a)
   | Close a
@@ -64,9 +66,9 @@ data Direction = Up | Down
 data State
   = Closed
   | Opened
-  | Dragging Direction Number Number
-  | Opening Number
-  | Closing Number
+  | Dragging Direction Number Number Number
+  | Opening Number Number
+  | Closing Number Number
 
 derive instance eqDirection :: Eq Direction
 derive instance eqState :: Eq State
@@ -94,73 +96,66 @@ render sel state =
   HH.div
     [ HP.classes
         [ HH.ClassName "header-gripper"
-        , HH.ClassName $ className state
+        , HH.ClassName className
         ]
-    , HP.title $ label state
+    , HP.title label
     , HE.onMouseDown \e →
         Just
           $ PreventDefault (DET.mouseEventToEvent e)
           $ H.action
           $ StartDragging (Int.toNumber $ DEM.clientY e)
-    , ARIA.label $ label state
+    , ARIA.label label
     ]
     [ CSS.stylesheet $ renderStyles sel state
     , I.menuSm
     ]
   where
-  label ∷ State → String
-  label = case _ of
-    Closed → "Show header"
-    Opening _ →  "Show header"
-    Dragging Down _ _ → "Show header"
-    _ → "Hide header"
+    label ∷ String
+    label = case state of
+      Closed → "Show header"
+      Opening _ _ →  "Show header"
+      Dragging Down _ _ _ → "Show header"
+      _ → "Hide header"
 
-  className ∷ State → String
-  className = case _ of
-    Opened → "sd-header-gripper-opened"
-    Closed → "sd-header-gripper-closed"
-    Opening _ → "sd-header-gripper-opening"
-    Closing _ → "sd-header-gripper-closing"
-    Dragging Down _ _ → "sd-header-gripper-dragging-down"
-    Dragging Up _ _ → "sd-header-gripper-dragging-up"
+    className ∷ String
+    className = case state of
+      Opened → "sd-header-gripper-opened"
+      Closed → "sd-header-gripper-closed"
+      Opening _ _ → "sd-header-gripper-opening"
+      Closing _ _ → "sd-header-gripper-closing"
+      Dragging Down _ _ _ → "sd-header-gripper-dragging-down"
+      Dragging Up _ _ _ → "sd-header-gripper-dragging-up"
 
-
--- TODO: using a `transform: translateY(...)` from `100%` to `0` is
--- better in basically all ways and doesn't involve hardcoding values
-maxMargin ∷ Number
-maxMargin = 7.0
+translateY ∷ Size Rel → CSS
+translateY y =
+  transform $ Transformation $ fromString "translateY(" <> value y <> fromString ")"
 
 animationDuration ∷ Number
 animationDuration = 0.5
 
 renderStyles ∷ String → State → CSS
-renderStyles sel Closed = do
-  (fromString sel) ? (marginTop $ rem (-maxMargin))
-renderStyles sel Opened = do
-  (fromString sel) ? (marginTop $ rem zero)
-renderStyles sel (Opening startPos) = do
-  let
-    marginTo = zero
-    marginFrom = startPos - maxMargin
-  mkAnimation sel marginFrom marginTo
-renderStyles sel (Closing startPos) = do
-  let
-    marginTo = -maxMargin
-    marginFrom = startPos - maxMargin
-  mkAnimation sel marginFrom marginTo
-renderStyles sel (Dragging _ start current) = do
-  (fromString sel) ? do
-    marginTop $ rem (-maxMargin + current - start)
+renderStyles sel = case _ of
+  Closed → do
+    (fromString sel) ? (translateY $ pct $ -100.0)
+  Opened → do
+    (fromString sel) ? (translateY $ pct zero)
+  Opening navHeight startPos → do
+    mkAnimation sel ((startPos - navHeight) / navHeight * 100.0) zero
+  Closing navHeight startPos → do
+    mkAnimation sel ((startPos - navHeight) / navHeight * 100.0) $ -100.0
+  Dragging _ navHeight start current → do
+    (fromString sel) ? do
+      translateY $ pct ((-navHeight + current - start) / navHeight * 100.0)
 
 mkAnimation ∷ String → Number → Number → CSS
-mkAnimation sel marginFrom marginTo = do
+mkAnimation sel translateFrom translateTo = do
   let
-    marginFromStyle = marginTop $ rem marginFrom
-    marginToStyle = marginTop $ rem marginTo
+    translateFromStyle = translateY $ pct translateFrom
+    translateToStyle = translateY $ pct translateTo
   (fromString sel) ? do
-    keyframesFromTo "header-gripper-margin" marginFromStyle marginToStyle
+    keyframesFromTo "header-gripper-translate" translateFromStyle translateToStyle
     animation
-      (fromString "header-gripper-margin")
+      (fromString "header-gripper-translate")
       (sec animationDuration)
       easeOut
       (sec zero)
@@ -169,93 +164,113 @@ mkAnimation sel marginFrom marginTo = do
       forwards
 
 eval ∷ String → (Query ~> DSL)
-eval s (PreventDefault evt q) = do
-  H.liftEff $ DEE.preventDefault evt
-  eval s q
-eval sel (Init next) = do
-  doc ←
-    H.liftEff
-      $ window
-      >>= Win.document
+eval sel = case _ of
+  PreventDefault evt q → do
+    H.liftEff $ DEE.preventDefault evt
+    eval sel q
 
-  mbNavEl ←
-    H.liftEff $ Pn.querySelector (Pn.QuerySelector sel) (Ht.htmlDocumentToParentNode doc)
+  Init next → do
+    doc ← H.liftEff $ window >>= Win.document
+    mbNavEl ← H.liftEff $ Pn.querySelector (Pn.QuerySelector sel) (Ht.htmlDocumentToParentNode doc)
 
-  let
-    evntify ∷ ∀ a. a → { clientY ∷ Number }
-    evntify = unsafeCoerce
-
-    docTarget = Ht.htmlDocumentToEventTarget doc
-
-    attachMouseUp f =
-      Etr.addEventListener Etp.mouseup (Etr.eventListener f) false docTarget
-    attachMouseMove f =
-      Etr.addEventListener Etp.mousemove (Etr.eventListener f) false docTarget
-
-    handleMouseUp e = do
-      pure $ StopDragging ES.Listening
-
-    handleMouseMove e = do
-      pure $ ChangePosition (evntify e).clientY ES.Listening
-
-  H.subscribe $ H.eventSource attachMouseUp handleMouseUp
-  H.subscribe $ H.eventSource attachMouseMove handleMouseMove
-
-  for_ mbNavEl \navEl →
     let
-      attachAnimationEnd f =
-        Etr.addEventListener Etp.animationend (Etr.eventListener f) false
-          $ Dt.elementToEventTarget navEl
+      evntify ∷ ∀ a. a → { clientY ∷ Number }
+      evntify = unsafeCoerce
 
-      handleAnimationEnd e =
-        pure $ Animated ES.Listening
-    in
+      docTarget = Ht.htmlDocumentToEventTarget doc
+
+      attachMouseUp f =
+        Etr.addEventListener Etp.mouseup (Etr.eventListener f) false docTarget
+      attachMouseMove f =
+        Etr.addEventListener Etp.mousemove (Etr.eventListener f) false docTarget
+
+      handleMouseUp e = do
+        pure $ StopDragging ES.Listening
+
+    H.subscribe $ H.eventSource attachMouseUp handleMouseUp
+
+    for_ mbNavEl \navEl → do
+      navHeight ← H.liftEff $ clientHeight navEl
+
+      let
+        attachAnimationEnd f =
+          Etr.addEventListener Etp.animationend (Etr.eventListener f) false
+            $ Dt.elementToEventTarget navEl
+
+        handleMouseMove e = do
+          pure $ ChangePosition navHeight (evntify e).clientY ES.Listening
+
+        handleAnimationEnd e =
+          pure $ Animated ES.Listening
+
+      { auth } ← Wiring.expose
+      H.subscribe $ busEventSource (const (Close H.Listening)) auth.signIn
+      H.subscribe $ H.eventSource attachMouseMove handleMouseMove
       H.subscribe $ H.eventSource attachAnimationEnd handleAnimationEnd
 
-  { auth } ← Wiring.expose
+    pure next
 
-  H.subscribe $ busEventSource (const (Close H.Listening)) auth.signIn
-  pure next
-eval _ (StartDragging pos next) = do
-  H.get >>= case _ of
-    Closed → H.put (Dragging Down pos pos)
-    Opened → H.put (Dragging Up (pos - maxMargin) pos)
-    _ → pure unit
-  H.get >>= H.raise ∘ Notify
-  pure next
-eval _ (StopDragging next) = do
-  astate ← H.get
-  case astate of
-    Dragging dir s current →
-      let
-        nextState Down = Opening
-        nextState Up = Closing
-      in
-        H.put (nextState dir $ current - s)
-    _ → pure unit
-  pure next
-eval _ (ChangePosition num next) = do
-  astate ← H.get
-  let
-    toSet s =
-      let diff = num - s
-      in s + if diff < 0.0 then 0.0 else if diff > maxMargin then maxMargin else diff
-    direction oldPos oldDir =
-      if num ≡ oldPos then oldDir else if num > oldPos then Down else Up
-  case astate of
-    Dragging oldDir s old →
-      H.put (Dragging (direction old oldDir) s $ toSet s)
-    _ → pure unit
-  pure next
-eval _ (Animated next) = do
-  astate ← H.get
-  case astate of
-    Opening _ → H.put Opened
-    Closing _ → H.put Closed
-    _ → pure unit
-  H.get >>= H.raise ∘ Notify
-  pure next
-eval _ (Close next) =
-  H.put (Closing maxMargin) $> next
-eval _ (GetState k) =
-  k <$> H.get
+  StartDragging pos next → do
+    doc ← H.liftEff $ window >>= Win.document
+    mbNavEl ← H.liftEff $ Pn.querySelector (Pn.QuerySelector sel) (Ht.htmlDocumentToParentNode doc)
+
+    for_ mbNavEl \navEl → do
+      navHeight ← H.liftEff $ clientHeight navEl
+      H.get >>= case _ of
+        Closed → H.put (Dragging Down navHeight pos pos)
+        Opened → H.put (Dragging Up navHeight (pos - navHeight) pos)
+        _ → pure unit
+      H.get >>= H.raise ∘ Notify
+
+    pure next
+
+  StopDragging next → do
+    astate ← H.get
+    case astate of
+      Dragging dir navHeight s current →
+        let
+          nextState ∷  Number → Number → State
+          nextState = case dir of
+            Down → Opening
+            Up → Closing
+        in
+          H.put (nextState navHeight (current - s))
+      _ → pure unit
+    pure next
+
+  ChangePosition navHeight num next → do
+    astate ← H.get
+    let
+      toSet s = s + offset
+        where
+          diff = num - s
+          offset = if diff < 0.0 then 0.0 else if diff > navHeight then navHeight else diff
+      direction oldPos oldDir =
+        if num == oldPos then oldDir else if num > oldPos then Down else Up
+    case astate of
+      Dragging oldDir navHeight' s old →
+        H.put (Dragging (direction old oldDir) navHeight' s (toSet s))
+      _ → pure unit
+    pure next
+
+  Animated next → do
+    astate ← H.get
+    case astate of
+      Opening _ _ → H.put Opened
+      Closing _ _ → H.put Closed
+      _ → pure unit
+    H.get >>= H.raise ∘ Notify
+    pure next
+
+  Close next → do
+    doc ← H.liftEff $ window >>= Win.document
+    mbNavEl ← H.liftEff $ Pn.querySelector (Pn.QuerySelector sel) (Ht.htmlDocumentToParentNode doc)
+
+    for_ mbNavEl \navEl → do
+      navHeight ← H.liftEff $ clientHeight navEl
+      H.put (Closing navHeight navHeight)
+
+    pure next
+
+  GetState k →
+    k <$> H.get

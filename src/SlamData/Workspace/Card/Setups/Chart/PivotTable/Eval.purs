@@ -21,69 +21,64 @@ module SlamData.Workspace.Card.Setups.Chart.PivotTable.Eval
 
 import SlamData.Prelude
 
+import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.State (class MonadState, get, put)
+import Control.Monad.Writer (class MonadTell)
 import Data.Argonaut as J
 import Data.Array as Array
-import Data.Lens ((^.), (.~), (?~), (<>~))
+import Data.Lens ((.~), (?~), (<>~))
 import Data.List ((:))
 import Data.List as L
 import Data.Map as Map
 import Data.NonEmpty as NE
-import Data.Path.Pathy as Path
 import Data.Set as Set
-import Data.StrMap as SM
-import SlamData.Quasar.Class (class QuasarDSL)
+import SlamData.Effects (SlamDataEffects)
+import SlamData.Quasar.Class (class ParQuasarDSL)
 import SlamData.Quasar.Query as QQ
+import SlamData.Workspace.Card.Error as CE
+import SlamData.Workspace.Card.Eval.Common as CEC
 import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Port as Port
-import SlamData.Workspace.Card.Setups.Axis (buildAxes)
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Error (PivotTableError(..), throwPivotTableError)
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
+import SlamData.Workspace.Card.Setups.Common.Eval (analyze)
+import SlamData.Workspace.Card.Setups.Common.Sql (numFuncs)
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.Transform as T
 import SqlSquared (Sql)
 import SqlSquared as Sql
-import Utils.Path (FilePath)
 
 eval
   ∷ ∀ m v
   . MonadAsk CEM.CardEnv m
   ⇒ MonadState CEM.CardState m
-  ⇒ MonadThrow (Variant (pivotTable ∷ PivotTableError | v)) m
-  ⇒ QuasarDSL m
+  ⇒ MonadTell CEM.CardLog m
+  ⇒ MonadThrow (Variant (pivotTable ∷ PivotTableError, qerror ∷ CE.QError, resource ∷ CE.ResourceError | v)) m
+  ⇒ MonadAff SlamDataEffects m
+  ⇒ ParQuasarDSL m
   ⇒ PTM.Model
-  → Port.DataMap
-  → Port.Resource
+  → Port.Port
   → m Port.Out
-eval options varMap resource = do
-  let
-    filePath = resource ^. Port._filePath
-    query = mkSql options filePath
-  r ← CEM.temporaryOutputResource
+eval options port = do
+  CEM.CardEnv { varMap, cardId, path } ← ask
+  var × resource ← CEM.extractResourcePair port
   state ← get
-  axes ←
-    case state of
-      Just (CEM.Analysis { axes: ax, resource: resource' })
-        | resource' ≡ resource → pure ax
-      _ → do
-        QQ.sample filePath 0 300 >>= case _ of
-          Right sample → pure (buildAxes sample)
-          Left err → throwPivotTableError (PivotTableQuasarError err)
-  let
-    state' = { axes, records: [], resource }
-    view = Port.View r (Sql.print $ snd query) varMap
-    output = Port.PivotTable (fst query) × SM.singleton Port.defaultResourceVar (Left view)
-    backendPath = fromMaybe Path.rootDir (Path.parentDir r)
-  put (Just (CEM.Analysis state'))
+  _ × axes ← analyze resource =<< get
+  put $ Just $ CEM.Analysis { axes, records: [], resource }
   when (Array.null options.columns) do
     throwPivotTableError PivotTableNoColumnSelectedError
-  QQ.viewQuery r (snd query) SM.empty >>= case _ of
-    Right result → pure result
-    Left err → throwPivotTableError (PivotTableQuasarError err)
-  pure output
+  let
+    port' × sql = mkSql options var
+  resource' ←
+    CEC.localEvalResource (Sql.Query numFuncs sql) varMap
+      >>= pivotTableError PivotTableQuasarError
+  pure
+    $ Port.PivotTable port'
+    × VM.insert cardId (VM.Var Port.defaultResourceVar) (VM.Resource resource') varMap
 
-mkSql ∷ PTM.Model → FilePath → Port.PivotTablePort × Sql
-mkSql options resource =
+mkSql ∷ PTM.Model → VM.Var → Port.PivotTablePort × Sql
+mkSql options (VM.Var vari) =
   let
     isSimple = PTM.isSimple options
     port = genPort isSimple options
@@ -124,11 +119,10 @@ mkSql options resource =
     sql ∷ Sql
     sql =
       Sql.buildSelect
-        $ ( Sql._projections <>~ projections)
-        ∘ ( Sql._relations
-              ?~ ( Sql.TableRelation { alias: Just "row", path: Left resource }))
-        ∘ ( Sql._groupBy .~ groupBy )
-        ∘ ( Sql._orderBy .~ orderBy )
+        $ (Sql._projections <>~ projections)
+        ∘ (Sql._relations ?~ Sql.VariRelation { vari, alias: Just "row" })
+        ∘ (Sql._groupBy .~ groupBy)
+        ∘ (Sql._orderBy .~ orderBy)
   in
     port × sql
 
@@ -205,11 +199,14 @@ escapeDimension ∷ PTM.GroupByDimension → Maybe T.Transform × Sql.Projection
 escapeDimension = case _ of
   D.Dimension _ (D.Static str) → Nothing × (Sql.projection $ Sql.ident str)
   D.Dimension _ (D.Projection tr cur) →
-    tr × (Sql.projection $ Sql.binop Sql.FieldDeref (Sql.ident "row") $ QQ.jcursorToSql cur)
+    tr × (Sql.projection $ QQ.jcursorToSql (Just (Sql.Ident "row")) cur)
 
 escapeColumn ∷ PTM.ColumnDimension → Maybe T.Transform × Sql.Projection Sql
 escapeColumn = case _ of
   _ × D.Dimension _ (D.Static str) → Nothing × (Sql.projection $ Sql.ident str)
   _ × D.Dimension _ (D.Projection tr PTM.All) → tr × (Sql.projection $ Sql.ident "row")
   _ × D.Dimension _ (D.Projection tr (PTM.Column cur)) →
-    tr × (Sql.projection $ Sql.binop Sql.FieldDeref (Sql.ident "row") $ QQ.jcursorToSql cur)
+    tr × (Sql.projection $ QQ.jcursorToSql (Just (Sql.Ident "row")) cur)
+
+pivotTableError ∷ ∀ e a m v. MonadThrow (Variant (pivotTable ∷ PivotTableError | v)) m ⇒ (e → PivotTableError) → Either e a → m a
+pivotTableError f = either (throwPivotTableError ∘ f) pure

@@ -32,7 +32,7 @@ import SlamData.Workspace.Card.CardType.GeoChartType (GeoChartType)
 import SlamData.Workspace.Card.CardType.GeoChartType as GcT
 import SlamData.Workspace.Card.InsertableCardType (InsertableCardType)
 import SlamData.Workspace.Card.InsertableCardType as ICT
-import SlamData.Workspace.Card.Port (Port)
+import SlamData.Workspace.Card.Port as Port
 
 data NextAction
   = Insert CardType
@@ -145,10 +145,10 @@ fromInsertableCard icard allCards = case A.elemIndex icard allCards of
   Nothing → findOutHowToInsert icard
   Just _ → insert icard
 
-fromPort ∷ Port → Array (Action.Action NextAction)
-fromPort port = do
+fromOut ∷ Port.Out → Array (Action.Action NextAction)
+fromOut out = do
   sample ← ICT.all
   fromInsertableCard sample cardsTakingInputFromPort
   where
-  ioCard = ICT.fromPort port
+  ioCard = ICT.fromOut out
   cardsTakingInputFromPort = ICT.cardsThatTakeInput ioCard

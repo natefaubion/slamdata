@@ -79,7 +79,7 @@ package = P.onPrism (M._BuildParallel ∘ _Just)
       seried =
         SM.empty
         # (TP.unpackProjection PP._series)
-        ?~ (axes.category <> axes.time <> axes.date <> axes.datetime)
+        ?~ (axes.category <> axes.time <> axes.date <> axes.datetime <> axes.value)
 
       flds ∷ L.List TP.Projection
       flds = map PP._dimIx $ L.range 0 $ L.length $ dm ^. PP._dims

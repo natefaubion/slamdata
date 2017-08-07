@@ -20,11 +20,13 @@ import SlamData.Prelude
 
 import Data.Argonaut (JCursor(..), class EncodeJson, class DecodeJson, decodeJson, (~>), (:=), (.?), jsonEmptyObject, insideOut)
 import Data.Array as Array
-import Data.Lens (Lens', lens, Traversal', wander, _Just)
+import Data.Lens (Lens', lens, Traversal', wander, _Just, (^?))
 import Data.Newtype (un)
+import Data.Set as Set
 import Data.String as String
 import Data.Traversable (sequenceDefault)
 
+import SlamData.Workspace.Card.Setups.Axis as Ax
 import SlamData.Workspace.Card.Setups.Transform (Transform(..))
 import SlamData.Workspace.Card.Setups.Transform.Aggregation as Ag
 
@@ -223,3 +225,20 @@ pairToDimension v a =
 pairWithMaybeAggregation ∷ JCursor → Maybe Ag.Aggregation → LabeledJCursor
 pairWithMaybeAggregation v a =
   Dimension (Just $ defaultJCursorCategory v) (Projection (map Aggregation a) v)
+
+axisType ∷ LabeledJCursor → Ax.Axes → Ax.AxisType
+axisType d axes = fromMaybe Ax.Category do
+  c ← d ^? _value ∘ _projection
+  let t = d ^? _value ∘ _transform ∘ _Just
+  pure $ res c t
+  where
+  res c t
+    -- If axis is transformed then we should use category
+    -- i.e. date_part("year", datetime) isn't continuous
+    -- and round(measure, 2) isn't continous too
+    | Just _ ← t = Ax.Category
+    | Set.member c axes.value = Ax.Measure
+    | Set.member c axes.time = Ax.Time
+    | Set.member c axes.date = Ax.Date
+    | Set.member c axes.datetime = Ax.DateTime
+    | otherwise = Ax.Category

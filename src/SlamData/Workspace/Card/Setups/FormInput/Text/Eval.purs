@@ -31,6 +31,7 @@ eval
   ∷ ∀ m
   . MonadState CEM.CardState m
   ⇒ MonadThrow CE.CardError m
+  ⇒ MonadAsk CEM.CardEnv m
   ⇒ QuasarDSL m
   ⇒ Model
   → Port.Resource

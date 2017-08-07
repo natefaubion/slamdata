@@ -1,9 +1,10 @@
 .sd-global-menu
   display: flex
-  flex: 0 0 auto
+  flex: 0 1 auto
   flex-flow: row nowrap
   align-items: stretch
   position: relative
+  min-width: 0
   font-size: 1.6rem
 
   %trans
@@ -13,6 +14,7 @@
 
   .menu-container
     display: flex
+    flex: 0 0 auto
     position: relative
     align-content: center
 
@@ -27,6 +29,7 @@
     right: 0
     max-width: 100vw
     max-height: 100vh
+    margin: 0
     padding: 0
     border: 0.1rem solid rgb(210, 210, 210)
     border-top: none
@@ -99,9 +102,20 @@
 
   .user-info
     display: flex
+    flex: 0 1 auto
     align-items: center
     position: relative
+    min-width: 0
     padding: 0 1.8rem 0 1.2rem
+    text-align: right
+    text-align: end
+
+    > span
+      display: inline-block
+      overflow: hidden
+      max-width: 100%
+      text-overflow: ellipsis
+      white-space: nowrap
 
     &::after
       display: block

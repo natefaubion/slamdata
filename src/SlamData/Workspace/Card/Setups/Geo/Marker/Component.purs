@@ -107,7 +107,7 @@ package = P.onPrism (M._SetupGeoMarker ∘ _Just)
       seriify ∷ SM.StrMap (Set.Set JCursor) → SM.StrMap (Set.Set JCursor)
       seriify =
         TP.unpackProjection PP._series
-        ?~ (latLngFilter $ axes.category <> axes.date <> axes.datetime <> axes.time)
+        ?~ (latLngFilter $ axes.category <> axes.date <> axes.datetime <> axes.time <> axes.value)
 
       sizify ∷ SM.StrMap (Set.Set JCursor) → SM.StrMap (Set.Set JCursor)
       sizify =

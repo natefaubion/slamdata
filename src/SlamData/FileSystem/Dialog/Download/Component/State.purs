@@ -21,7 +21,7 @@ import SlamData.Prelude
 import SlamData.Download.Model as DM
 import SlamData.FileSystem.Resource as R
 
-type State = DM.DownloadModel (error ∷ Maybe String)
+type State = DM.DownloadModel (resource ∷ R.Resource, error ∷ Maybe String)
 
 initialState ∷ R.Resource → State
 initialState resource =
@@ -30,7 +30,7 @@ initialState resource =
       let name = R.resourceName resource
       in if name == "" then "archive" else name
   , compress: false
-  , options: Left DM.initialCSVOptions
+  , options: DM.initialOptions resource
   , error: Nothing
   }
 

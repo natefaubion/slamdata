@@ -19,15 +19,13 @@ module SlamData.Workspace.Card.Troubleshoot.Component.State
   , initialState
   ) where
 
-import Data.StrMap as SM
-
-import SlamData.Workspace.Card.Port.VarMap as Port
+import SlamData.Workspace.Card.Port.VarMap as VM
 
 type State =
-  { varMap :: Port.VarMap
+  { varMap :: VM.VarMap
   }
 
 initialState :: State
 initialState =
-  { varMap : SM.empty
+  { varMap : VM.empty
   }

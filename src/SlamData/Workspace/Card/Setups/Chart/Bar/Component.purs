@@ -57,12 +57,7 @@ package ∷ DS.Package
 package = P.onPrism (M._BuildBar ∘ _Just) $ DS.interpret do
   category ←
     P.field PL._category PP._category
-      >>= P.addSource _.category
-      >>= P.addSource _.value
-      >>= P.addSource _.time
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
-
+      >>= P.addAll
   value ←
     P.field PL._value PP._value
       >>= P.addSource _.value
@@ -70,18 +65,17 @@ package = P.onPrism (M._BuildBar ∘ _Just) $ DS.interpret do
 
   stack ←
     P.optional PL._stack PP._stack
-      >>= P.addSource _.category
-      >>= P.addSource _.time
+      >>= P.addAll
       >>= P.isFilteredBy category
+      >>= P.isFilteredBy value
       >>= P.isActiveWhen category
-
 
   parallel ←
     P.optional PL._parallel PP._parallel
-      >>= P.addSource _.category
-      >>= P.addSource _.time
+      >>= P.addAll
       >>= P.isFilteredBy category
       >>= P.isFilteredBy stack
+      >>= P.isFilteredBy value
       >>= P.isActiveWhen category
 
   pure unit

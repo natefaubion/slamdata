@@ -462,12 +462,12 @@ handleNextAction opts = case _ of
   Next.PresentReason input cardType → do
     presentReason opts input cardType
 
-presentReason ∷ DeckOptions → Port.Port → CT.CardType → DeckDSL Unit
+presentReason ∷ DeckOptions → Port.Out → CT.CardType → DeckDSL Unit
 presentReason opts input cardType =
   Wiring.showDialog dialog
   where
   insertableCardType = ICT.fromCardType cardType
-  ioType = ICT.fromPort input
+  ioType = ICT.fromOut input
   reason = ICT.reason ioType cardType
   cardPaths = ICT.cardPathsBetween ioType insertableCardType
   dialog = Dialog.Reason opts cardType reason cardPaths
@@ -491,10 +491,10 @@ loadDeck opts = mbLoadError =<< runMaybeT do
         ∘ (DCS._activeCardIndex .~ active)
         ∘ DCS.fromModel { name: deck.model.name, displayCards }
       updateActiveState opts
-    ED.Completed (port × _) → do
+    ED.Completed output → do
       active ← activeCardIndex
       H.modify
-        $ (DCS.updateCompletedCards cardDefs port)
+        $ (DCS.updateCompletedCards cardDefs output)
         ∘ (DCS._activeCardIndex .~ active)
         ∘ (DCS._pendingCardIndex .~ Nothing)
         ∘ DCS.fromModel { name: deck.model.name, displayCards: [] }
@@ -515,13 +515,13 @@ handleEval opts = case _ of
     H.modify
       $ (DCS._pendingCardIndex .~ DCS.cardIndexFromId cardId st)
       ∘ (DCS.addMetaCard DCS.PendingCard)
-  ED.Complete cardIds output@(port × _) → do
+  ED.Complete cardIds output → do
     getCardDefs cardIds >>= case _ of
       Nothing →
         H.modify _ { loadError = Just "Deck references non-existent cards" }
       Just cardDefs → do
-        _ ← queryNextAction $ H.action $ Next.UpdateInput port
-        H.modify (DCS.updateCompletedCards cardDefs port)
+        _ ← queryNextAction $ H.action $ Next.UpdateInput output
+        H.modify (DCS.updateCompletedCards cardDefs output)
         updateActiveState opts
   ED.NameChange name → H.modify _ { name = name }
   ED.CardComplete cardId → do

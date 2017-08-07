@@ -94,7 +94,7 @@ data ResponsiveSize
 data MetaCard
   = PendingCard
   | ErrorCard CE.CardError
-  | NextActionCard Port.Port
+  | NextActionCard Port.Out
 
 data Fade
   = FadeNone
@@ -249,7 +249,7 @@ _focusDeckHintDismissed = lens _.focusDeckHintDismissed _{focusDeckHintDismissed
 _focusDeckFrameHintDismissed ∷ ∀ a r. Lens' {focusDeckFrameHintDismissed ∷ a|r} a
 _focusDeckFrameHintDismissed = lens _.focusDeckFrameHintDismissed _{focusDeckFrameHintDismissed = _}
 
-_NextActionCard ∷ Prism' MetaCard Port.Port
+_NextActionCard ∷ Prism' MetaCard Port.Out
 _NextActionCard = prism' NextActionCard case _ of
   NextActionCard a → Just a
   _ → Nothing
@@ -350,8 +350,8 @@ compareCardIndex a b cards =
     <$> A.findIndex (eq a) cards
     <*> A.findIndex (eq b) cards
 
-updateCompletedCards ∷ Array CardDef → Port.Port → State → State
-updateCompletedCards defs port st =
+updateCompletedCards ∷ Array CardDef → Port.Out → State → State
+updateCompletedCards defs out@(port × _) st =
   st
     { displayCards = map Right realCards <> [ Left metaCard ]
     , activeCardIndex = activeIndex
@@ -360,7 +360,7 @@ updateCompletedCards defs port st =
   where
   metaCard = case port of
     Port.CardError err → ErrorCard err
-    _ → NextActionCard port
+    _ → NextActionCard out
 
   realCards = case A.head defs of
     Nothing → []

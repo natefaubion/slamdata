@@ -19,7 +19,7 @@ module SlamData.FileSystem.Component.Query where
 import SlamData.Prelude
 
 import DOM.Event.Types (Event, MouseEvent)
-import DOM.HTML.Types (HTMLElement)
+import DOM.HTML.Types (HTMLElement, HTMLInputElement)
 import SlamData.AdminUI.Types as AdminUI
 import SlamData.Common.Sort (Sort)
 import SlamData.FileSystem.Dialog as Dialog
@@ -58,7 +58,7 @@ data Query a
   | MakeFolder a
   | MakeWorkspace a
   | UploadFile HTMLElement a
-  | FileListChanged HTMLElement a
+  | FileListChanged HTMLInputElement a
   | SetVersion String a
   | DismissSignInSubmenu a
   | DismissMountHint a

@@ -22,10 +22,9 @@ import SlamData.Prelude
 
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.State (class MonadState, put, get)
-import Data.Lens ((^.))
 import SlamData.Quasar.Class (class QuasarDSL)
-import SlamData.Quasar.Query as QQ
 import SlamData.Workspace.Card.Error as CE
+import SlamData.Workspace.Card.Eval.Common as CEC
 import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Eval.State as ES
 import SlamData.Workspace.Card.Port as Port
@@ -36,13 +35,14 @@ eval
   . MonadState CEM.CardState m
   ⇒ MonadThrow CE.CardError m
   ⇒ MonadAff SlamDataEffects m
+  ⇒ MonadAsk CEM.CardEnv m
   ⇒ QuasarDSL m
   ⇒ Port.GeoChartPort
   → Port.Resource
   → m Port.Port
 eval gcPort resource = do
-  let path = resource ^. Port._filePath
-  results ← CE.liftQ $ QQ.all path
+  CEM.CardEnv { path } ← ask
+  results ← CE.liftQ $ CEC.sampleResource path resource Nothing
   let build = \leaf → gcPort.build leaf results
   evalState ← get
   case evalState of

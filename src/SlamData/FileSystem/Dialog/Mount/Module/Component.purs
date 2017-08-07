@@ -1,5 +1,5 @@
 {-
-Copyright 2016 SlamData, Inc.
+Copyright 2017 SlamData, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 
-module SlamData.FileSystem.Dialog.Mount.SQL2.Component
+module SlamData.FileSystem.Dialog.Mount.Module.Component
   ( component
   , Query
   , module Q
@@ -31,16 +31,16 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Elements.Keyed as HHEK
 import Halogen.HTML.Events as HE
-import Quasar.Mount.View as QMV
-import SlamData.FileSystem.Dialog.Mount.Common.Render (propList, section)
+import Quasar.Mount.Module as QMM
+import SlamData.FileSystem.Dialog.Mount.Common.Render (section)
 import SlamData.FileSystem.Dialog.Mount.Common.SettingsQuery as Q
-import SlamData.FileSystem.Dialog.Mount.SQL2.Component.State as S
+import SlamData.FileSystem.Dialog.Mount.Module.Component.State as S
 import SlamData.Monad (Slam)
 
 type Query = Q.SettingsQuery S.State
-type Message = Q.SettingsMessage QMV.Config
+type Message = Q.SettingsMessage QMM.Config
 
-component ∷ H.Component HH.HTML Query (Maybe QMV.Config) Message Slam
+component ∷ H.Component HH.HTML Query (Maybe QMM.Config) Message Slam
 component =
   H.parentComponent
     { initialState: maybe S.initialState S.fromConfig
@@ -50,16 +50,15 @@ component =
     }
 
 render ∷ S.State → H.ParentHTML Query Ace.AceQuery Unit Slam
-render state@{ query } =
+render state =
   HHEK.div_
-    [ "mount-sql2-query" × section "SQL² query"
+    [ "mount-sql2-module" × section "SQL² module"
         [ HH.slot
             unit
-            (Ace.aceComponent (aceSetup query) (Just Ace.Live))
+            (Ace.aceComponent (aceSetup state."module") (Just Ace.Live))
             unit
-            (HE.input (\(Ace.TextChanged q) → Q.ModifyState (_ { query = q })))
+            (HE.input (\(Ace.TextChanged q) → Q.ModifyState (_ { "module" = q })))
         ]
-    , "mount-sql2-vars" × section "Query variables" [ propList S._vars state ]
     ]
 
 aceSetup ∷ String → Editor → Slam Unit

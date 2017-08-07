@@ -16,8 +16,6 @@ limitations under the License.
 
 module SlamData.Workspace.Card.Port
   ( Port(..)
-  , Resource(..)
-  , DataMap
   , Out
   , DownloadPort
   , MetricPort
@@ -28,16 +26,14 @@ module SlamData.Workspace.Card.Port
   , GeoChartPort
   , tagPort
   , emptyOut
-  , terminalOut
   , varMapOut
   , resourceOut
-  , portOut
   , defaultResourceVar
   , filterResources
   , extractResource
-  , extractFilePath
-  , flattenResources
-  , resourceToVarMapValue
+  , extractResourceVar
+  , extractResourcePair
+  , extractAnyFilePath
   , _Initial
   , _Terminal
   , _Variables
@@ -47,8 +43,8 @@ module SlamData.Workspace.Card.Port
   , _ChartInstructions
   , _PivotTable
   , _GeoChartPort
-  , _filePath
   , _osmURI
+  , filePath
   , module SlamData.Workspace.Card.Port.VarMap
   ) where
 
@@ -57,12 +53,10 @@ import SlamData.Prelude
 import Control.Monad.Aff (Aff)
 
 import Data.Argonaut (JCursor, Json)
-import Data.Lens (Prism', prism', Traversal', wander, Lens', lens, (^.), view)
+import Data.Lens (Prism', prism', Traversal', wander, lens)
 import Data.List as List
 import Data.Map as Map
 import Data.Set as Set
-import Data.StrMap as SM
-import Data.Path.Pathy as Path
 import Data.URI (URIRef)
 
 import ECharts.Monad (DSL)
@@ -72,30 +66,23 @@ import Leaflet.Core as LC
 
 import SlamData.Effects (SlamDataEffects)
 import SlamData.Download.Model (DownloadOptions)
+import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.Error as CE
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
 import SlamData.Workspace.Card.Setups.Semantics as Sem
 import SlamData.Workspace.Card.CardType.ChartType (ChartType)
 import SlamData.Workspace.Card.CardType.FormInputType (FormInputType)
-import SlamData.Workspace.Card.Port.VarMap (VarMap, URLVarMap, VarMapValue(..), emptyVarMap, _VarMapValue)
-
-import SqlSquared as Sql
+import SlamData.Workspace.Card.Markdown.Model as MD
+import SlamData.Workspace.Card.Port.VarMap (Var(..), VarMap, URLVarMap, VarMapValue(..), Resource(..))
+import SlamData.Workspace.Card.Port.VarMap as VM
 
 import Text.Markdown.SlamDown as SD
 import Utils.Path as PU
 
-data Resource
-  = Path PU.FilePath
-  | View PU.FilePath String DataMap
-
-derive instance eqResource ∷ Eq Resource
-
-type DataMap = SM.StrMap (Either Resource VarMapValue)
-
-type Out = Port × DataMap
+type Out = Port × VarMap
 
 type DownloadPort =
-  { resource ∷ PU.FilePath
+  { resource ∷ VM.Resource
   , compress ∷ Boolean
   , options ∷ DownloadOptions
   , targetName ∷ String
@@ -144,7 +131,7 @@ data Port
   | ResourceKey String
   | SetupLabeledFormInput SetupLabeledFormInputPort
   | SetupTextLikeFormInput SetupTextLikeFormInputPort
-  | SlamDown (SD.SlamDownP VarMapValue)
+  | SlamDown (SD.SlamDownP MD.MarkdownExpr)
   | ChartInstructions ChartInstructionsPort
   | DownloadOptions DownloadPort
   | ValueMetric MetricPort
@@ -161,7 +148,7 @@ tagPort  = case _ of
   ResourceKey str → "ResourceKey: " ⊕ show str
   SetupLabeledFormInput _ → "SetupLabeledFormInput"
   SetupTextLikeFormInput _ → "SetupTextLikeFormInput"
-  SlamDown sd → "SlamDown: " ⊕ show sd
+  SlamDown sd → "SlamDown"
   ChartInstructions _ → "ChartInstructions"
   DownloadOptions _ → "DownloadOptions"
   ValueMetric _ → "ValueMetric"
@@ -169,45 +156,35 @@ tagPort  = case _ of
   PivotTable _ → "PivotTable"
   GeoChart _ → "GeoChart"
 
-filterResources ∷ DataMap → SM.StrMap Resource
-filterResources = SM.fold go SM.empty
+filterResources ∷ VarMap → List.List (Var × Resource)
+filterResources = List.mapMaybe (uncurry go) ∘ Map.toUnfoldable ∘ VM.snapshot
   where
-    go m key (Left res) = SM.insert key res m
-    go m _ _ = m
+    go key (Resource res) = Just (key × res)
+    go _ _ = Nothing
 
-extractResource ∷ DataMap → Maybe Resource
-extractResource = map snd ∘ List.head ∘ SM.toUnfoldable ∘ filterResources
+extractResource ∷ VarMap → Maybe Resource
+extractResource = map snd ∘ extractResourcePair
 
-extractFilePath ∷ DataMap → Maybe PU.FilePath
-extractFilePath = map (view _filePath) ∘ extractResource
+extractResourceVar ∷ VarMap → Maybe Var
+extractResourceVar = map fst ∘ extractResourcePair
 
-flattenResources ∷ DataMap → VarMap
-flattenResources = map go
-  where
-    go (Left val) = resourceToVarMapValue val
-    go (Right val) = val
+extractResourcePair ∷ VarMap → Maybe (Var × Resource)
+extractResourcePair = List.head ∘ filterResources
 
-resourceToVarMapValue ∷ Resource → VarMapValue
-resourceToVarMapValue r =
-  VarMapValue $ Sql.ident $ Path.printPath $ r ^. _filePath
+extractAnyFilePath ∷ VarMap → Maybe PU.AnyFilePath
+extractAnyFilePath = map filePath ∘ extractResource
 
 defaultResourceVar ∷ String
 defaultResourceVar = "results"
 
 emptyOut ∷ Out
-emptyOut = Initial × SM.empty
+emptyOut = Initial × VM.empty
 
-terminalOut ∷ Out
-terminalOut = Terminal × SM.empty
-
-varMapOut ∷ DataMap → Out
+varMapOut ∷ VarMap → Out
 varMapOut v = Variables × v
 
-resourceOut ∷ Resource → Out
-resourceOut r = ResourceKey defaultResourceVar × SM.singleton defaultResourceVar (Left r)
-
-portOut ∷ Port → Out
-portOut p = p × SM.empty
+resourceOut ∷ CID.CardId → Resource → VarMap → Out
+resourceOut cid r vm = ResourceKey defaultResourceVar × VM.insert cid (VM.Var defaultResourceVar) (Resource r) vm
 
 _Initial ∷ Prism' Port Unit
 _Initial = prism' (const Initial) case _ of
@@ -224,7 +201,7 @@ _Variables = prism' (const Variables) case _ of
   Variables → Just unit
   _ → Nothing
 
-_SlamDown ∷ Traversal' Port (SD.SlamDownP VarMapValue)
+_SlamDown ∷ Traversal' Port (SD.SlamDownP MD.MarkdownExpr)
 _SlamDown = wander \f s → case s of
   SlamDown sd → SlamDown <$> f sd
   _ → pure s
@@ -250,15 +227,6 @@ _PivotTable = prism' PivotTable case _ of
   PivotTable u → Just u
   _ → Nothing
 
-_filePath ∷ Lens' Resource PU.FilePath
-_filePath = lens get set
-  where
-    get (Path fp) = fp
-    get (View fp _ _) = fp
-
-    set (Path _) fp = Path fp
-    set (View _ a b) fp = View fp a b
-
 _GeoChartPort ∷ Prism' Port GeoChartPort
 _GeoChartPort = prism' GeoChart case _ of
   GeoChart u → Just u
@@ -266,3 +234,9 @@ _GeoChartPort = prism' GeoChart case _ of
 
 _osmURI ∷ Traversal' Port URIRef
 _osmURI = _GeoChartPort ∘ lens _.osmURI _{ osmURI = _ }
+
+filePath ∷ Resource → Either PU.FilePath PU.RelFilePath
+filePath = case _ of
+  Path fp → Left fp
+  View fp _ _ → Right fp
+  Process fp _ _ → Right fp

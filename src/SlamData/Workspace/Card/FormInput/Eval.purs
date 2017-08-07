@@ -25,71 +25,50 @@ import SlamData.Prelude
 import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.State (class MonadState, get, put)
 import Control.Monad.Writer.Class (class MonadTell)
-import Data.Lens ((^.), preview, (?~), (.~))
+import Data.Lens (preview, (?~) )
 import Data.List as L
 import Data.Map as Map
-import Data.Path.Pathy as Path
 import Data.Set as Set
-import Data.StrMap as SM
 import SlamData.Effects (SlamDataEffects)
 import SlamData.Quasar.Class (class QuasarDSL, class ParQuasarDSL)
-import SlamData.Quasar.Error as QE
-import SlamData.Quasar.FS as QFS
 import SlamData.Quasar.Query as QQ
 import SlamData.Workspace.Card.CardType.FormInputType as FIT
 import SlamData.Workspace.Card.Error as CE
-import SlamData.Workspace.Card.Eval.Common (validateResources)
+import SlamData.Workspace.Card.Eval.Common as CEC
 import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Eval.State as CES
 import SlamData.Workspace.Card.FormInput.LabeledRenderer.Model as LR
 import SlamData.Workspace.Card.FormInput.Model (Model(..))
 import SlamData.Workspace.Card.FormInput.TextLikeRenderer.Model as TLR
 import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Setups.Semantics as Sem
-import SqlSquared (Sql)
+import SqlSquared (SqlQuery)
 import SqlSquared as Sql
 import Utils (stringToNumber)
-import Utils.SqlSquared (all, asRel, tableRelation)
+import Utils.SqlSquared (all, asRel, variRelation)
 
+defaultSelectionVar ∷ String
+defaultSelectionVar = "selection"
 
--- | I removed additional variable from this (It used to be `QueryExpr`)
--- | not sure that this is right decision, but it's just part of sql expression
--- | encoded as string. And it's actually can't be used to query anything
--- | because it's kinda `"foo"` or `("foo", "bar", true)`
--- | @cryogenian
 eval
-  ∷ ∀ m
+  ∷ ∀ m v
   . MonadAff SlamDataEffects m
   ⇒ MonadAsk CEM.CardEnv m
-  ⇒ MonadThrow CE.CardError m
+  ⇒ MonadThrow (Variant (qerror ∷ CE.QError | v)) m
   ⇒ MonadTell CEM.CardLog m
   ⇒ MonadState CEM.CardState m
   ⇒ QuasarDSL m
   ⇒ ParQuasarDSL m
-  ⇒ Sql
+  ⇒ SqlQuery
+  → Sql.Sql
   → Port.Resource
   → m Port.Out
-eval sql r = do
-  resource ← CEM.temporaryOutputResource
-  let
-    backendPath =
-      fromMaybe Path.rootDir (Path.parentDir (r ^. Port._filePath))
-
-  { inputs } ←
-    CE.liftQ $ lmap (QE.prefixMessage "Error compiling query") <$>
-      QQ.compile backendPath sql SM.empty
-
-  validateResources inputs
-  CEM.addSources inputs
-  _ ← CE.liftQ do
-    _ ← QQ.viewQuery resource sql SM.empty
-    QFS.messageIfFileNotFound resource "Requested collection doesn't exist"
-  let
-    varMap =
-      SM.fromFoldable
-        [ Port.defaultResourceVar × Left (Port.View resource (Sql.print sql) SM.empty)
-        ]
-  pure (Port.ResourceKey Port.defaultResourceVar × varMap)
+eval sql selection r = do
+  CEM.CardEnv { varMap, cardId } ← ask
+  let varMap' = varMap # VM.insert cardId (VM.Var defaultSelectionVar) (VM.Expr selection)
+  resource ← CE.liftQ $ CEC.localEvalResource sql varMap'
+  pure $ Port.resourceOut cardId resource varMap'
 
 evalLabeled
   ∷ ∀ m
@@ -102,9 +81,9 @@ evalLabeled
   ⇒ ParQuasarDSL m
   ⇒ LR.Model
   → Port.SetupLabeledFormInputPort
-  → Port.Resource
   → m Port.Out
-evalLabeled m p r = do
+evalLabeled m p = do
+  resourceVar × r ← CEM.extractResourcePair Port.Initial
   cardState ← get
   let
     lastUsedResource = cardState >>= preview CES._LastUsedResource
@@ -134,22 +113,25 @@ evalLabeled m p r = do
     semantics =
       foldMap Sem.semanticsToSql selected
 
+    selection =
+      Sql.set semantics
+
     sql =
       Sql.buildSelect
         $ all
         ∘ (Sql._relations
-            .~ (tableRelation (r ^. Port._filePath) <#> asRel "res"))
+            ?~ (variRelation (unwrap resourceVar) # asRel "res"))
         ∘ (Sql._filter
              ?~ ( Sql.binop Sql.In
                     ( Sql.binop Sql.FieldDeref
                         ( Sql.ident "res" )
-                        ( QQ.jcursorToSql p.cursor ))
-                    ( Sql.set semantics )))
+                        ( QQ.jcursorToSql Nothing p.cursor ))
+                    ( Sql.vari defaultSelectionVar)))
 
 
   put $ Just $ CEM.AutoSelect {lastUsedResource: r, autoSelect: selected}
 
-  eval sql r
+  eval (Sql.Query mempty sql) selection r
 
 evalTextLike
   ∷ ∀ m
@@ -162,9 +144,9 @@ evalTextLike
   ⇒ ParQuasarDSL m
   ⇒ TLR.Model
   → Port.SetupTextLikeFormInputPort
-  → Port.Resource
   → m Port.Out
-evalTextLike m p r = do
+evalTextLike m p = do
+  resourceVar × r ← CEM.extractResourcePair Port.Initial
   cardState ← get
   let
     selection = case p.formInputType of
@@ -177,12 +159,12 @@ evalTextLike m p r = do
       Sql.buildSelect
         $ all
         ∘ (Sql._relations
-            .~ ( tableRelation (r ^. Port._filePath) <#> asRel "res"))
+            ?~ (variRelation (unwrap resourceVar) # asRel "res"))
         ∘ (Sql._filter
              ?~ ( Sql.binop Sql.Eq
                     ( Sql.binop Sql.FieldDeref
                         ( Sql.ident "res" )
-                        ( QQ.jcursorToSql p.cursor ))
-                    selection ))
+                        ( QQ.jcursorToSql Nothing p.cursor ))
+                    (Sql.vari defaultSelectionVar) ))
 
-  eval sql r
+  eval (Sql.Query mempty sql) selection r

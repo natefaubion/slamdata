@@ -52,6 +52,7 @@ import SlamData.Workspace.Card.Error.Component.Query (Query(..))
 import SlamData.Workspace.Card.Error.Component.State (State, initialState)
 import SlamData.Workspace.Card.Markdown.Error as CME
 import SlamData.Workspace.Card.Open.Error as COE
+import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Query.Error as CQE
 import SlamData.Workspace.Card.Search.Error as CSE
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Error as CPTE
@@ -61,6 +62,7 @@ import SlamData.Workspace.Card.Table.Error as CTE
 import SlamData.Workspace.Card.Variables.Error as CVE
 import Text.Parsing.Parser (parseErrorMessage)
 import Utils (prettyJson)
+import Utils.Path as PU
 
 type DSL = H.ComponentDSL State Query Void Slam
 type HTML = H.ComponentHTML Query
@@ -123,6 +125,7 @@ prettyPrintCardError state ce =
       ce # (case_
         # on CE._qerror printQError
         # on CE._stringly printStringly
+        # on CE._resource (resourceErrorMessage state)
         # on CE._cache (cacheErrorMessage state)
         # on CE._chart (chartErrorMessage state)
         # on CE._downloadOptions (downloadOptionsErrorMessage state)
@@ -164,6 +167,20 @@ collapsible title content expanded =
             [ content ]
       ]
 
+resourceErrorMessage ∷ State → CE.ResourceError → HTML
+resourceErrorMessage state (CE.ResourceError rs) =
+  HH.div_ $
+    [ errorTitle [ HH.text "An error occured when attempting to read a resource." ] ] <>
+      if L.null rs
+        then
+          [ HH.p_ [ HH.text "There are no available resources. Go back and select one to continue." ]
+          ]
+        else
+          [ HH.p_ [ HH.text "There are multiple available resources." ]
+          , HH.ul_ $ A.fromFoldable $ rs <#> \r →
+              HH.li_ [ HH.text $ PU.printAnyFilePath $ Port.filePath r ]
+          ]
+
 queryErrorMessage ∷ State → CQE.QueryError → HTML
 queryErrorMessage { accessType, expanded } err =
   case accessType of
@@ -186,6 +203,13 @@ queryErrorMessage { accessType, expanded } err =
         $ join
           [ pure $ errorTitle [ HH.text "An error occurred when retrieving the query result." ]
           , renderMore qErr
+          ]
+    CQE.QueryParseError pErr →
+      HH.div_
+        $ join
+          [ pure $ errorTitle [ HH.text "An error occured while parsing the query." ]
+          , pure $ HH.pre_ [ HH.text pErr ]
+          , guard (accessType == Editable) $> HH.p_ [ HH.text "Go back to the previous card to fix this error." ]
           ]
   renderMore = case _ of
     QA.ErrorMessage {title, message, raw} →
@@ -284,10 +308,8 @@ markdownErrorMessage { accessType, expanded } err =
               , pure $ HH.p_
                   [ HH.text "The field "
                   , HH.code_ [ HH.text fieldName ]
-                  , HH.text " has the query:"
+                  , HH.text " failed to parse with the following error:"
                   ]
-              , pure $ HH.pre_ [ HH.text sql ]
-              , pure $ HH.p_ [ HH.text "Which failed to parse with the following error:" ]
               , pure $ HH.pre_ [ HH.text error ]
               , guard (accessType == Editable) $> HH.p_ [ HH.text "Go back to the previous card and edit the query to fix this error." ]
               ]
@@ -391,13 +413,13 @@ openErrorMessage { accessType, expanded } err =
       HH.div_
         $ join
           [ pure $ errorTitle [ HH.text $ "No resource was selected in the " <> cardName Open <> " card." ]
-          , guard (accessType == Editable) $> HH.p_ [ HH.text "Go back to the previous card and select either a file or a variable to fix this error." ]
+          , guard (accessType == Editable) $> HH.p_ [ HH.text "Go back to the previous card and select a file, directory or a variable to fix this error." ]
           ]
     COE.OpenNoFileSelected →
       HH.div_
         $ join
           [ pure $ errorTitle [ HH.text $ "The resource selected in the " <> cardName Open <> " card is of an invalid type" ]
-          , guard (accessType == Editable) $> HH.p_ [ HH.text "Go back to the previous card and select a file or variable to fix this error." ]
+          , guard (accessType == Editable) $> HH.p_ [ HH.text "Go back to the previous card and select a file, directory or variable to fix this error." ]
           ]
 
 tableErrorMessage ∷ State → CTE.TableError → HTML

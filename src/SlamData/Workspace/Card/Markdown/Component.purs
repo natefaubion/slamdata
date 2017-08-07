@@ -32,15 +32,17 @@ import SlamData.Wiring as Wiring
 import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Component as CC
+import SlamData.Workspace.Card.Eval.State as CES
 import SlamData.Workspace.Card.Markdown.Component.Query (Query(..))
 import SlamData.Workspace.Card.Markdown.Component.State (State, initialState)
+import SlamData.Workspace.Card.Markdown.Model as MD
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Deck.DeckId as DID
 import SlamData.Workspace.LevelOfDetails as LOD
 import Text.Markdown.SlamDown.Halogen.Component as SD
 
-type MarkdownQuery = SD.SlamDownQuery Port.VarMapValue
+type MarkdownQuery = SD.SlamDownQuery MD.MarkdownExpr
 type HTML = CC.InnerCardParentHTML Query MarkdownQuery Unit
 type DSL = CC.InnerCardParentDSL State Query MarkdownQuery Unit
 
@@ -93,13 +95,14 @@ evalCard = case _ of
     pure next
   CC.ReceiveInput input _ next → do
     for_ (input ^? Port._SlamDown) \sd → do
-      state ← H.gets _.state
       void $ H.query unit $ H.action (SD.SetDocument sd)
-      void $ H.query unit $ H.action (SD.PopulateForm state)
     pure next
   CC.ReceiveOutput _ _ next →
     pure next
-  CC.ReceiveState _ next →
+  CC.ReceiveState evalState next → do
+    for_ (evalState ^? CES._SlamDown) \state → do
+      H.modify _ { state = state }
+      void $ H.query unit $ H.action (SD.PopulateForm state)
     pure next
   CC.ReceiveDimensions _ reply →
     pure $ reply LOD.High

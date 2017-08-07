@@ -31,7 +31,6 @@ import Control.Monad.Aff.AVar (makeVar, takeVar)
 
 import Data.Array as Array
 import Data.String as Str
-import Data.StrMap as SM
 
 import Halogen as H
 import Halogen.Component.Utils (affEventSource)
@@ -52,6 +51,7 @@ import SlamData.Workspace.Card.Ace.Component.State (State, initialState)
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Model as Card
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.LevelOfDetails (LevelOfDetails(..))
 
 import SqlSquared as Sql
@@ -127,7 +127,7 @@ evalCard mode = case _ of
     H.modify _ { dirty = false }
     pure next
   CC.ReceiveInput _ varMaps next → do
-    let vars = SM.keys varMaps
+    let vars = VM.varNames varMaps
     _ ← H.query unit $ H.action $ AC.SetCompleteFn \_ _ _ inp → do
       let inp' = Str.toLower inp
       pure $ flip Array.mapMaybe vars \var → do

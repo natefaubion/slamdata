@@ -99,9 +99,6 @@ downloadTargetBox = ClassName "download-target-box"
 downloadCSVDelimiters ∷ ClassName
 downloadCSVDelimiters = ClassName "download-csv-delimiters"
 
-downloadArrayMode ∷ ClassName
-downloadArrayMode = ClassName "download-array-mode"
-
 downloadJSONOptions ∷ ClassName
 downloadJSONOptions = ClassName "download-json-options"
 

@@ -18,10 +18,11 @@ module SlamData.Workspace.Card.Table.Eval (eval) where
 
 import SlamData.Prelude
 
-import Control.Monad.State (class MonadState, put, get)
-import Data.Lens ((^.), (^?), _Just)
+import Control.Monad.State (class MonadState, put, gets)
+import Data.Lens ((^?), _Just)
 import SlamData.Quasar.Class (class QuasarDSL)
-import SlamData.Quasar.Query as Quasar
+import SlamData.Workspace.Card.Eval.Common as CEC
+import SlamData.Workspace.Card.Error as CE
 import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Eval.State as ES
 import SlamData.Workspace.Card.Port as Port
@@ -31,53 +32,46 @@ import SlamData.Workspace.Card.Table.Model as M
 eval
   ∷ ∀ m v
   . MonadState CEM.CardState m
-  ⇒ MonadThrow (Variant (table ∷ TableError | v)) m
+  ⇒ MonadAsk CEM.CardEnv m
+  ⇒ MonadThrow (Variant (table ∷ TableError, resource ∷ CE.ResourceError | v)) m
   ⇒ QuasarDSL m
   ⇒ M.Model
   → Port.Port
-  → Port.DataMap
   → m Port.Out
-eval model port varMap =
-  Port.extractResource varMap
-    # maybe (throwTableError TableMissingResourceInputError) \resource → do
-      rawTableState ← map (_ ^? _Just ∘ ES._Table ) get
-      let
-        defaultState =
-          { resource
-          , result: [ ]
-          , size: 0
-          , page: 1
-          , pageSize: 10
-          }
-        state =
-          fromMaybe defaultState rawTableState
-        pageSize =
-          fromMaybe state.pageSize model.pageSize
-        page =
-          fromMaybe state.page model.page
+eval model port = do
+  CEM.CardEnv { varMap, path } ← ask
+  resource ← CEM.extractResource port
+  rawState ← gets (_ ^? _Just ∘ ES._Table)
+  let
+    defaultState =
+      { resource
+      , result: []
+      , size: 0
+      , page: 1
+      , pageSize: 10
+      }
+    state = fromMaybe defaultState rawState
+    pageSize = fromMaybe state.pageSize model.pageSize
+    page = fromMaybe state.page model.page
+    offset = (page - 1) * pageSize
+  unless (samePageAndResource rawState resource model) do
+    size ←
+      case rawState of
+        Just t | t.resource ≡ resource → pure t.size
+        _ → CEC.countResource resource >>= searchError TableCountQuasarError
+    result ←
+      CEC.sampleResource path resource (Just { offset, limit: pageSize })
+        >>= searchError TableSampleQuasarError
+    put $ Just $ ES.Table
+      { resource
+      , result
+      , size
+      , page
+      , pageSize
+      }
+  pure $ port × varMap
 
-      unless (samePageAndResource rawTableState resource model) do
-        resultAndSize ← do
-          size ←
-            case rawTableState of
-              Just t | t.resource ≡ resource → pure t.size
-              _ → Quasar.count (resource ^. Port._filePath) >>= case _ of
-                Left err → throwTableError (TableCountQuasarError err)
-                Right result → pure result
-          sampleResult ← Quasar.sample (resource ^. Port._filePath) ((page - 1) * pageSize) pageSize
-          case sampleResult of
-            Left err → throwTableError (TableSampleQuasarError err)
-            Right result →
-              pure $ result × size
-        put $ Just $ ES.Table
-          { resource
-          , result: fst resultAndSize
-          , size: snd resultAndSize
-          , page
-          , pageSize
-          }
 
-      pure $ port × varMap
   where
   samePageAndResource ∷ Maybe ES.TableR → Port.Resource → M.Model → Boolean
   samePageAndResource Nothing _ _ = false
@@ -85,3 +79,6 @@ eval model port varMap =
     t.resource ≡ resource
     ∧ Just t.page ≡ page
     ∧ Just t.pageSize ≡ pageSize
+
+searchError ∷ ∀ e a m v. MonadThrow (Variant (table ∷ TableError | v)) m ⇒ (e → TableError) → Either e a → m a
+searchError f = either (throwTableError ∘ f) pure

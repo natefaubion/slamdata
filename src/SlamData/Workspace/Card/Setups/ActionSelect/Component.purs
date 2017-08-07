@@ -120,10 +120,11 @@ component =
   renderSelect st =
     let
       isNull = Array.null st.options
-      content =
-        if isNull
-          then [ HH.p [ HP.classes [ HH.ClassName "no-options" ] ] [ HH.text "No available options" ] ]
-          else [ HH.slot' cp1 unit (ALC.actionListComp selectConf []) unit (HE.input HandleSelect) ]
+      content
+        | Array.null st.options =
+          [ HH.p [ HP.classes [ HH.ClassName "no-options" ] ] [ HH.text "No available options" ] ]
+        | otherwise =
+          [ HH.slot' cp1 unit (ALC.actionListComp selectConf []) unit (HE.input HandleSelect) ]
     in
       CSD.pickerDialog
         { onDismiss: HandleDismiss

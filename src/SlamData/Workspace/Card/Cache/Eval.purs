@@ -19,7 +19,7 @@ module SlamData.Workspace.Card.Cache.Eval where
 import SlamData.Prelude
 
 import Control.Monad.Writer.Class (class MonadTell)
-import Data.Lens ((^.), (.~))
+import Data.Lens ((.~))
 import Data.Path.Pathy as Path
 import Data.StrMap as SM
 import Quasar.Types (FilePath)
@@ -44,11 +44,12 @@ eval
   → Port.Resource
   → m Port.Out
 eval mfp resource =
-  Port.resourceOut <$> case mfp of
-    Nothing → do
-      tmp ← CEM.temporaryOutputResource
+  CEM.resourceOut =<< case mfp, resource of
+    _, Port.Process _ _ _ → pure resource
+    Nothing, _ → do
+      tmp ← fst <$> CEM.temporaryOutputResource
       eval' tmp resource
-    Just pt →
+    Just pt, _ →
       case PU.parseAnyPath pt of
         Just (Right fp) → eval' fp resource
         _ → throwCacheError (CacheInvalidFilepath pt)
@@ -57,20 +58,21 @@ eval'
   ∷ ∀ m v
   . MonadThrow (Variant (cache ∷ CacheError, qerror ∷ CE.QError | v)) m
   ⇒ MonadTell CEM.CardLog m
+  ⇒ MonadAsk CEM.CardEnv m
   ⇒ QuasarDSL m
   ⇒ FilePath
   → Port.Resource
   → m Port.Resource
 eval' tmp resource = do
   let
-    filePath = resource ^. Port._filePath
-    backendPath = fromMaybe Path.rootDir $ Path.parentDir filePath
+    anyPath = Port.filePath resource
     sql =
       Sql.buildSelect
         $ all
-        ∘ (Sql._relations .~ tableRelation filePath)
+        ∘ (Sql._relations .~ tableRelation anyPath)
+  backendPath ← fromMaybe Path.rootDir ∘ Path.parentDir <$> CEM.anyTemporaryPath anyPath
   outputResource ← CE.liftQ $
-    QQ.fileQuery backendPath tmp sql SM.empty
+    QQ.fileQuery backendPath tmp (Sql.Query mempty sql) SM.empty
   checkResult ← QFS.messageIfFileNotFound outputResource (CacheErrorSavingFile outputResource)
   for_ (either (Just ∘ CacheQuasarError) id checkResult)
     throwCacheError

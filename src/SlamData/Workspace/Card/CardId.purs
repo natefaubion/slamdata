@@ -21,6 +21,7 @@ module SlamData.Workspace.Card.CardId
   , fromString'
   , toString
   , codec
+  , unsafeFromInt
   ) where
 
 import SlamData.Prelude
@@ -65,13 +66,15 @@ codec ∷ CA.JsonCodec CardId
 codec = dimap (\(CardId uuid) → uuid) CardId UUID.codec <~< migrationCodec
   where
     migrationCodec ∷ CA.JsonCodec J.Json
-    migrationCodec = C.basicCodec (\j -> pure $ either (const j) go (C.decode CA.int j)) id
-      where
-        go ∷ Int -> J.Json
-        go i =
-          let
-            str = String.take 12 (show i)
-            len = String.length str
-            block = if len < 12 then replicate (12 - len) "0" <> str else str
-          in
-            J.fromString ("00000000-0000-4000-8000-" <> block)
+    migrationCodec = C.basicCodec (\j → pure $ either (const j) (J.fromString ∘ toString ∘ unsafeFromInt) (C.decode CA.int j)) id
+
+unsafeFromInt ∷ Int → CardId
+unsafeFromInt i =
+  let
+    str = String.take 12 (show i)
+    len = String.length str
+    block = if len < 12 then replicate (12 - len) "0" <> str else str
+  in
+    unsafePartial
+      $ fromJust
+      $ fromString ("00000000-0000-4000-8000-" <> block)

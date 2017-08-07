@@ -53,29 +53,27 @@ package ∷ DS.Package
 package = P.onPrism (M._BuildRadar ∘ _Just) $ DS.interpret do
   category ←
     P.field PL._category PP._category
-      >>= P.addSource _.category
-      >>= P.addSource _.time
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
+      >>= P.addAll
 
   value ←
     P.field PL._value PP._value
       >>= P.addSource _.value
+      >>= P.isFilteredBy category
 
   multiple ←
     P.optional PL._multiple PP._multiple
-      >>= P.addSource _.category
-      >>= P.addSource _.time
+      >>= P.addAll
       >>= P.isFilteredBy category
       >>= P.isActiveWhen category
+      >>= P.isFilteredBy value
 
   parallel ←
     P.optional PL._parallel PP._parallel
-      >>= P.addSource _.category
-      >>= P.addSource _.time
+      >>= P.addAll
       >>= P.isFilteredBy category
       >>= P.isFilteredBy multiple
       >>= P.isActiveWhen category
+      >>= P.isFilteredBy value
 
   pure unit
 

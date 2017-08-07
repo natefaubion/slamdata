@@ -25,8 +25,6 @@ import SlamData.Prelude
 import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.State.Class (class MonadState)
 import Control.Monad.Writer.Class (class MonadTell)
-import Data.StrMap as SM
-import Data.List ((:))
 import SlamData.Effects (SlamDataEffects)
 import SlamData.Quasar.Class (class QuasarDSL, class ParQuasarDSL)
 import SlamData.Workspace.Card.Cache.Eval as Cache
@@ -88,10 +86,9 @@ runCard
   → CEM.CardState
   → Eval
   → Port.Port
-  → Port.DataMap
   → m (CEM.CardResult CE.CardError Port.Out)
-runCard env state trans input varMap =
-  CEM.runCardEvalM env state (evalCard trans input varMap ∷ CEM.CardEval CE.CardError Port.Out)
+runCard env state trans input =
+  CEM.runCardEvalM env state (evalCard trans input ∷ CEM.CardEval CE.CardError Port.Out)
 
 
 evalCard
@@ -105,61 +102,58 @@ evalCard
   ⇒ ParQuasarDSL m
   ⇒ Eval
   → Port.Port
-  → Port.DataMap
   → m Port.Out
-evalCard trans port varMap = map (_ `SM.union` varMap) <$> case trans, port of
+evalCard trans port = CEM.localVarMap >>= \varMap → case trans, port of
   Error msg, _ → CE.throw msg
   _, Port.CardError err → throwError err
   Pass, _ → pure (port × varMap)
-  Table m, _ → Table.eval m port varMap
+  Table m, _ → Table.eval m port
   PivotTable m, Port.PivotTable p → PivotTable.eval m p varMap
   Chart, Port.PivotTable p → PivotTable.eval PTM.initialModel p varMap
-  Chart, Port.ChartInstructions { options } → tapResource (Chart.eval options) varMap
+  Chart, Port.ChartInstructions { options } → tapResource (Chart.eval options) port
   Chart, _ → pure (Port.ResourceKey Port.defaultResourceVar × varMap)
-  GeoChart, Port.GeoChart m → tapResource (Geo.eval m) varMap
+  GeoChart, Port.GeoChart m → tapResource (Geo.eval m) port
   Composite, _ → Port.varMapOut <$> Common.evalComposite
-  Terminal, _ → pure Port.terminalOut
+  Terminal, _ → pure (Port.Terminal × varMap)
   Query sql, _ → Query.evalQuery sql varMap
   Markdown txt, _ → MDE.evalMarkdown txt varMap
   MarkdownForm model, Port.SlamDown doc → MDE.evalMarkdownForm model doc varMap
-  Search query, _ → Search.evalSearch query =<< extractResource varMap
-  Cache path, _ → Cache.eval path =<< extractResource varMap
+  Search query, _ → Search.evalSearch query port
+  Cache path, _ → Cache.eval path =<< CEM.extractResource port
   Open res, _ → Open.evalOpen res varMap
   Variables model, _ → VariablesE.eval model
-  BuildMetric model, _ → tapResource (BuildMetric.eval model) varMap
-  BuildSankey model, _ → BuildSankey.eval model =<< extractResource varMap
-  BuildGauge model, _ → BuildGauge.eval model =<< extractResource varMap
-  BuildGraph model, _ → BuildGraph.eval model =<< extractResource varMap
-  BuildPie model, _ → BuildPie.eval model =<< extractResource varMap
-  BuildRadar model, _ → BuildRadar.eval model =<< extractResource varMap
-  BuildArea model, _ → BuildArea.eval model =<< extractResource varMap
-  BuildLine model, _ → BuildLine.eval model =<< extractResource varMap
-  BuildBar model, _ → BuildBar.eval model =<< extractResource varMap
-  BuildScatter model, _ → BuildScatter.eval model =<< extractResource varMap
-  BuildFunnel model, _ → BuildFunnel.eval model =<< extractResource varMap
-  BuildHeatmap model, _ → BuildHeatmap.eval model =<< extractResource varMap
-  BuildBoxplot model, _ → BuildBoxplot.eval model =<< extractResource varMap
-  BuildPivotTable model, _ → BuildPivotTable.eval model varMap =<< extractResource varMap
-  BuildPunchCard model, _ → BuildPunchCard.eval model =<< extractResource varMap
-  BuildCandlestick model, _ → BuildCandlestick.eval model =<< extractResource varMap
-  BuildParallel model, _ → BuildParallel.eval model =<< extractResource varMap
-  SetupCheckbox model, _ → tapResource (SetupLabeled.eval model FiT.Checkbox) varMap
-  SetupRadio model, _ → tapResource (SetupLabeled.eval model FiT.Radio) varMap
-  SetupDropdown model, _ → tapResource (SetupLabeled.eval model FiT.Dropdown) varMap
-  SetupText model, _ → tapResource (SetupText.eval model) varMap
-  SetupNumeric model, _ → tapResource (SetupNumeric.eval model) varMap
-  SetupDate model, _ → tapResource (SetupDate.eval model) varMap
-  SetupTime model, _ → tapResource (SetupTime.eval model) varMap
-  SetupDatetime model, _ → tapResource (SetupDatetime.eval model) varMap
-  SetupStatic model, _ → tapResource (SetupStatic.eval model) varMap
-  SetupGeoMarker model, _ → SetupGeoMarker.eval model =<< extractResource varMap
-  SetupGeoHeatmap model, _ → SetupGeoHeatmap.eval model =<< extractResource varMap
-  FormInput (FormInput.Labeled model), Port.SetupLabeledFormInput lp →
-    FormInput.evalLabeled model lp =<< extractResource varMap
-  FormInput (FormInput.TextLike model), Port.SetupTextLikeFormInput tlp →
-    FormInput.evalTextLike model tlp =<< extractResource varMap
+  BuildMetric model, _ → tapResource (BuildMetric.eval model) port
+  BuildSankey model, _ → BuildSankey.eval model port
+  BuildGauge model, _ → BuildGauge.eval model port
+  BuildGraph model, _ → BuildGraph.eval model port
+  BuildPie model, _ → BuildPie.eval model port
+  BuildRadar model, _ → BuildRadar.eval model port
+  BuildArea model, _ → BuildArea.eval model port
+  BuildLine model, _ → BuildLine.eval model port
+  BuildBar model, _ → BuildBar.eval model port
+  BuildScatter model, _ → BuildScatter.eval model port
+  BuildFunnel model, _ → BuildFunnel.eval model port
+  BuildHeatmap model, _ → BuildHeatmap.eval model port
+  BuildBoxplot model, _ → BuildBoxplot.eval model port
+  BuildPivotTable model, _ → BuildPivotTable.eval model port
+  BuildPunchCard model, _ → BuildPunchCard.eval model port
+  BuildCandlestick model, _ → BuildCandlestick.eval model port
+  BuildParallel model, _ → BuildParallel.eval model port
+  SetupCheckbox model, _ → tapResource (SetupLabeled.eval model FiT.Checkbox) port
+  SetupRadio model, _ → tapResource (SetupLabeled.eval model FiT.Radio) port
+  SetupDropdown model, _ → tapResource (SetupLabeled.eval model FiT.Dropdown) port
+  SetupText model, _ → tapResource (SetupText.eval model) port
+  SetupNumeric model, _ → tapResource (SetupNumeric.eval model) port
+  SetupDate model, _ → tapResource (SetupDate.eval model) port
+  SetupTime model, _ → tapResource (SetupTime.eval model) port
+  SetupDatetime model, _ → tapResource (SetupDatetime.eval model) port
+  SetupStatic model, _ → tapResource (SetupStatic.eval model) port
+  SetupGeoMarker model, _ → SetupGeoMarker.eval model port
+  SetupGeoHeatmap model, _ → SetupGeoHeatmap.eval model port
+  FormInput (FormInput.Labeled model), Port.SetupLabeledFormInput lp → FormInput.evalLabeled model lp
+  FormInput (FormInput.TextLike model), Port.SetupTextLikeFormInput tlp → FormInput.evalTextLike model tlp
   FormInput _, _ → pure (Port.ResourceKey Port.defaultResourceVar × varMap)
-  DownloadOptions model, _ → tapResource (DOptions.eval model) varMap
+  DownloadOptions model, _ → tapResource (DOptions.eval model) port
   e, i → CE.throw $ "Card received unexpected input type; " <> tagEval e <> " | " <> Port.tagPort i
 
 modelToEval ∷ Model.AnyCardModel → Eval
@@ -209,21 +203,12 @@ modelToEval = case _ of
   Model.Geo model → GeoChart
   _ → Pass
 
--- TODO(Christoph): Get rid of this monstrosity of an error message
-extractResourceVar ∷ ∀ m. MonadThrow CE.CardError m ⇒ Port.DataMap → m (String × Port.Resource)
-extractResourceVar dm = case SM.toUnfoldable (Port.filterResources dm) of
-  _ : _ : _ → CE.throw "Multiple resources selected"
-  r : _ → pure r
-  _ → CE.throw "No resource selected"
-
-extractResource ∷ ∀ m. MonadThrow CE.CardError m ⇒ Port.DataMap → m (Port.Resource)
-extractResource = map snd ∘ extractResourceVar
-
 tapResource
   ∷ ∀ m
   . MonadThrow CE.CardError m
+  ⇒ MonadAsk CEM.CardEnv m
   ⇒ (Port.Resource → m Port.Port)
-  → Port.DataMap
+  → Port.Port
   → m Port.Out
-tapResource f dm =
-  map (_ × dm) (f =<< extractResource dm)
+tapResource f port =
+  Tuple <$> (f =<< CEM.extractResource port) <*> CEM.localVarMap

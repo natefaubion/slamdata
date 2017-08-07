@@ -24,6 +24,7 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+import Halogen.Component.Proxy as HCP
 
 import SlamData.Monad (Slam)
 import SlamData.Workspace.Card.Setups.ActionSelect.Component as AS
@@ -33,7 +34,10 @@ import SlamData.Workspace.Card.Setups.DimensionMap.Component.State as ST
 import SlamData.Workspace.Card.Setups.DimensionMap.Defaults as DMD
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
 import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor as DJ
-import SlamData.Workspace.Card.Setups.Package.DSL as T
+import SlamData.Workspace.Card.Setups.Package.DSL as Ty
+import SlamData.Workspace.Card.Setups.Transform as T
+import SlamData.Workspace.Card.Setups.Transform.Numeric as N
+import SlamData.Workspace.Card.Setups.Transform.Place.Component as TPC
 import SlamData.Workspace.Card.Setups.Inputs as I
 import SlamData.Workspace.Card.Setups.Transform as Tr
 import Utils (showJCursorTip)
@@ -61,12 +65,16 @@ renderSelection pack state = case state ^. ST._selected of
   Nothing → HH.text ""
   Just (Right tp) →
     HH.slot' CS.cpTransform unit AS.component
-      { options: ST.transforms state
+      { options: ST.transforms tp state
       , selection: (\a → a × a) <$> ST.getTransform tp state
       , title: "Choose transformation"
       , toLabel: \t -> { text: Tr.prettyPrintTransform t, icon: Nothing }
       , deselectable: (DMD.getDefaults tp).deselectable
-      , toSelection: const Nothing
+      , toSelection: case _ of
+          T.Numeric (N.Floor _) → Just $ HCP.proxy TPC.transformFloor
+          T.Numeric (N.Round _) → Just $ HCP.proxy TPC.transformRound
+          T.Numeric (N.Ceil _) → Just $ HCP.proxy TPC.transformCeil
+          _ → Nothing
       }
       (HE.input \m → Q.OnField tp ∘ Q.HandleTransformPicker m)
   Just (Left pf) →
@@ -86,11 +94,11 @@ renderSelection pack state = case state ^. ST._selected of
         unit
         (HE.input \m → Q.OnField pf ∘ Q.HandleDPMessage m)
 
-renderButton ∷ ST.Package → ST.State → T.Projection → HTML
+renderButton ∷ ST.Package → ST.State → Ty.Projection → HTML
 renderButton pack state fld =
   HH.div [ HP.classes [ HH.ClassName "chart-configure-form" ] ]
   [ I.dimensionButton
-    { configurable: ST.isConfigurable fld pack state
+    { configurable: true
     , formattable: false
     , dimension: sequence $ ST.getSelected fld state
     , showLabel: absurd

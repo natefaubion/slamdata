@@ -19,19 +19,19 @@ module SlamData.Download.Render where
 import SlamData.Prelude
 
 import Data.Lens (Lens', (^.))
-
 import Halogen as H
-import Halogen.HTML.Events as HE
 import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-
+import Quasar.Data.CSV as CSV
+import Quasar.Data.Json as Json
 import SlamData.Download.Model as D
 import SlamData.Render.ClassName as CN
 
 optionsCSV
   :: forall f
-   . (Lens' D.CSVOptions String -> String -> (Unit -> f Unit))
-   -> D.CSVOptions
+   . (Lens' CSV.Options String -> String -> (Unit -> f Unit))
+   -> CSV.Options
    -> H.ComponentHTML f
 optionsCSV func opts =
   HH.div_
@@ -44,7 +44,7 @@ optionsCSV func opts =
       ]
     ]
   where
-  field :: Lens' D.CSVOptions String -> String -> H.ComponentHTML f
+  field :: Lens' CSV.Options String -> String -> H.ComponentHTML f
   field lens label =
     HH.li_
       [ HH.label_
@@ -59,8 +59,8 @@ optionsCSV func opts =
 
 optionsJSON
   :: forall f
-   . (forall a. (Eq a) => Lens' D.JSONOptions a -> a -> (Unit -> f Unit))
-  -> D.JSONOptions
+   . (forall a. (Eq a) => Lens' Json.Options a -> a -> (Unit -> f Unit))
+  -> Json.Options
   -> H.ComponentHTML f
 optionsJSON func opts =
   HH.div
@@ -72,8 +72,8 @@ optionsJSON func opts =
     HH.div_
       [ HH.label_ [ HH.text "Multiple values" ]
       , HH.ul_
-          [ radio "multivalues" D._multivalues D.ArrayWrapped "Wrap values in arrays"
-          , radio "multivalues" D._multivalues D.LineDelimited "Separate values by newlines"
+          [ radio "multivalues" D._encoding  Json.Array "Wrap values in arrays"
+          , radio "multivalues" D._encoding Json.LineDelimited "Separate values by newlines"
           ]
       ]
 
@@ -90,7 +90,7 @@ optionsJSON func opts =
   radio
     :: forall a
      . (Eq a)
-    => String -> Lens' D.JSONOptions a -> a -> String -> H.ComponentHTML f
+    => String -> Lens' Json.Options a -> a -> String -> H.ComponentHTML f
   radio grp lens value label =
     HH.li_
       [ HH.label_
@@ -107,7 +107,7 @@ optionsJSON func opts =
 fldName
   ∷ ∀ q
   . Boolean
-  → Either D.CSVOptions D.JSONOptions
+  → D.DownloadOptions
   → String
   → (String → H.Action q)
   → H.ComponentHTML q

@@ -17,19 +17,23 @@ limitations under the License.
 module Test.Property.Utils.Path
   ( ArbFilePath
   , runArbFilePath
+  , ArbRelFilePath
+  , runArbRelFilePath
+  , ArbAnyFilePath
+  , runArbAnyFilePath
   , ArbDirPath
   , runArbDirPath
   ) where
 
 import SlamData.Prelude
 
-import Data.Path.Pathy (Path, Rel, Dir, Sandboxed, (</>), dir, file, rootDir)
+import Data.Path.Pathy (Path, Rel, Dir, Sandboxed, (</>), dir, file, rootDir, currentDir)
 import Data.String (null)
 
 import Test.StrongCheck.Arbitrary (class Arbitrary, arbitrary)
 import Test.StrongCheck.Gen (Gen, suchThat, chooseInt, vectorOf)
 
-import Utils.Path (FilePath, DirPath)
+import Utils.Path (FilePath, DirPath, RelFilePath, AnyFilePath)
 
 newtype ArbFilePath = ArbFilePath FilePath
 
@@ -42,6 +46,30 @@ instance arbitraryArbFilePath ∷ Arbitrary ArbFilePath where
     dirs ← map dir <$> vectorOf numDirs pathPart
     filename ← file <$> pathPart
     pure $ ArbFilePath $ rootDir </> foldl (flip (</>)) filename (dirs ∷ Array (Path Rel Dir Sandboxed))
+
+newtype ArbRelFilePath = ArbRelFilePath RelFilePath
+
+runArbRelFilePath ∷ ArbRelFilePath → RelFilePath
+runArbRelFilePath (ArbRelFilePath p) = p
+
+instance arbitraryArbRelFilePath ∷ Arbitrary ArbRelFilePath where
+  arbitrary = do
+    numDirs ← chooseInt 1 10
+    dirs ← map dir <$> vectorOf numDirs pathPart
+    filename ← file <$> pathPart
+    pure $ ArbRelFilePath $ currentDir </> foldl (flip (</>)) filename (dirs ∷ Array (Path Rel Dir Sandboxed))
+
+newtype ArbAnyFilePath = ArbAnyFilePath AnyFilePath
+
+runArbAnyFilePath ∷ ArbAnyFilePath → AnyFilePath
+runArbAnyFilePath (ArbAnyFilePath p) = p
+
+instance arbitraryArbAnyFilePath ∷ Arbitrary ArbAnyFilePath where
+  arbitrary = do
+    b ← arbitrary
+    ArbAnyFilePath <$> if b
+      then Left ∘ runArbFilePath <$> arbitrary
+      else Right ∘ runArbRelFilePath <$> arbitrary
 
 newtype ArbDirPath = ArbDirPath DirPath
 

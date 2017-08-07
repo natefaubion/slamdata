@@ -23,19 +23,17 @@ import SlamData.Prelude
 
 import Control.Monad.Aff.Future as Future
 import Data.Json.Extended (EJson)
-import Data.Lens ((.~), view)
 import Data.List as L
-import Data.Path.Pathy as Path
 import Halogen as H
 import Halogen.Component.Utils (busEventSource)
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import SlamData.GlobalMenu.Bus as GMB
-import SlamData.Quasar.Query as QQ
 import SlamData.Wiring as Wiring
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Component as CC
+import SlamData.Workspace.Card.Eval.Common as CEC
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.StructureEditor.Column.Component as SECC
@@ -49,8 +47,6 @@ import SlamData.Workspace.Card.StructureEditor.Model (Model(..))
 import SlamData.Workspace.LevelOfDetails as LOD
 import SlamData.Workspace.MillerColumns.Column.BasicFilter (mkFilter)
 import SlamData.Workspace.MillerColumns.Component as MC
-import SqlSquared as Sql
-import Utils.SqlSquared as SU
 
 type DSL = CC.InnerCardParentDSL S.State Query CS.ChildQuery CS.ChildSlot
 type HTML = CC.InnerCardParentHTML Query CS.ChildQuery CS.ChildSlot
@@ -130,16 +126,8 @@ load path { requestId, filter } =
 
 fetchData ∷ Port.Resource → DSL (Array EJson)
 fetchData res = do
-  let path = view Port._filePath res
-  case fst <$> Path.peel path of
-    Just resourcePath → do
-      let
-        sql =
-          Sql.binop Sql.Limit
-            (Sql.buildSelect $ SU.all ∘ (Sql._relations .~ (SU.tableRelation path <#> SU.asRel "row")))
-            (Sql.int 1000)
-      either (const []) id <$> QQ.queryEJson resourcePath sql
-    _ → pure []
+  { path } ← Wiring.expose
+  either (const []) id <$> CEC.sampleResourceEJson path res (Just { offset: 0, limit: 1000 })
 
 evalCard ∷ CC.CardEvalQuery ~> DSL
 evalCard = case _ of

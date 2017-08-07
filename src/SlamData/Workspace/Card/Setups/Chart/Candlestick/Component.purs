@@ -52,10 +52,7 @@ package ∷ DS.Package
 package = P.onPrism (M._BuildCandlestick ∘ _Just) $ DS.interpret do
   dimension ←
     P.field PL._dimension PP._dimension
-      >>= P.addSource _.category
-      >>= P.addSource _.time
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
+      >>= P.addAll
 
   open ←
     P.field PL._open PP._open
@@ -81,13 +78,13 @@ package = P.onPrism (M._BuildCandlestick ∘ _Just) $ DS.interpret do
 
   parallel ←
     P.optional PL._parallel PP._parallel
-      >>= P.addSource _.category
-      >>= P.addSource _.time
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
+      >>= P.addAll
       >>= P.isFilteredBy dimension
       >>= P.isActiveWhen dimension
-
+      >>= P.isFilteredBy open
+      >>= P.isFilteredBy close
+      >>= P.isFilteredBy high
+      >>= P.isFilteredBy low
 
   pure unit
 

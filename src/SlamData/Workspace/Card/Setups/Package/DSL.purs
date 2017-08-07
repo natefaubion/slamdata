@@ -19,6 +19,7 @@ module SlamData.Workspace.Card.Setups.Package.DSL
   , onPrism
   , field
   , addSource
+  , addAll
   , isFilteredBy
   , isActiveWhen
   , optional
@@ -107,6 +108,18 @@ addSource
   → T.Field m
   → T.PackageM m (T.Field m)
 addSource prj fld = liftF $ T.Source fld (T.packAxesProjection prj) id
+
+addAll
+  ∷ ∀ m
+  . T.Field m
+  → T.PackageM m (T.Field m)
+addAll fld = do
+  f1 ← addSource _.time fld
+  f2 ← addSource _.date f1
+  f3 ← addSource _.datetime f2
+  f4 ← addSource _.value f3
+  addSource _.category f4
+
 
 isFilteredBy ∷ ∀ m. T.Field m → T.Field m → T.PackageM m (T.Field m)
 isFilteredBy filter source = liftF $ T.Depends { filter, source } id

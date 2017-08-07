@@ -28,7 +28,6 @@ import Data.Array as A
 import Data.Foldable as F
 import Data.Foreign (readNumber)
 import Data.Int as Int
-import Data.Lens ((^?))
 import Data.List as L
 import Data.Map as M
 import Data.Set as Set
@@ -184,18 +183,10 @@ buildOptions axes r punchCardData = do
     E.items $ map ET.strItem ordinateValues
 
   xAxisType ∷ Ax.AxisType
-  xAxisType =
-    fromMaybe Ax.Category
-    $ Ax.axisType
-    <$> (r.abscissa ^? D._value ∘ D._projection)
-    <*> pure axes
+  xAxisType = D.axisType r.abscissa axes
 
   yAxisType ∷ Ax.AxisType
-  yAxisType =
-    fromMaybe Ax.Category
-    $ Ax.axisType
-    <$> (r.ordinate ^? D._value ∘ D._projection)
-    <*> pure axes
+  yAxisType = D.axisType r.ordinate axes
 
   abscissaValues ∷ Array String
   abscissaValues =

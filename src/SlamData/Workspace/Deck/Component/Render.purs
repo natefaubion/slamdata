@@ -29,6 +29,7 @@ import Halogen.HTML.Properties.ARIA as ARIA
 import SlamData.ActionList.Component as ActionList
 import SlamData.ActionList.Filter.Component as ActionFilter
 import SlamData.Render.ClassName as CN
+import SlamData.Render.Common as RC
 import SlamData.Render.Icon as I
 import SlamData.Workspace.AccessType as AT
 import SlamData.Workspace.Card.Component.CSS as CCSS
@@ -220,21 +221,26 @@ deckIndicator st =
     A.mapWithIndex renderCircle st.displayCards
 
   where
-  activeCard =
-    DCS.activeCardIndex st
+    activeCard =
+      DCS.activeCardIndex st
 
-  classes ix card =
-    map HH.ClassName
-    $ (guard (st.pendingCardIndex ≡ Just ix) $> "running")
-    ⊕ (A.singleton case card of
-          Right _ → "available"
-          Left DCS.PendingCard → "pending"
-          Left (DCS.ErrorCard _) → "errored"
-          Left (DCS.NextActionCard _) → "placeholder")
-    ⊕ (guard (activeCard ≡ ix) $> "focused")
+    isRunning ix =
+      st.pendingCardIndex == Just ix
 
-  renderCircle ix card =
-    HH.i [ HP.classes $ classes ix card ] [ HH.text "" ]
+    classes ix card =
+      map HH.ClassName
+      $ (guard (isRunning ix) $> "running")
+      ⊕ (A.singleton case card of
+            Right _ → "available"
+            Left DCS.PendingCard → "pending"
+            Left (DCS.ErrorCard _) → "errored"
+            Left (DCS.NextActionCard _) → "placeholder")
+      ⊕ (guard (activeCard ≡ ix) $> "focused")
+
+    renderCircle ix card =
+      HH.i
+        [ HP.classes $ classes ix card ]
+        [ if isRunning ix then RC.spinner else (HH.text "") ]
 
 flipButton ∷ DeckHTML
 flipButton =

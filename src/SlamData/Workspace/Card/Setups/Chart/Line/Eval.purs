@@ -25,7 +25,6 @@ import Data.Argonaut (Json, decodeJson, (.?))
 import Data.Array as A
 import Data.Foldable as F
 import Data.Int as Int
-import Data.Lens ((^?))
 import Data.List as L
 import Data.Map as M
 import Data.Set as Set
@@ -219,11 +218,7 @@ lineOptions axes r lineData = do
 
   where
   xAxisType ∷ Ax.AxisType
-  xAxisType =
-    fromMaybe Ax.Category
-    $ Ax.axisType
-    <$> (r.dimension ^? D._value ∘ D._projection)
-    <*> (pure axes)
+  xAxisType = D.axisType r.dimension axes
 
   xAxisConfig ∷ Ax.EChartsAxisConfiguration
   xAxisConfig = Ax.axisConfiguration xAxisType

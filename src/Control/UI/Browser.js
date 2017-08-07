@@ -17,12 +17,6 @@ exports.newTab = function(url) {
     };
 };
 
-exports.clearValue = function(el) {
-    return function() {
-        el.value = null;
-    };
-};
-
 exports.setTitle = function(t) {
     return function() {
         document.title = t;

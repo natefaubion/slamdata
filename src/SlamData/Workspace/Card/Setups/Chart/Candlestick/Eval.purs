@@ -24,7 +24,6 @@ import SlamData.Prelude
 import Data.Argonaut (JArray, Json, decodeJson, (.?))
 import Data.Array as A
 import Data.List as L
-import Data.Lens ((^?))
 import Data.Map as M
 
 import ECharts.Monad (DSL)
@@ -166,10 +165,7 @@ kOptions axes r kData = do
   xValues  = sortX ∘ foldMap A.singleton ∘ M.keys ∘ _.items
 
   xAxisType ∷ Ax.AxisType
-  xAxisType =
-    fromMaybe Ax.Category
-    $ Ax.axisType <$> (r.dimension ^? D._value ∘ D._projection) <*> pure axes
-
+  xAxisType = D.axisType r.dimension axes
 
   sortX ∷ Array String → Array String
   sortX = A.sortBy $ Ax.compareWithAxisType xAxisType

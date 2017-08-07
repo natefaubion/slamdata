@@ -19,6 +19,7 @@ module SlamData.Workspace.Card.Setups.DimensionMap.Defaults
   , getDefaults
   , dynamicMeasure
   , isFlat
+  , availableTransforms
   ) where
 
 import SlamData.Prelude
@@ -29,6 +30,7 @@ import Data.StrMap as SM
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.Package.DSL as T
 import SlamData.Workspace.Card.Setups.Package.Projection as Pr
+import SlamData.Workspace.Card.Setups.Transform as Tr
 import SlamData.Workspace.Card.Setups.Transform.Aggregation as Ag
 
 type ProjectionDefaults =
@@ -241,3 +243,30 @@ isFlat ∷ T.Projection → Boolean
 isFlat prj = case T.idReflection ^. T.unpackProjection prj of
   Just "flatValue" → true
   _ → false
+
+isMeasure ∷ T.Projection → Boolean
+isMeasure prj = case T.idReflection ^. T.unpackProjection prj of
+  Nothing → false
+  Just s
+    | isJust $ Int.fromString s → true
+    | otherwise →
+      s ≡ "value"
+        ∨ s ≡ "flatValue"
+        ∨ s ≡ "intensity"
+        ∨ s ≡ "size"
+        ∨ s ≡ "open"
+        ∨ s ≡ "close"
+        ∨ s ≡ "high"
+        ∨ s ≡ "low"
+        ∨ s ≡ "secondValue"
+
+availableTransforms ∷ T.Projection → Maybe Tr.Transform → Array Tr.Transform
+availableTransforms prj mbTr
+  | isMeasure prj = Tr.aggregationTransforms
+  | otherwise = fold
+      [ Tr.dateTransforms
+      , Tr.timeTransforms
+      , Tr.dateTimeTransforms
+      , Tr.numericTransforms mbTr
+      , Tr.stringTransforms
+      ]

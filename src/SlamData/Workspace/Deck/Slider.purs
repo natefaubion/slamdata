@@ -302,13 +302,13 @@ renderCard opts deckComponent st activeIndex index card =
   insertableCardType ∷ Maybe ICT.InsertableCardType
   insertableCardType = ICT.fromCardType ∘ _.cardType <$> hush card
 
-  outputType ∷ Maybe ICT.InsertableCardIOType
-  outputType = ICT.outputFor =<< insertableCardType
+  outputTypes ∷ Array ICT.InsertableCardIOType
+  outputTypes = fold $ ICT.outputsFor <$> insertableCardType
 
   hintText ∷ String
   hintText =
     "To do more with "
-      ⊕ (fromMaybe "the output" $ ICT.printIOType' =<< outputType)
+      ⊕ (fromMaybe "the output" $ join $ Array.head $ ICT.printIOType' <$> outputTypes)
       ⊕ " produced by this "
       ⊕ (maybe "card" (\iot → ICT.print iot ⊕ " Card") insertableCardType)
       ⊕ " click or drag this gripper to the left and add a new card to the deck."

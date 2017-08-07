@@ -20,6 +20,7 @@ import SlamData.Prelude
 import Data.Argonaut as J
 import Data.Argonaut ((:=), (~>), (.?))
 import Data.Lens (Prism', prism')
+import Data.List as L
 import SqlSquared as Sql
 import Test.StrongCheck.Arbitrary (class Arbitrary, arbitrary)
 import Test.StrongCheck.Gen as Gen
@@ -41,32 +42,13 @@ numericOperations =
 applyNumericOperation ∷ NumericOperation → Sql.Projection Sql.Sql → Sql.Projection Sql.Sql
 applyNumericOperation no (Sql.Projection { expr, alias }) =
   Sql.Projection
-    { alias, expr: mkExpr no }
-  where
-  floor e =
-    Sql.binop Sql.Minus e $ Sql.pars $ Sql.binop Sql.Mod e $ Sql.int 1
-  round e =
-    floor $ Sql.pars $ Sql.binop Sql.Plus e $ Sql.num 0.5
-  ceil e =
-    Sql.match (Sql.pars $ Sql.binop Sql.Mod e $ Sql.int 1)
-      (pure ( Sql.when (Sql.int zero) # Sql.then_ e ))
-      (pure $ floor $ Sql.pars $ Sql.binop Sql.Plus e $ Sql.int 1)
+    { alias, expr: transformNumericSql no expr }
 
-  mult (Place n) e =
-    Sql.pars $ Sql.binop Sql.Mult (Sql.pars e)
-      ( Sql.binop Sql.Pow (Sql.num 10.0) (Sql.int $ negate n))
-  div (Place n) e =
-    Sql.binop Sql.Div (Sql.pars e)
-      ( Sql.pars $ Sql.binop Sql.Pow (Sql.num 10.0) (Sql.int $ negate n))
-
-  mkExpr = case _ of
-    Floor n →
-      div n $ floor $ mult n expr
-    Round n →
-      div n $ round $ mult n expr
-    Ceil n →
-      div n $ ceil $ mult n expr
-
+transformNumericSql ∷ NumericOperation → Sql.Sql → Sql.Sql
+transformNumericSql = case _ of
+  Floor (Place n) → \sql → Sql.invokeFunction "FLOOR" $ L.fromFoldable [ sql, Sql.int $ negate n ]
+  Round (Place n) → \sql → Sql.invokeFunction "ROUND" $ L.fromFoldable [ sql, Sql.int $ negate n ]
+  Ceil (Place n) → \sql → Sql.invokeFunction "CEIL" $ L.fromFoldable [ sql, Sql.int $ negate n ]
 
 prettyPrintNumericOperation ∷ NumericOperation → String
 prettyPrintNumericOperation = case _ of

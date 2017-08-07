@@ -23,8 +23,8 @@ import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as P
 import Data.String as String
 import Quasar.Mount as QM
+import Quasar.Mount.Type as QMT
 import Quasar.Types (AnyPath)
-import SlamData.FileSystem.Dialog.Mount.Scheme as MS
 import Utils.Path (DirPath)
 
 data Input
@@ -52,9 +52,9 @@ isNew = case _ of
   New _ → true
   _ → false
 
-matchSchemeConfig ∷ Input → MS.Scheme → Maybe QM.MountConfig
+matchSchemeConfig ∷ Input → QMT.MountType → Maybe QM.MountConfig
 matchSchemeConfig = case _, _ of
-  Edit { mount }, scheme | scheme == MS.fromConfig mount → Just mount
+  Edit { mount }, scheme | scheme == QM.getType mount → Just mount
   _, _ → Nothing
 
 data Status = Idle | Saving | Unmounting
@@ -64,7 +64,7 @@ derive instance eqStatus ∷ Eq Status
 type State =
   { input ∷ Input
   , name ∷ Maybe String
-  , scheme ∷ Maybe MS.Scheme
+  , scheme ∷ Maybe QMT.MountType
   , pathValue ∷ Either (Maybe String) AnyPath
   , configValue ∷ Either (Maybe String) QM.MountConfig
   , error ∷ Maybe String
@@ -78,7 +78,7 @@ initialState input =
   in
     { input
     , name: if is _New input then Just "" else Nothing
-    , scheme: MS.fromConfig ∘ _.mount <$> maybeEditInput
+    , scheme: QM.getType ∘ _.mount <$> maybeEditInput
     , pathValue: note Nothing (_.path <$> maybeEditInput)
     , configValue: note Nothing (_.mount <$> maybeEditInput)
     , error: Nothing
@@ -100,6 +100,6 @@ validatePath st@{ input, name, scheme: Just scheme } =
       when (String.contains (String.Pattern "/") name') $
         Left (Just "Mount names cannot contain slashes")
       case scheme of
-        MS.SQL2 → Right $ Right (parent </> P.file name')
+        QMT.View → Right $ Right (parent </> P.file name')
         _ → Right $ Left (parent </> P.dir name')
 validatePath _ = Left Nothing

@@ -21,7 +21,6 @@ import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Now (NOW)
 import Control.Monad.Eff.Random (RANDOM)
 import Control.Monad.Eff.Timer (TIMER)
-import Control.UI.File (READ_FILE)
 import Data.JSDate (LOCALE)
 import ECharts.Types (ECHARTS)
 import Halogen.Aff (HalogenEffects)
@@ -36,7 +35,6 @@ type SlamDataRawEffects =
   , ace ∷ ACE
   , console ∷ CONSOLE
   , echarts ∷ ECHARTS
-  , file ∷ READ_FILE
   , now ∷ NOW
   , timer ∷ TIMER
   , locale ∷ LOCALE

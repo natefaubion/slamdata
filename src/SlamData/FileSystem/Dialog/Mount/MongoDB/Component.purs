@@ -42,7 +42,7 @@ component =
   H.component
     { initialState: maybe S.initialState S.fromConfig
     , render
-    , eval: Q.eval (MCS.vToE ∘ S.toConfig)
+    , eval: Q.eval (MCS.vToE ∘ S.toConfig) ∘ Q.onModify S.processState
     , receiver: const Nothing
     }
 

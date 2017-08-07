@@ -25,7 +25,6 @@ import Data.Argonaut (Json, decodeJson, (.?))
 import Data.Array as A
 import Data.Map as M
 import Data.Set as Set
-import Data.Lens ((^?))
 import Data.List as L
 
 import ECharts.Monad (DSL)
@@ -179,10 +178,7 @@ barOptions axes r barData = do
 
   where
   xAxisType ∷ Ax.AxisType
-  xAxisType =
-    fromMaybe Ax.Category
-    $ Ax.axisType <$> (r.category ^? D._value ∘ D._projection) <*> pure axes
-
+  xAxisType = D.axisType r.category axes
 
   xAxisConfig ∷ Ax.EChartsAxisConfiguration
   xAxisConfig = Ax.axisConfiguration xAxisType
@@ -206,7 +202,6 @@ barOptions axes r barData = do
       $ flip foldMap barData
       $ foldMap (Set.fromFoldable ∘ M.keys ∘ _.items)
       ∘ _.series
-
 
   xSortFn ∷ String → String → Ordering
   xSortFn = Ax.compareWithAxisType xAxisType

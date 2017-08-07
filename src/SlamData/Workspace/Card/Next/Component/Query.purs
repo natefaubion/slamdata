@@ -18,12 +18,12 @@ module SlamData.Workspace.Card.Next.Component.Query where
 
 import SlamData.ActionList.Component.Query as ALQ
 import SlamData.Workspace.Card.Next.NextAction (NextAction)
-import SlamData.Workspace.Card.Port (Port)
+import SlamData.Workspace.Card.Port as Port
 
 data Query a
   = DismissAddCardHint a
   | PresentAddCardHint a
-  | UpdateInput Port a
+  | UpdateInput Port.Out a
   | HandleFilter String a
   | HandleAction NextAction a
   | ToActionList (ALQ.Query NextAction a)

@@ -53,9 +53,9 @@ type DSL =
 
 data Message
   = AddCard CT.CardType
-  | PresentReason Port.Port CT.CardType
+  | PresentReason Port.Out CT.CardType
 
-nextCardComponent ∷ H.Component HH.HTML Query Port.Port Message Slam
+nextCardComponent ∷ H.Component HH.HTML Query Port.Out Message Slam
 nextCardComponent = H.parentComponent
   { initialState
   , render
@@ -72,7 +72,7 @@ render state =
           Hint.DownArrow
           (HH.ClassName "sd-add-card-guide")
           (Just DismissAddCardHint)
-          (addCardHintText state.input))
+          (addCardHintText (fst state.input)))
     ⊕ [ HH.slot' CS.cpActionFilter unit
           ActionFilter.component
           "Filter next actions"
@@ -80,7 +80,7 @@ render state =
             ActionFilter.FilterChanged str →
               Just $ H.action $ HandleFilter str
       , HH.slot' CS.cpActionList unit
-          (ActionList.actionListComp ActionList.defaultConf (NA.fromPort state.input))
+          (ActionList.actionListComp ActionList.defaultConf (NA.fromOut state.input))
           unit
           case _ of
             ActionList.Selected a →
@@ -91,21 +91,21 @@ render state =
     Port.Initial → "To get this deck started press one of these buttons to add a card."
     _            → "To do more with this deck press one of these buttons to add a card."
 
-updateActions ∷ Port.Port → DSL Unit
+updateActions ∷ Port.Out → DSL Unit
 updateActions =
   void
     ∘ H.query' CS.cpActionList unit
     ∘ H.action
     ∘ ActionList.UpdateActions
-    ∘ NA.fromPort
+    ∘ NA.fromOut
 
-takesInput ∷ Port.Port → CT.CardType → Boolean
+takesInput ∷ Port.Out → CT.CardType → Boolean
 takesInput input =
-  ICT.takesInput (ICT.fromPort input) ∘ ICT.fromCardType
+  ICT.takesInput (ICT.fromOut input) ∘ ICT.fromCardType
 
-possibleToGetTo ∷ Port.Port → CT.CardType → Boolean
+possibleToGetTo ∷ Port.Out → CT.CardType → Boolean
 possibleToGetTo input =
-  ICT.possibleToGetTo (ICT.fromPort input) ∘ ICT.fromCardType
+  ICT.possibleToGetTo (ICT.fromOut input) ∘ ICT.fromCardType
 
 getDismissedAddCardHintBefore ∷ DSL Boolean
 getDismissedAddCardHintBefore =

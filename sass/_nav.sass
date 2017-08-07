@@ -1,13 +1,19 @@
+$nav-logo-height: 6.8rem
+$nav-gripper-height: $grid-size
+
+
 .sd-nav
   position: fixed
   top: 0
   left: 0
   right: 0
   z-index: 600
-  max-height: 7rem
+  min-height: 7rem
+  max-height: calc(100vh - #{$grid-size})
   width: 100%
   background: $global-menu-bg
   color: $global-menu-color
+  will-change: transform
 
   &.workspace-nav
     border-bottom: 0.1rem $color-separator solid
@@ -38,7 +44,9 @@
 
     .nav-logo
       flex: 1 1 auto
+      height: $nav-logo-height
       margin-left: -0.5rem
+      white-space: nowrap
 
       img
         // fix for IE
@@ -115,9 +123,9 @@
   overflow: hidden
   top: 100%
   right: 0
-  width: $grid-size
+  width: $nav-gripper-height
   // fixes a weird 1px gap bug from the transition
-  height: $grid-size + 0.1rem
+  height: $nav-gripper-height + 0.1rem
   margin: -0.1rem auto 0
   padding-top: 0.1rem
   background-color: $frame-controls-bg
@@ -152,3 +160,45 @@
 
   &:hover
     color: $global-menu-color
+
+
+// Smaller screens
+@media screen and (max-width: 46em)
+  .sd-nav .header, .sd-global-menu, .sd-global-menu .menu-container
+    flex-direction: column
+
+  .sd-nav
+    .header
+      padding-bottom: 0.1rem
+
+
+  .sd-global-menu
+    overflow-y: auto
+    max-height: calc(100vh - #{$nav-gripper-height + $nav-logo-height + 0.1rem})
+    margin: 0 ($grid-size * -1)
+
+    .user-info::after
+      content: normal
+
+    .menu-container
+      margin: 0
+
+    .help-menu-button, .sign-in-menu-button, .user-info
+      width: 100%
+      padding: $padding-base-vertical $grid-size
+      font-size: 1.8rem
+      text-align: left
+      text-align: start
+
+      .sd-icon, .sd-spinner
+        display: inline-block
+        position: static
+        margin: auto 0.5em auto 0
+        font-size: inherit
+
+    .submenu
+      position: static
+
+    .submenu-item-button, .submenu-item-link
+      text-align: left
+      text-align: start

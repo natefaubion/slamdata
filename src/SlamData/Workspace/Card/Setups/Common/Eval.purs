@@ -27,6 +27,7 @@ module SlamData.Workspace.Card.Setups.Common.Eval
 
 import SlamData.Prelude
 
+import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.State (class MonadState, get, put)
 import Control.Monad.Writer.Class (class MonadTell)
 import Data.Argonaut as J
@@ -34,26 +35,24 @@ import Data.Array as A
 import Data.Foreign (Foreign, toForeign)
 import Data.Foreign.Index (readProp)
 import Data.Function (on)
-import Data.Lens ((^.))
 import Data.Map as M
 import Data.NonEmpty as NE
-import Data.Path.Pathy as Path
 import Data.StrMap as SM
 import ECharts.Monad (DSL)
 import ECharts.Monad as EM
 import ECharts.Types as ET
 import ECharts.Types.Phantom (I)
-import SlamData.Quasar.Class (class QuasarDSL)
-import SlamData.Quasar.Error as QE
-import SlamData.Quasar.FS as QFS
-import SlamData.Quasar.Query as QQ
+import SlamData.Effects (SlamDataEffects)
+import SlamData.Quasar.Class (class ParQuasarDSL, class QuasarDSL)
 import SlamData.Workspace.Card.Error as CE
+import SlamData.Workspace.Card.Eval.Common as CEC
 import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Setups.Axis (Axes, buildAxes)
+import SlamData.Workspace.Card.Setups.Common.Sql (numFuncs)
 import SqlSquared as Sql
 import Utils (hush')
-import Utils.Path as PU
 
 infixr 3 type M.Map as >>
 
@@ -61,6 +60,7 @@ analysisEval
   ∷ ∀ m v p
   . MonadState CEM.CardState m
   ⇒ MonadThrow (Variant (stringly ∷ String, qerror ∷ CE.QError | v)) m
+  ⇒ MonadAsk CEM.CardEnv m
   ⇒ QuasarDSL m
   ⇒ (Axes → p → Array J.Json → Port.Port)
   → Maybe p
@@ -76,56 +76,46 @@ analysisEval build model defaultModel resource = do
 
 type ChartSetupEval p m v =
   MonadState CEM.CardState m
-  ⇒ MonadThrow (Variant (stringly ∷ String, qerror ∷ CE.QError | v)) m
+  ⇒ MonadThrow (Variant (stringly ∷ String, qerror ∷ CE.QError, resource ∷ CE.ResourceError | v)) m
   ⇒ MonadAsk CEM.CardEnv m
   ⇒ MonadTell CEM.CardLog m
-  ⇒ QuasarDSL m
+  ⇒ MonadAff SlamDataEffects m
+  ⇒ ParQuasarDSL m
   ⇒ Maybe p
-  → Port.Resource
+  → Port.Port
   → m Port.Out
 
 chartSetupEval
   ∷ ∀ m v p
   . MonadState CEM.CardState m
-  ⇒ MonadThrow (Variant (stringly ∷ String, qerror ∷ CE.QError | v)) m
+  ⇒ MonadThrow (Variant (stringly ∷ String, qerror ∷ CE.QError, resource ∷ CE.ResourceError | v)) m
   ⇒ MonadAsk CEM.CardEnv m
   ⇒ MonadTell CEM.CardLog m
-  ⇒ QuasarDSL m
-  ⇒ (p → PU.FilePath → Sql.Sql)
+  ⇒ MonadAff SlamDataEffects m
+  ⇒ ParQuasarDSL m
+  ⇒ (p → VM.Var → Sql.Sql)
   → (p → Axes → Port.Port)
   → Maybe p
-  → Port.Resource
+  → Port.Port
   → m Port.Out
-chartSetupEval buildSql buildPort m resource = do
+chartSetupEval buildSql buildPort m port = do
+  var × resource ← CEM.extractResourcePair port
   records × axes ← analyze resource =<< get
   put $ Just $ CEM.Analysis { resource, records, axes }
   case m of
     Nothing → CE.throw "Incorrect chart setup model"
     Just r → do
+      CEM.CardEnv { varMap, cardId } ← ask
       let
-        path = resource ^. Port._filePath
-        backendPath = fromMaybe Path.rootDir $ Path.parentDir path
-        sql = buildSql r path
-
-      outputResource ← CEM.temporaryOutputResource
-
-      { inputs } ←
-        CE.liftQ $ lmap (QE.prefixMessage "Error compiling query") <$>
-          QQ.compile backendPath sql SM.empty
-
-      _ ← CE.liftQ do
-        _ ← QQ.viewQuery outputResource sql SM.empty
-        QFS.messageIfFileNotFound
-          outputResource
-          "Error making search temporary resource"
-      let
-        view = Port.View outputResource (Sql.print sql) SM.empty
-        port = buildPort r axes
-      pure (port × SM.singleton Port.defaultResourceVar (Left view))
+        sql = buildSql r var
+        port' = buildPort r axes
+      resource' ← CE.liftQ $ CEC.localEvalResource (Sql.Query numFuncs sql) varMap
+      pure (port' × VM.insert cardId (VM.Var Port.defaultResourceVar) (VM.Resource resource') varMap)
 
 analyze
   ∷ ∀ m v
   . MonadThrow (Variant (qerror ∷ CE.QError | v)) m
+  ⇒ MonadAsk CEM.CardEnv m
   ⇒ QuasarDSL m
   ⇒ Port.Resource
   → CEM.CardState
@@ -134,7 +124,8 @@ analyze resource = case _ of
   Just (CEM.Analysis st) | resource ≡ st.resource →
     pure (st.records × st.axes)
   _ → do
-    records ← CE.liftQ (QQ.sample (resource ^. Port._filePath) 0 300)
+    CEM.CardEnv { path } ← ask
+    records ← either (const []) id <$> CEC.sampleResource path resource (Just { offset: 0, limit: 300 })
     let axes = buildAxes (unwrapValue <$> records)
     pure (records × axes)
   where

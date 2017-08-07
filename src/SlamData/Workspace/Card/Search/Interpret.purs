@@ -15,7 +15,12 @@ limitations under the License.
 -}
 
 module SlamData.Workspace.Card.Search.Interpret
-  ( queryToSql
+  ( searchSql
+  , defaultFilterVar
+  , defaultDistinctVar
+  , filterSql
+  , isDistinct
+  , projections
   ) where
 
 import SlamData.Prelude
@@ -24,7 +29,7 @@ import Data.Foldable as F
 import Data.HugeInt as HI
 import Data.Int as Int
 import Data.Json.Extended as Ej
-import Data.Lens ((.~), (?~))
+import Data.Lens ((?~), (.~))
 import Data.List ((:))
 import Data.List as L
 import Data.String as S
@@ -32,24 +37,31 @@ import Data.String.Regex as RX
 import Data.String.Regex.Flags as RXF
 import Data.String.Regex.Unsafe as URX
 import Matryoshka (Algebra, embed, cata, Transform, transAna, ana, Coalgebra)
-import Quasar.Types (FilePath)
 import SlamData.SqlSquared.Tagged as SqlT
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SqlSquared (Sql, SqlF(..))
 import SqlSquared as Sql
 import Text.SlamSearch.Types as SS
-import Utils.SqlSquared (tableRelation)
+import Utils.SqlSquared as SU
 
-queryToSql
-  ∷ L.List Sql
-  → SS.SearchQuery
-  → FilePath
-  → Sql
-queryToSql fields searchQuery path =
-  Sql.buildSelect
-    $ (Sql._isDistinct .~ isDistinct searchQuery)
-    ∘ (Sql._projections .~ projections fields)
-    ∘ (Sql._relations .~ tableRelation path)
-    ∘ (Sql._filter ?~ filter fields searchQuery)
+defaultFilterVar ∷ VM.Var
+defaultFilterVar = VM.Var "filter"
+
+defaultDistinctVar ∷ VM.Var
+defaultDistinctVar = VM.Var "distinct"
+
+searchSql ∷ VM.Var → VM.Var → VM.Var → Sql
+searchSql (VM.Var vari) (VM.Var filterVar) (VM.Var distinctVar) =
+  Sql.switch
+    (pure (Sql.when (Sql.vari distinctVar) # Sql.then_ (select true)))
+    (Just (select false))
+  where
+  select distinct =
+    Sql.buildSelect
+      $ (Sql._relations ?~ SU.variRelation vari)
+      ∘ (Sql._filter ?~ Sql.vari filterVar)
+      ∘ (Sql._isDistinct .~ distinct)
+      ∘ SU.all
 
 isDistinct ∷ SS.SearchQuery → Boolean
 isDistinct = F.any isDistinctTerm
@@ -100,8 +112,8 @@ projections =
   ∘ L.catMaybes
   ∘ map (cata topFieldF)
 
-filter ∷ L.List Sql → SS.SearchQuery → Sql
-filter fs =
+filterSql ∷ L.List Sql → SS.SearchQuery → Sql
+filterSql fs =
   ors
   ∘ map ands
   ∘ unwrap

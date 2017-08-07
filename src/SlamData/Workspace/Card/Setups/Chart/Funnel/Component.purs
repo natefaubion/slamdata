@@ -58,22 +58,18 @@ package ∷ DS.Package
 package = P.onPrism (M._BuildFunnel ∘ _Just) $ DS.interpret do
   category ←
     P.field PL._category PP._category
-      >>= P.addSource _.category
-      >>= P.addSource _.time
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
+      >>= P.addAll
 
   value ←
     P.field PL._value PP._value
       >>= P.addSource _.value
+      >>= P.isFilteredBy category
 
   series ←
     P.optional PL._series PP._series
-      >>= P.addSource _.category
-      >>= P.addSource _.time
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
+      >>= P.addAll
       >>= P.isFilteredBy category
+      >>= P.isFilteredBy value
       >>= P.isActiveWhen category
 
 

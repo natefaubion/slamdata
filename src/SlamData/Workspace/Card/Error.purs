@@ -20,7 +20,7 @@ module SlamData.Workspace.Card.Error
   ) where
 
 import SlamData.Prelude
-
+import Data.List as L
 import Data.Variant (case_, on)
 import SlamData.GlobalError as GE
 import SlamData.Quasar.Error (QError)
@@ -29,6 +29,7 @@ import SlamData.Workspace.Card.Chart.Error as CHE
 import SlamData.Workspace.Card.DownloadOptions.Error as CDLOE
 import SlamData.Workspace.Card.Markdown.Error as CMDE
 import SlamData.Workspace.Card.Open.Error as COE
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Query.Error as CQE
 import SlamData.Workspace.Card.Search.Error as CSE
 import SlamData.Workspace.Card.Setups.Chart.PivotTable.Error as CPT
@@ -41,6 +42,7 @@ import Utils (throwVariantError)
 type CardError = Variant
   ( qerror ∷ QError
   , stringly ∷ String
+  , resource ∷ ResourceError
   , cache ∷ CCE.CacheError
   , chart ∷ CHE.ChartError
   , downloadOptions ∷ CDLOE.DownloadOptionsError
@@ -55,8 +57,15 @@ type CardError = Variant
   , variables ∷ CVE.VariablesError
   )
 
+newtype ResourceError = ResourceError (L.List VM.Resource)
+
+derive newtype instance eqResourceError ∷ Eq ResourceError
+derive newtype instance showResourceError ∷ Show ResourceError
+derive instance newtypeResourceError ∷ Newtype ResourceError _
+
 _qerror = SProxy ∷ SProxy "qerror"
 _stringly = SProxy ∷ SProxy "stringly"
+_resource = SProxy ∷ SProxy "resource"
 _cache = SProxy ∷ SProxy "cache"
 _chart = SProxy ∷ SProxy "chart"
 _downloadOptions = SProxy ∷ SProxy "downloadOptions"
@@ -75,6 +84,7 @@ showCardError =
   case_
     # on _qerror (\err → "(QuasarError " <> show err <> ")")
     # on _stringly (\err → "(StringlyTypedError " <> err <> ")")
+    # on _resource (\err → "(ResourceError " <> show err <> ")")
     # on _cache (\err → "(CacheCardError " <> show err <> ")")
     # on _chart (\err → "(ChartCardError " <> show err <> ")")
     # on _downloadOptions (\err → "(DownloadOptionsCardError " <> show err <> ")")
@@ -93,6 +103,7 @@ cardToGlobalError =
   case_
     # on _qerror (hush ∘ GE.fromQError)
     # on _stringly (const Nothing)
+    # on _resource (const Nothing)
     # on _cache CCE.cacheToGlobalError
     # on _chart CHE.chartToGlobalError
     # on _downloadOptions (const Nothing)
@@ -106,27 +117,28 @@ cardToGlobalError =
     # on _table CTE.tableToGlobalError
     # on _variables (const Nothing)
 
-
 -- TODO(Christoph): use this warn constraint to track down unstructured error messages
 -- throw ∷ ∀ m a. MonadThrow CardError m ⇒ Warn "You really don't want to" ⇒ String → m a
 throw
-  ∷ forall v m a
+  ∷ ∀ v m a
   . MonadThrow (Variant (stringly ∷ String | v)) m
   ⇒ String
   → m a
-throw = throwVariantError (SProxy ∷ SProxy "stringly")
-
--- liftQueryError ∷ ∀ m a. MonadThrow CardError m ⇒ (Either CQE.QueryError a) → m a
--- liftQueryError x = case lmap QueryCardError x of
---   Left err → throwError err
---   Right v → pure v
+throw = throwVariantError _stringly
 
 throwQError
-  ∷ forall v m a
+  ∷ ∀ v m a
   . MonadThrow (Variant (qerror ∷ QError | v)) m
   ⇒ QError
   → m a
-throwQError = throwVariantError (SProxy ∷ SProxy "qerror")
+throwQError = throwVariantError _qerror
+
+throwResourceError
+  ∷ ∀ v m a
+  . MonadThrow (Variant (resource ∷ ResourceError | v)) m
+  ⇒ ResourceError
+  → m a
+throwResourceError = throwVariantError _resource
 
 liftQ
   ∷ ∀ m v a

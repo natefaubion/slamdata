@@ -13,6 +13,7 @@ limitations under the License.
 
 module SlamData.Workspace.Card.Markdown.Model
   ( Model
+  , MarkdownExpr(..)
   , encode
   , decode
   , genModel
@@ -21,24 +22,80 @@ module SlamData.Workspace.Card.Markdown.Model
 
 import SlamData.Prelude
 
-import Data.Argonaut (Json, JObject, jsonEmptyObject, encodeJson, decodeJson, (~>), (:=), (.?))
+import Data.Argonaut (Json, JObject, jsonEmptyObject, class EncodeJson, encodeJson, class DecodeJson, decodeJson, (~>), (:=), (.?))
 import Data.DateTime as DT
 import Data.Enum (fromEnum, toEnum)
 import Data.Functor.Compose (Compose(..))
 import Data.HugeNum as HN
+import Data.Json.Extended as EJSON
+import Data.List as L
+import Data.Newtype (un)
 import Data.StrMap as SM
+import Data.String as S
 import Data.Traversable as T
-
-import SlamData.Workspace.Card.Port.VarMap as VM
-
+import Matryoshka (transAna, embed)
+import SqlSquared as Sql
 import Test.StrongCheck.Arbitrary as SC
 import Test.StrongCheck.Gen as Gen
 import Text.Markdown.SlamDown as SD
 import Text.Markdown.SlamDown.Halogen.Component.State as SDS
+import Text.Markdown.SlamDown.Syntax.Value as SDV
 
 -- | The serialization model used for markdown cards.
-type Model =
-  SDS.SlamDownFormState VM.VarMapValue
+type Model = SDS.SlamDownFormState MarkdownExpr
+
+newtype MarkdownExpr = MarkdownExpr Sql.Sql
+
+derive instance newtypeMarkdownExpr ∷ Newtype MarkdownExpr _
+derive newtype instance eqMarkdownExpr ∷ Eq MarkdownExpr
+derive newtype instance ordMarkdownExpr ∷ Ord MarkdownExpr
+
+instance showMarkdownExpr ∷ Show MarkdownExpr where
+  show (MarkdownExpr sql) = "(MarkdownExpr " <> Sql.print sql <> ")"
+
+instance arbitraryMarkdownExpr ∷ SC.Arbitrary MarkdownExpr where
+  arbitrary = pure $ MarkdownExpr $ Sql.set []
+
+instance encodeMarkdownExpr ∷ EncodeJson MarkdownExpr where
+  encodeJson = Sql.encodeJson ∘ un MarkdownExpr
+
+instance decodeMarkdownExpr ∷ DecodeJson MarkdownExpr where
+  decodeJson json = (map MarkdownExpr $ Sql.decodeJson json)
+    <|> (decodeLegacy json)
+    where
+    decodeLegacy = decodeJson >=> \obj →
+      map MarkdownExpr
+      $ decodeLiteral obj
+      <|> decodeSetLiteral obj
+      <|> decodeQueryExpr obj
+
+    decodeLiteral obj = do
+      (js ∷ Json) ← obj .? "literal"
+      (ejs ∷ EJSON.EJson) ←
+        EJSON.decodeEJson js
+      pure $ transAna Sql.Literal ejs
+
+    decodeSetLiteral obj = do
+      (arr ∷ Array Json) ← obj .? "set"
+      lst ←
+        map (L.fromFoldable ∘ map unwrap)
+        $ traverse decodeLegacy arr
+      pure $ embed $ Sql.SetLiteral lst
+
+    decodeQueryExpr obj  = do
+      queryStr ← obj .? "query"
+      lmap show $ Sql.parse queryStr
+
+instance valueMarkdownExpr ∷ SDV.Value MarkdownExpr where
+  stringValue = MarkdownExpr ∘ Sql.string
+  renderValue = case _ of
+    MarkdownExpr sql → stripQuotes (Sql.print sql)
+    where
+    stripQuotes str =
+      fromMaybe str $
+        S.stripSuffix (S.Pattern "\"") str >>=
+        S.stripPrefix (S.Pattern "\"")
+
 
 genModel ∷ Gen.Gen Model
 genModel =
@@ -107,7 +164,7 @@ decodeExpr rec json =
         _ → Left $ "unknown code expr type '" ⊕ ty ⊕ "'"
 
 encodeFormField
-  ∷ SD.FormField VM.VarMapValue
+  ∷ SD.FormField MarkdownExpr
   → Json
 encodeFormField field =
   case field of
@@ -134,7 +191,7 @@ encodeFormField field =
 
 decodeFormField
   ∷ Json
-  → Either String (SD.FormField VM.VarMapValue)
+  → Either String (SD.FormField MarkdownExpr)
 decodeFormField =
   decodeJson >=> \obj → do
     ty ← obj .? "type"
@@ -285,7 +342,7 @@ encodeTextBox tb =
 
 
 encodeFormFieldValue
-  ∷ SDS.FormFieldValue VM.VarMapValue
+  ∷ SDS.FormFieldValue MarkdownExpr
   → Json
 encodeFormFieldValue =
   encodeFormField
@@ -293,7 +350,7 @@ encodeFormFieldValue =
 
 decodeFormFieldValue
   ∷ Json
-  → Either String (SDS.FormFieldValue VM.VarMapValue)
+  → Either String (SDS.FormFieldValue MarkdownExpr)
 decodeFormFieldValue json = do
   field ← decodeFormField json
   SD.traverseFormField (map pure ∘ SD.getLiteral) field

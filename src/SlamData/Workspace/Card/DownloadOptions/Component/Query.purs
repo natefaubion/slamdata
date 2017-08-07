@@ -16,11 +16,13 @@ limitations under the License.
 
 module SlamData.Workspace.Card.DownloadOptions.Component.Query where
 
-import SlamData.Download.Model (CSVOptions, JSONOptions, OutputType)
+import Quasar.Data.CSV as CSV
+import Quasar.Data.Json as Json
+import SlamData.Download.Model (OutputType)
 
 data Query a
   = SetOutput OutputType a
-  | ModifyCSVOpts (CSVOptions → CSVOptions) a
-  | ModifyJSONOpts (JSONOptions → JSONOptions) a
+  | ModifyCSVOpts (CSV.Options → CSV.Options) a
+  | ModifyJSONOpts (Json.Options → Json.Options) a
   | ToggleCompress a
   | TargetTyped String a

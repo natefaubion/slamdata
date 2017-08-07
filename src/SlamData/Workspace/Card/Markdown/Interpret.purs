@@ -12,71 +12,75 @@ limitations under the License.
 -}
 
 module SlamData.Workspace.Card.Markdown.Interpret
-  ( formFieldValueToVarMapValue
+  ( formFieldValue
   , formFieldDefaultValue
+  , formFieldConstrainValue
   ) where
 
 import SlamData.Prelude
 
 import Data.DateTime as DT
 import Data.Foldable as F
+import Data.Formatter.DateTime as FD
 import Data.Identity (Identity(..))
 import Data.List as L
-import Data.Formatter.DateTime as FD
 import Data.Maybe as M
-
-import Matryoshka (embed, project)
-
-import SqlSquared as Sql
-
+import Matryoshka (project)
+import SlamData.Workspace.Card.Markdown.Model as Model
 import SlamData.Workspace.Card.Port.VarMap as VM
-
+import SqlSquared as Sql
 import Text.Markdown.SlamDown as SD
 import Text.Markdown.SlamDown.Halogen.Component.State as SDS
-
--- The use of this function in formFieldValueToVarMapValue is suspicious, and
--- lead me to think that we have not arranged our data structures properly. In
--- particular, we need to decide what it means to have a collection of SQL^2
--- query expressions. Currently, we end up just filtering them out.
-
--- One option that we might want to consider, in case we do intend to support things
--- like arrays of query expressions, etc. would be to have something like
--- `type VarMapValue = Mu (Coproduct EJsonF ExprF)`.
 
 getLiteral
   ∷ ∀ m
   . Plus m
   ⇒ Applicative m
-  ⇒ VM.VarMapValue
+  ⇒ Model.MarkdownExpr
   → m Sql.Sql
-getLiteral (VM.VarMapValue s) = project s # case _ of
-  Sql.Literal e → pure s
+getLiteral = case _ of
+  Model.MarkdownExpr sql | Sql.Literal _ ← project sql → pure sql
   _ → empty
 
-formFieldDefaultValue ∷ SDS.FormFieldValue VM.VarMapValue → VM.VarMapValue
-formFieldDefaultValue = case _ of
-  formField@(SD.TextBox tb) → case tb of
-    SD.PlainText _ → defaultValue (VM.VarMapValue $ Sql.string "") formField
-    SD.Numeric _ → defaultValue (VM.VarMapValue $ Sql.int 0) formField
-    _ → defaultValue (VM.VarMapValue Sql.null) formField
+-- | A sanity check for form fields. When transitioning form state, you can end up with an
+-- | invalid selection for a given set of options. This just checks that it makes sense,
+-- | otherwise it will pick a sensible default.
+formFieldConstrainValue ∷ SDS.FormFieldValue Model.MarkdownExpr → SDS.FormFieldValue Model.MarkdownExpr
+formFieldConstrainValue formField = case formField of
   SD.CheckBoxes (Identity sels) (Identity options) →
-    VM.VarMapValue $ Sql.set $
-      L.mapMaybe (\sel → unwrap <$> F.find (eq sel) options) sels
+    let sels' = L.mapMaybe (\sel → F.find (eq sel) options) sels
+    in SD.CheckBoxes (Identity sels') (Identity options)
   SD.RadioButtons (Identity sel) (Identity options)
-    | F.elem sel options → sel
-    | otherwise → VM.VarMapValue $ Sql.null
+    | F.elem sel options → formField
+    | Just sel' ← L.head options → SD.RadioButtons (Identity sel') (Identity options)
+    | otherwise → formField
   SD.DropDown mbSel (Identity options)
-    | Just (Identity sel) ← mbSel, F.elem sel options → sel
-    | Just sel ← L.head options → sel
-    | otherwise → VM.VarMapValue $ Sql.null
+    | Just (Identity sel) ← mbSel, F.elem sel options → formField
+    | Just sel ← L.head options → SD.DropDown (Just (Identity sel)) (Identity options)
+    | otherwise → SD.DropDown Nothing (Identity options)
+  _ → formField
 
+formFieldDefaultValue ∷ SDS.FormFieldValue Model.MarkdownExpr → VM.VarMapValue
+formFieldDefaultValue formField = case formField of
+  SD.TextBox tb → case tb of
+    SD.PlainText _ → defaultValue (VM.Expr $ Sql.string "") formField
+    SD.Numeric _ → defaultValue (VM.Expr $ Sql.int 0) formField
+    _ → defaultValue (VM.Expr Sql.null) formField
+  SD.CheckBoxes (Identity sels) (Identity options) →
+    VM.Expr $ Sql.set $ unwrap <$> sels
+  SD.RadioButtons (Identity sel) (Identity options)
+    | F.elem sel options → VM.Expr $ unwrap sel
+    | otherwise → VM.Expr $ Sql.null
+  SD.DropDown mbSel (Identity options)
+    | Just (Identity sel) ← mbSel, F.elem sel options → VM.Expr $ unwrap sel
+    | Just sel ← L.head options → VM.Expr $ unwrap sel
+    | otherwise → VM.Expr $ Sql.null
   where
-  defaultValue a f =
-    fromMaybe a $ formFieldValueToVarMapValue f
+  defaultValue a = fromMaybe a ∘ formFieldValue
 
-formFieldValueToVarMapValue ∷ SDS.FormFieldValue VM.VarMapValue → M.Maybe VM.VarMapValue
-formFieldValueToVarMapValue v = case v of
-  SD.TextBox tb → VM.VarMapValue <$> do
+formFieldValue ∷ SDS.FormFieldValue Model.MarkdownExpr → M.Maybe VM.VarMapValue
+formFieldValue = case _ of
+  SD.TextBox tb → VM.Expr <$> do
     tb' ← SD.traverseTextBox unwrap tb
     case tb' of
       SD.PlainText (Identity x) →
@@ -84,25 +88,18 @@ formFieldValueToVarMapValue v = case v of
       SD.Numeric (Identity x) →
         pure $ Sql.hugeNum x
       SD.Date (Identity x) →
-        hush
-        $ FD.formatDateTime "YYYY-MM-DD" (DT.DateTime x bottom) <#> \s →
+        hush $ FD.formatDateTime "YYYY-MM-DD" (DT.DateTime x bottom) <#> \s →
           Sql.invokeFunction "DATE" $ pure $ Sql.string s
       SD.Time _ (Identity x) →
-        hush
-        $ FD.formatDateTime "HH:mm:ss" (DT.DateTime bottom x) <#> \s →
+        hush $ FD.formatDateTime "HH:mm:ss" (DT.DateTime bottom x) <#> \s →
           Sql.invokeFunction "TIME" $ pure $ Sql.string s
       SD.DateTime _ (Identity x) →
-        hush
-        $ FD.formatDateTime "YYYY-MM-DDTHH:mm:ssZ" x <#> \s →
+        hush $ FD.formatDateTime "YYYY-MM-DDTHH:mm:ssZ" x <#> \s →
           Sql.invokeFunction "TIMESTAMP" $ pure $ Sql.string s
   SD.CheckBoxes (Identity sel) _ →
-      pure
-      $ VM.VarMapValue
-      $ embed
-      $ Sql.SetLiteral
-      $ L.mapMaybe (getLiteral) sel
+      pure $ VM.Expr $ Sql.set $ L.mapMaybe getLiteral sel
   SD.RadioButtons (Identity x) _ →
-    VM.VarMapValue <$> getLiteral x
-  SD.DropDown mx _ → VM.VarMapValue <$> do
+    VM.Expr <$> getLiteral x
+  SD.DropDown mx _ → VM.Expr <$> do
     Identity x ← mx
     getLiteral x

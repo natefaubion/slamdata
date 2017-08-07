@@ -41,6 +41,7 @@ import SlamData.Wiring (Wiring)
 import SlamData.Wiring as Wiring
 import SlamData.Wiring.Cache (Cache)
 import SlamData.Wiring.Cache as Cache
+import SlamData.Workspace.AccessType as AT
 import SlamData.Workspace.Card.Error as CE
 import SlamData.Workspace.Card.Port.VarMap (URLVarMap)
 import SlamData.Workspace.Eval.Card as Card
@@ -105,16 +106,18 @@ runEvalLoop path decks cards tick urlVarMaps source = goInit
 
     evalCard ∷ Array Card.Id → Card.Out → Card.Id → Card.Cell → List Card.ChildOut → m Unit
     evalCard history cardInput@(cardPort × varMap) cardId card children = do
+      { accessType } ← Wiring.expose
       publish card $ Card.Pending source cardInput
       let
-        cardEnv = Card.CardEnv { path, cardId, urlVarMaps, children }
+        readOnly = AT.isReadOnly accessType
+        cardEnv = Card.CardEnv { path, cardId, urlVarMaps, children, varMap, readOnly }
         cardTrans = Card.modelToEval card.model
 
       for_ card.decks \deckId → runMaybeT do
         deck ← MaybeT $ Cache.get deckId decks
         Cache.put deckId deck { status = Deck.PendingEval cardId } decks
 
-      result ← Card.runCard cardEnv card.state cardTrans cardPort varMap
+      result ← Card.runCard cardEnv card.state cardTrans cardPort
 
       for_ card.decks \deckId → runMaybeT do
         deck ← MaybeT $ Cache.get deckId decks
@@ -128,7 +131,7 @@ runEvalLoop path decks cards tick urlVarMaps source = goInit
         cardOutput =
           case result.output of
             Right out → out
-            Left err → Card.portOut (Card.CardError err)
+            Left err → Card.CardError err × varMap
         card' = card
           { pending = Nothing
           , output = Just cardOutput

@@ -57,11 +57,7 @@ package ∷ DS.Package
 package = P.onPrism (M._BuildLine ∘ _Just) $ DS.interpret do
   dimension ←
     P.field PL._dimension PP._dimension
-      >>= P.addSource _.category
-      >>= P.addSource _.value
-      >>= P.addSource _.time
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
+      >>= P.addAll
 
   value ←
     P.field PL._value PP._value
@@ -72,6 +68,7 @@ package = P.onPrism (M._BuildLine ∘ _Just) $ DS.interpret do
     P.optional PL._secondValue PP._secondValue
       >>= P.addSource _.value
       >>= P.isFilteredBy value
+      >>= P.isFilteredBy dimension
 
   size ←
     P.optional PL._size PP._size
@@ -83,10 +80,12 @@ package = P.onPrism (M._BuildLine ∘ _Just) $ DS.interpret do
 
   series ←
     P.optional PL._series PP._series
-      >>= P.addSource _.category
-      >>= P.addSource _.time
+      >>= P.addAll
       >>= P.isFilteredBy dimension
       >>= P.isActiveWhen dimension
+      >>= P.isFilteredBy value
+      >>= P.isFilteredBy secondValue
+      >>= P.isFilteredBy size
 
   pure unit
 

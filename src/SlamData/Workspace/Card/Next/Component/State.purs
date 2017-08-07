@@ -18,14 +18,14 @@ module SlamData.Workspace.Card.Next.Component.State where
 
 import Data.Lens (Lens', lens)
 
-import SlamData.Workspace.Card.Port (Port)
+import SlamData.Workspace.Card.Port as Port
 
 type State =
-  { input ∷ Port
+  { input ∷ Port.Out
   , presentAddCardHint ∷ Boolean
   }
 
-initialState ∷ Port → State
+initialState ∷ Port.Out → State
 initialState input =
   { input
   , presentAddCardHint: false

@@ -18,7 +18,9 @@ module SlamData.Workspace.Card.Setups.DimensionMap.Component.State where
 
 import SlamData.Prelude
 
+import Data.Array as A
 import Data.Argonaut as J
+import Data.Foldable as F
 import Data.Lens (Lens', _Just, lens, (^.), (.~), (?~), (^?), (%~))
 import Data.List as L
 import Data.Set as Set
@@ -90,20 +92,23 @@ isDisabled ∷ T.Projection → Package → State → Boolean
 isDisabled prj pack state =
   Set.isEmpty $ projectionCursors prj pack state
 
-isConfigurable ∷ T.Projection → Package → State → Boolean
-isConfigurable prj pack state
-  | DMD.isFlat prj = false
-  | otherwise =
-    let
-      axis = state.dimMap ^? T.unpackProjection prj ∘ _Just ∘ D._value ∘ D._projection
-    in maybe false (eq Ax.Measure) $ Ax.axisType <$> axis <*> pure state.axes
-
 getTransform ∷ T.Projection → State → Maybe Tr.Transform
 getTransform tp state =
   state.dimMap ^? T.unpackProjection tp ∘ _Just ∘ D._value ∘ D._transform ∘ _Just
 
-transforms ∷ State → Array Tr.Transform
-transforms _ = Tr.aggregationTransforms
+transforms ∷ T.Projection → State → Array Tr.Transform
+transforms prj state =
+  let
+    mbTr = join $ state.dimMap ^? T.unpackProjection prj ∘ _Just ∘ D._value ∘ D._transform
+    available = DMD.availableTransforms prj mbTr
+    axis = state.dimMap ^? T.unpackProjection prj ∘ _Just ∘ D._value ∘ D._projection
+    axisType = Ax.axisType  <$> axis <*> pure state.axes
+  in A.nub $ fromMaybe [] do
+    at ← axisType
+    let options = A.intersect available $ Tr.axisTransforms at mbTr
+    pure $ if fromMaybe false $ F.elem <$> mbTr <*> pure options
+      then options
+      else A.fromFoldable mbTr <> options
 
 setValue ∷ T.Projection → J.JCursor → State → State
 setValue fld cursor state

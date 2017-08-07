@@ -22,9 +22,8 @@ import Data.Foldable as Foldable
 import Data.String as String
 import SlamData.Workspace.Card.CardType as CardType
 import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.CardType (CardType)
-import SlamData.Workspace.Card.Port (Port)
-import Utils as Utils
 
 data InsertableCardType
   = CacheCard
@@ -53,6 +52,7 @@ data InsertableCardIOType
   | GeoChart
   | Form
   | Data
+  | Process
   | Download
   | Markdown
   | Variables
@@ -63,50 +63,49 @@ derive instance eqInsertableCardType ∷ Eq InsertableCardType
 derive instance eqInsertableCardIOType ∷ Eq InsertableCardIOType
 
 -- Cards can have multiple input types
-inputs ∷ Array (InsertableCardType × (Array InsertableCardIOType))
+inputs ∷ Array (InsertableCardType × Array InsertableCardIOType)
 inputs =
   [ CacheCard × [ Data ]
   , DraftboardCard × [ None ]
   , OpenCard × [ None, Variables ]
-  , QueryCard × [ None, Data, Variables ]
-  , SearchCard × [ Data ]
-  , SetupChartCard × [ Data ]
-  , SetupGeoChartCard × [ Data ]
-  , SetupDownloadCard × [ Data ]
-  , SetupFormCard × [ Data ]
-  , SetupMarkdownCard × [ None, Variables ]
+  , QueryCard × [ None, Data, Process, Variables ]
+  , SearchCard × [ Data, Process ]
+  , SetupChartCard × [ Data, Process ]
+  , SetupGeoChartCard × [ Data, Process ]
+  , SetupDownloadCard × [ Data, Process ]
+  , SetupFormCard × [ Data, Process ]
+  , SetupMarkdownCard × [ None, Data, Process, Variables ]
   , SetupVariablesCard × [ None ]
   , ShowGeoChartCard × [ GeoChart ]
   , ShowChartCard × [ Chart ]
   , ShowFormCard × [ Form ]
   , ShowDownloadCard × [ Download ]
   , ShowMarkdownCard × [ Markdown ]
-  , TableCard × [ Data ]
-  , TroubleshootCard × [ Chart, Form, Data, Download, Markdown, Variables ]
+  , TableCard × [ Data, Process ]
+  , TroubleshootCard × [ Chart, Form, Data, Process, Download, Markdown, Variables ]
   , TabsCard × [ None ]
-  , StructureEditorCard × [ Data ]
+  , StructureEditorCard × [ Data, Process ]
   ]
 
--- Cards only have one output type, treat this as a Map or turn it into one.
-outputs ∷ Array (InsertableCardType × InsertableCardIOType)
+outputs ∷ Array (InsertableCardType × Array InsertableCardIOType)
 outputs =
-  [ CacheCard × Data
-  , DraftboardCard × Variables
-  , OpenCard × Data
-  , QueryCard × Data
-  , SearchCard × Data
-  , SetupChartCard × Chart
-  , SetupFormCard × Form
-  , SetupDownloadCard × Download
-  , SetupMarkdownCard × Markdown
-  , SetupVariablesCard × Variables
-  , ShowChartCard × Data
-  , ShowFormCard × Data
-  , ShowDownloadCard × Download
-  , ShowMarkdownCard × Variables
-  , TableCard × Data
-  , TroubleshootCard × Variables
-  , StructureEditorCard × Data
+  [ CacheCard × [ Data ]
+  , DraftboardCard × [ Variables ]
+  , OpenCard × [ Data, Process ]
+  , QueryCard × [ Data, Process ]
+  , SearchCard × [ Data, Process ]
+  , SetupChartCard × [ Chart ]
+  , SetupFormCard × [ Form ]
+  , SetupDownloadCard × [ Download ]
+  , SetupMarkdownCard × [ Markdown ]
+  , SetupVariablesCard × [ Variables ]
+  , ShowChartCard × [ Data, Process ]
+  , ShowFormCard × [ Data, Process ]
+  , ShowDownloadCard × [ Download ]
+  , ShowMarkdownCard × [ Variables ]
+  , TableCard × [ Data, Process ]
+  , TroubleshootCard × [ Variables ]
+  , StructureEditorCard × [ Data, Process ]
   ]
 
 cardsToExcludeFromPaths ∷ Array InsertableCardType
@@ -125,19 +124,14 @@ takesInput ∷ InsertableCardIOType → InsertableCardType → Boolean
 takesInput io card = Foldable.elem card $ cardsThatTakeInput io
 
 inputsFor ∷ InsertableCardType → Array InsertableCardIOType
-inputsFor card =
-  Array.concat $ map snd $ Array.filter (eq card ∘ fst) inputs
+inputsFor card = snd =<< Array.filter (eq card ∘ fst) inputs
 
-outputFor ∷ InsertableCardType → Maybe InsertableCardIOType
-outputFor card =
-  Utils.singletonValue
-    Nothing
-    (const Nothing)
-    (map snd $ Array.filter (eq card ∘ fst) outputs)
+outputsFor ∷ InsertableCardType → Array InsertableCardIOType
+outputsFor card = snd =<< Array.filter (eq card ∘ fst) outputs
 
 cardsThatOutput ∷ InsertableCardIOType → Array InsertableCardType
 cardsThatOutput io =
-  map fst $ Array.filter (eq io ∘ snd) outputs
+  map fst $ Array.filter (Foldable.elem io ∘ snd) outputs
 
 cardsThatTakeInput ∷ InsertableCardIOType → Array InsertableCardType
 cardsThatTakeInput io =
@@ -219,8 +213,8 @@ expandPath fromIO initialPath | otherwise =
     pathIO = Array.cons io initialPath.io
     pathCards = Array.cons card initialPath.c
 
-fromMaybePort ∷ Maybe Port → InsertableCardIOType
-fromMaybePort input = maybe None fromPort input
+fromMaybeOut ∷ Maybe Port.Out → InsertableCardIOType
+fromMaybeOut input = maybe None fromOut input
 
 printIOType ∷ InsertableCardIOType → String
 printIOType = case _ of
@@ -228,6 +222,7 @@ printIOType = case _ of
   Chart → "a chart"
   GeoChart → "geo chart"
   Data → "data"
+  Process → "process"
   Download → "a download"
   Markdown → "markdown"
   None → "to be the first card in a deck"
@@ -255,21 +250,23 @@ eitherOr strings =
         <> " or "
         <> String.joinWith "" (Array.drop (n - 1) strings)
 
-fromPort ∷ Port → InsertableCardIOType
-fromPort = case _ of
-  Port.ResourceKey _ → Data
-  Port.DownloadOptions _ → Download
-  Port.SlamDown _ → Markdown
-  Port.ChartInstructions _ → Chart
-  Port.PivotTable _ → Chart
-  Port.SetupLabeledFormInput _ → Form
-  Port.SetupTextLikeFormInput _ → Form
-  Port.Variables → Variables
-  Port.ValueMetric _ → Chart
-  Port.CategoricalMetric _ → Form
-  Port.GeoChart _ → GeoChart
-  Port.Terminal → Terminal
-  _ → None
+fromOut ∷ Port.Out → InsertableCardIOType
+fromOut = uncurry case _, _ of
+  Port.ResourceKey key, varMap
+    | Just (VM.Resource (VM.Process _ _ _)) ← VM.lookup (VM.Var key) varMap → Process
+    | otherwise → Data
+  Port.DownloadOptions _, _ → Download
+  Port.SlamDown _, _ → Markdown
+  Port.ChartInstructions _, _ → Chart
+  Port.PivotTable _, _ → Chart
+  Port.SetupLabeledFormInput _, _ → Form
+  Port.SetupTextLikeFormInput _, _ → Form
+  Port.Variables, _ → Variables
+  Port.ValueMetric _, _ → Chart
+  Port.CategoricalMetric _, _ → Form
+  Port.GeoChart _, _ → GeoChart
+  Port.Terminal, _ → Terminal
+  _, _ → None
 
 toCardType ∷ InsertableCardType → Maybe CardType
 toCardType = case _ of

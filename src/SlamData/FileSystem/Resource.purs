@@ -87,6 +87,7 @@ data Resource
 data Mount
   = Database PU.DirPath
   | View PU.FilePath
+  | Module PU.DirPath
 
 instance arbitaryMount ∷ SC.Arbitrary Mount where
   arbitrary = do
@@ -117,6 +118,7 @@ instance showMount ∷ Show Mount where
     case _ of
       Database p → "Database " <> show p
       View p → "View " <> show p
+      Module p → "Mount " <> show p
 
 -- PREDICATES
 isWorkspace ∷ Resource → Boolean
@@ -212,6 +214,14 @@ mkViewMount ap = either go (Mount ∘ View) ap
     Tuple pp dirOrFile ← P.peel p
     pure $ Mount $ View (pp </> P.file (PU.nameOfFileOrDir dirOrFile))
 
+mkModuleMount ∷ PU.AnyPath → Resource
+mkModuleMount ap = either (Mount ∘ Module) go ap
+  where
+  go ∷ PU.FilePath → Resource
+  go p = maybe newDirectory id do
+    Tuple pp dirOrFile ← P.peel p
+    pure $ Directory (pp </> P.dir (PU.nameOfFileOrDir dirOrFile))
+
 mkDirectory ∷ PU.AnyPath → Resource
 mkDirectory ap = either Directory go ap
   where
@@ -241,6 +251,7 @@ resourceTag = case _ of
   Directory _ → "directory"
   Mount (View _) → "file"
   Mount (Database _) → "directory"
+  Mount (Module _) → "module"
 
 resourceMount ∷ Resource → Maybe Mount
 resourceMount = case _ of
@@ -252,6 +263,7 @@ resourceMount = case _ of
 mountTypeTag ∷ Mount → String
 mountTypeTag = case _ of
   View _ → "view"
+  Module _ → "module"
   Database _ → "mongodb"
 
 resourceName ∷ Resource → String
@@ -273,6 +285,7 @@ getPath = case _ of
 mountPath ∷ Mount → PU.AnyPath
 mountPath = case _ of
   View p → Right p
+  Module p → Left p
   Database p → Left p
 
 -- SETTERS
@@ -295,6 +308,7 @@ setPath (File _) p = mkFile p
 setPath (Directory _) p = mkDirectory p
 setPath (Mount (Database _)) p = mkDatabase p
 setPath (Mount (View _)) p = mkViewMount p
+setPath (Mount (Module _)) p = mkModuleMount p
 
 setName ∷ Resource → String → Resource
 setName r name =
@@ -403,6 +417,8 @@ instance decodeJsonResource ∷ DecodeJson Resource where
             parsePath "mount" (Mount ∘ Database) P.parseAbsDir path
           _ →
             parsePath "directory" Directory P.parseAbsDir path
+      "module" →
+        parsePath "module" (Mount ∘ Module) P.parseAbsDir path
       _ → Left "Unrecognized resource type"
     where
     parsePath

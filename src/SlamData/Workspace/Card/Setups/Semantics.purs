@@ -245,7 +245,10 @@ printDate date =
     show year ⊕ "-" ⊕ show' month ⊕ "-" ⊕ show' day
 
 printSemantics ∷ Semantics → String
-printSemantics (Value v) = show v
+printSemantics (Value v) =
+  case Int.fromNumber v of
+    Nothing → show v
+    Just i → show i
 printSemantics (Percent v) = show v <> "%"
 printSemantics (Money v m) = show v <> m
 printSemantics (Category s) = s

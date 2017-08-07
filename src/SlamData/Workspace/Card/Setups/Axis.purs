@@ -25,14 +25,13 @@ import Data.List (List(..))
 import Data.List as L
 import Data.Map as M
 import Data.Set as Set
-
 import ECharts.Types as ET
-
+import SlamData.Quasar.Query as QQ
 import SlamData.Workspace.Card.Setups.Semantics as Sem
-
+import SqlSquared as Sql
 import Test.StrongCheck.Arbitrary (arbitrary)
-import Test.StrongCheck.Gen as Gen
 import Test.StrongCheck.Data.Argonaut (ArbJCursor)
+import Test.StrongCheck.Gen as Gen
 
 data AxisType
   = Measure
@@ -251,3 +250,6 @@ axisConfiguration = case _ of
   Date → {axisType: ET.Time, interval: Just 0 }
   DateTime → {axisType: ET.Time, interval: Just 0 }
   Category → {axisType: ET.Category, interval: Just 0 }
+
+axesToFields ∷ Axes → L.List Sql.Sql
+axesToFields ax = QQ.jcursorToSql Nothing <$> L.fromFoldable (ax.value <> ax.category)

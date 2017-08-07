@@ -21,7 +21,6 @@ module Control.UI.Browser
   , locationString
   , select
   , newTab
-  , clearValue
   , reload
   , setTitle
   , hostAndProtocol
@@ -78,7 +77,6 @@ setHref str =
 foreign import locationString :: forall e. Eff (dom :: DOM | e) String
 foreign import select :: forall e. HTMLElement -> Eff (dom :: DOM | e) Unit
 foreign import newTab :: forall e. String -> Eff (dom :: DOM | e) Unit
-foreign import clearValue :: forall e. HTMLElement -> Eff (dom :: DOM | e) Unit
 foreign import setTitle :: forall e. String -> Eff (dom :: DOM | e) Unit
 
 -- | Checks whether the current page is embedded in another page via iframe.

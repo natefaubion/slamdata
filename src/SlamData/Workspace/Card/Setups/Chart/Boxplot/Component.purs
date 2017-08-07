@@ -52,11 +52,7 @@ package ∷ DS.Package
 package = P.onPrism (M._BuildBoxplot ∘ _Just) $ DS.interpret do
   dimension ←
     P.field PL._dimension PP._dimension
-      >>= P.addSource _.category
-      >>= P.addSource _.value
-      >>= P.addSource _.time
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
+      >>= P.addAll
 
   value ←
     P.field PL._value PP._flatValue
@@ -65,16 +61,16 @@ package = P.onPrism (M._BuildBoxplot ∘ _Just) $ DS.interpret do
 
   series ←
     P.optional PL._series PP._series
-      >>= P.addSource _.category
-      >>= P.addSource _.time
+      >>= P.addAll
       >>= P.isFilteredBy dimension
+      >>= P.isFilteredBy value
       >>= P.isActiveWhen dimension
 
 
   parallel ←
     P.optional PL._parallel PP._parallel
-      >>= P.addSource _.category
-      >>= P.addSource _.time
+      >>= P.addAll
+      >>= P.isFilteredBy value
       >>= P.isFilteredBy dimension
       >>= P.isFilteredBy series
       >>= P.isActiveWhen dimension

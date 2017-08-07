@@ -18,27 +18,26 @@ module SlamData.Workspace.Card.Setups.Chart.Common where
 
 import SlamData.Prelude
 import Data.Argonaut as J
-import Data.Lens ((.~))
+import Data.Lens ((.~), (?~))
 import Data.List as L
 import Data.NonEmpty as NE
 import SlamData.Quasar.Query as QQ
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.Transform as T
 import SqlSquared as Sql
-import Utils.Path as PU
-import Utils.SqlSquared (tableRelation)
 
 buildBasicSql
   ∷ ∀ p
   . (p → L.List (Sql.Projection Sql.Sql))
   → (p → Maybe (Sql.GroupBy Sql.Sql))
   → p
-  → PU.FilePath
+  → VM.Var
   → Sql.Sql
-buildBasicSql buildProjections buildGroupBy r path =
+buildBasicSql buildProjections buildGroupBy r (VM.Var vari) =
   Sql.buildSelect
     $ ( Sql._projections .~ buildProjections r )
-    ∘ ( Sql._relations .~ tableRelation path)
+    ∘ ( Sql._relations ?~ Sql.VariRelation { vari, alias: Nothing })
     ∘ ( Sql._groupBy .~ groups )
     ∘ ( Sql._orderBy .~ orders )
   where
@@ -53,7 +52,11 @@ applyTransform dim p = case dim of
 jcursorSql ∷ ∀ a. D.Dimension a J.JCursor → Sql.Sql
 jcursorSql (D.Dimension _ cat) = case cat of
   D.Static str → Sql.string str
-  D.Projection _ pr → QQ.jcursorToSql pr
+  D.Projection mba pr →
+    let prj = QQ.jcursorToSql Nothing pr
+    in case mba of
+      Nothing → prj
+      Just a → T.transformSql a prj
 
 jcursorPrj ∷ ∀ a. D.Dimension a J.JCursor → Sql.Projection Sql.Sql
 jcursorPrj = Sql.projection ∘ jcursorSql

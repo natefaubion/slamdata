@@ -23,7 +23,6 @@ module SlamData.Workspace.Card.Cache.Component
 import SlamData.Prelude
 
 import Data.Lens ((.~), (?~))
-import Data.Path.Pathy as Path
 
 import Halogen as H
 import Halogen.HTML.Events as HE
@@ -81,22 +80,22 @@ cardEval = case _ of
   CC.Deactivate next →
     pure next
   CC.Save k →
-    k ∘ Card.Cache ∘ map Path.printPath <$> H.gets _.confirmedPath
+    k ∘ Card.Cache ∘ map PU.printAnyFilePath <$> H.gets _.confirmedPath
   CC.Load card next → do
     case card of
       Card.Cache s →
         H.modify
           $ (_pathString .~ s)
-          ∘ (_confirmedPath .~ (PU.parseFilePath =<< s))
+          ∘ (_confirmedPath .~ (PU.parseAnyFilePath =<< s))
       _ → pure unit
     pure next
   CC.ReceiveInput _ _ next →
     pure next
   CC.ReceiveOutput _ varMap next → do
-    for_ (Port.extractFilePath varMap) \resource →
+    for_ (Port.extractAnyFilePath varMap) \anyPath →
       H.modify
-        $ (_pathString ?~ Path.printPath resource)
-        ∘ (_confirmedPath ?~ resource)
+        $ (_pathString ?~ PU.printAnyFilePath anyPath)
+        ∘ (_confirmedPath ?~ anyPath)
     pure next
   CC.ReceiveState input next →
     pure next
@@ -109,6 +108,6 @@ saveEval = case _ of
     H.modify (_pathString ?~ str) $> next
   ConfirmPathString next → do
     pathString ← H.gets _.pathString
-    H.modify $ \st → st { confirmedPath = PU.parseFilePath =<< pathString }
+    H.modify $ \st → st { confirmedPath = PU.parseAnyFilePath =<< pathString }
     H.raise CC.modelUpdate
     pure next

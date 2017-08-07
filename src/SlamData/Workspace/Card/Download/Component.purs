@@ -22,21 +22,24 @@ module SlamData.Workspace.Card.Download.Component
 import SlamData.Prelude
 
 import Data.Lens ((^?))
+import Data.URI as URI
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
 import SlamData.Download.Model as D
-import SlamData.FileSystem.Resource as R
+import SlamData.Quasar (reqHeadersToJSON)
 import SlamData.Quasar.Auth as API
 import SlamData.Render.ClassName as CN
 import SlamData.Render.CSS.New as CSS
+import SlamData.Wiring as Wiring
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Download.Component.Query (Query)
 import SlamData.Workspace.Card.Download.Component.State (State, initialState)
 import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.LevelOfDetails as LOD
 
 import Utils.DOM (Font(Font), getTextWidthPure)
@@ -108,7 +111,15 @@ evalCard = case _ of
 
 handleDownloadPort ∷ Port.DownloadPort → DSL Unit
 handleDownloadPort opts = do
+  { path } ← Wiring.expose
+  let
+    ext = D.extension opts.compress opts.options
+    url hs = URI.printAbsoluteURI $ VM.downloadUrl (Just (headersPart hs)) path opts.resource
+    headersPart hs =
+      show
+        $ reqHeadersToJSON
+        $ append hs
+        $ D.toHeaders opts opts.compress
+        $ Just (opts.targetName ⊕ ext)
   hs ← H.lift API.authHeaders
-  let url = D.renderURL hs (opts { resource = R.File opts.resource })
-  let ext = D.extension opts.compress opts.options
-  H.modify (_ { url = url, fileName = opts.targetName ⊕ ext })
+  H.modify (_ { url = url hs, fileName = opts.targetName ⊕ ext })

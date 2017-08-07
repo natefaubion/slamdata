@@ -33,6 +33,9 @@ $is-light-theme: luma($body-bg) > 127.5 !default
 // used for separators & borders
 $color-separator: brighten($body-bg, 15%, 20%) !default
 
+// Background colour for `code` elements
+$code-bg: brighten($body-bg, 10%, 15%)
+
 
 // Bootstrap Overriding
 //---------------------------------------------------------------------------
@@ -116,6 +119,7 @@ $button-discrete-color: brighten($body-bg, 27.5%, 25%) !default
 // Indicators
 $indicator-color: brighten($body-bg, 10%, 15%) !default
 $indicator-active-color: $brand-primary !default
+$indicator-error-color: $brand-danger !default
 
 // Toolbar with icons on the filesystem
 $filesystem-toolbar-color: $brand-primary !default

@@ -21,13 +21,13 @@ import SlamData.Prelude
 import Control.Monad.State (class MonadState, put, get)
 import Data.Argonaut as J
 import Data.Array as Array
-import Data.Lens ((^.), preview, _Just)
+import Data.Lens (preview, _Just)
 import Data.List as List
 import SlamData.Quasar.Class (class QuasarDSL)
-import SlamData.Quasar.Query as Quasar
 import SlamData.Workspace.Card.Chart.Error (ChartError(..), throwChartError)
 import SlamData.Workspace.Card.Chart.PivotTableRenderer.Common (PTree(..), topField, buildTree, pagedTree, sizeOfRow, calcPageCount)
 import SlamData.Workspace.Card.Chart.PivotTableRenderer.Model as M
+import SlamData.Workspace.Card.Eval.Common as CEC
 import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Eval.State as ES
 import SlamData.Workspace.Card.Port as Port
@@ -47,11 +47,12 @@ initialState resource pageSize options =
 eval
   ∷ ∀ m v
   . MonadState CEM.CardState m
+  ⇒ MonadAsk CEM.CardEnv m
   ⇒ MonadThrow (Variant (chart ∷ ChartError | v)) m
   ⇒ QuasarDSL m
   ⇒ M.Model
   → Port.PivotTablePort
-  → Port.DataMap
+  → Port.VarMap
   → m Port.Out
 eval model port varMap = do
   Port.extractResource varMap
@@ -77,6 +78,7 @@ eval model port varMap = do
 runPagedQuery
   ∷ ∀ m v
   . MonadThrow (Variant (chart ∷ ChartError | v)) m
+  ⇒ MonadAsk CEM.CardEnv m
   ⇒ QuasarDSL m
   ⇒ Maybe ES.PivotTableR
   → ES.PivotTableR
@@ -104,6 +106,7 @@ runPagedQuery prev next = do
 runAggregatedQuery
   ∷ ∀ m v
   . MonadThrow (Variant (chart ∷ ChartError | v)) m
+  ⇒ MonadAsk CEM.CardEnv m
   ⇒ QuasarDSL m
   ⇒ Maybe ES.PivotTableR
   → ES.PivotTableR
@@ -133,34 +136,39 @@ runAggregatedQuery = case _, _ of
 runCount
   ∷ ∀ m v
   . MonadThrow (Variant (chart ∷ ChartError | v)) m
+  ⇒ MonadAsk CEM.CardEnv m
   ⇒ QuasarDSL m
   ⇒ Port.Resource
   → m Int
-runCount resource =
-  Quasar.count (resource ^. Port._filePath) >>= case _ of
+runCount resource = do
+  CEC.countResource resource >>= case _ of
     Left err → throwChartError (ChartCountQuasarError err)
     Right result → pure result
 
 runQuery
   ∷ ∀ m v
   . MonadThrow (Variant (chart ∷ ChartError | v)) m
+  ⇒ MonadAsk CEM.CardEnv m
   ⇒ QuasarDSL m
   ⇒ Port.Resource
   → Int
   → Int
   → m (Array J.Json)
-runQuery resource pageSize pageIndex =
-  Quasar.sample (resource ^. Port._filePath) (pageIndex * pageSize) pageSize >>= case _ of
+runQuery resource limit offset = do
+  CEM.CardEnv { path } ← ask
+  CEC.sampleResource path resource (Just { limit, offset }) >>= case _ of
     Left err → throwChartError (ChartSampleQuasarError err)
     Right result → pure result
 
 runAll
   ∷ ∀ m v
   . MonadThrow (Variant (chart ∷ ChartError | v)) m
+  ⇒ MonadAsk CEM.CardEnv m
   ⇒ QuasarDSL m
   ⇒ Port.Resource
   → m (Array J.Json)
-runAll resource =
-  Quasar.all (resource ^. Port._filePath) >>= case _ of
+runAll resource = do
+  CEM.CardEnv { path } ← ask
+  CEC.sampleResource path resource Nothing >>= case _ of
     Left err → throwChartError (ChartSampleQuasarError err)
     Right result → pure result

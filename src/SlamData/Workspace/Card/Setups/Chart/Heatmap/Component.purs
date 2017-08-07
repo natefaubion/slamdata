@@ -60,19 +60,11 @@ package ∷ DS.Package
 package = P.onPrism (M._BuildHeatmap ∘ _Just) $ DS.interpret do
   abscissa ←
     P.field PL._abscissa PP._abscissa
-      >>= P.addSource _.category
-      >>= P.addSource _.value
-      >>= P.addSource _.time
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
+      >>= P.addAll
 
   ordinate ←
     P.field PL._ordinate PP._ordinate
-      >>= P.addSource _.category
-      >>= P.addSource _.value
-      >>= P.addSource _.time
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
+      >>= P.addAll
       >>= P.isFilteredBy abscissa
 
   value ←
@@ -83,8 +75,9 @@ package = P.onPrism (M._BuildHeatmap ∘ _Just) $ DS.interpret do
 
   series ←
     P.optional PL._series PP._series
-      >>= P.addSource _.category
-      >>= P.addSource _.time
+      >>= P.addAll
+      >>= P.isFilteredBy value
+      >>= P.isActiveWhen value
       >>= P.isFilteredBy abscissa
       >>= P.isFilteredBy ordinate
       >>= P.isActiveWhen abscissa

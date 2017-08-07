@@ -23,26 +23,29 @@ module SlamData.FileSystem.Component
 
 import SlamData.Prelude
 
+import CSS as CSS
 import Control.Monad.Aff.AVar as AVar
 import Control.Monad.Fork (fork)
 import Control.Monad.Rec.Class (tailRecM, Step(Done, Loop))
 import Control.UI.Browser as Browser
 import Control.UI.Browser.Event as Be
-import Control.UI.File as Cf
-import CSS as CSS
+import Utils.File as UF
+import DOM.Event.Event as DEE
+import DOM.File.Types as DF
+import DOM.File.File as DFF
+import DOM.File.FileList as DFL
+import DOM.HTML.HTMLInputElement as HIE
 import Data.Argonaut as J
 import Data.Array as Array
 import Data.Coyoneda (liftCoyoneda)
 import Data.Foldable as F
 import Data.Lens (preview)
 import Data.MediaType (MediaType(..))
-import Data.MediaType.Common (textCSV, applicationJSON)
 import Data.Path.Pathy (rootDir, (</>), dir, file, parentDir, printPath)
 import Data.String as S
 import Data.String.Regex as RX
 import Data.String.Regex.Flags as RXF
 import Data.Variant as V
-import DOM.Event.Event as DEE
 import Halogen as H
 import Halogen.Component.Utils (busEventSource)
 import Halogen.HTML as HH
@@ -52,7 +55,9 @@ import Halogen.HTML.Properties as HP
 import Halogen.Query.EventSource as ES
 import Quasar.Advanced.QuasarAF as QA
 import Quasar.Advanced.Types as QAT
-import Quasar.Data (QData(..))
+import Quasar.Data as QD
+import Quasar.Data.CSV as CSV
+import Quasar.Data.Json as Json
 import Quasar.Error as QE
 import SlamData.AdminUI.Component as AdminUI
 import SlamData.AdminUI.Types as AdminUI.Types
@@ -61,9 +66,9 @@ import SlamData.Config as Config
 import SlamData.Dialog.License.Component as LicenseDialog
 import SlamData.Dialog.Render as RenderDialog
 import SlamData.FileSystem.Breadcrumbs.Component as Breadcrumbs
+import SlamData.FileSystem.Component.CSS as FileSystemClassNames
 import SlamData.FileSystem.Component.ChildSlot (ChildQuery, ChildSlot)
 import SlamData.FileSystem.Component.ChildSlot as CS
-import SlamData.FileSystem.Component.CSS as FileSystemClassNames
 import SlamData.FileSystem.Component.Query (Query(..))
 import SlamData.FileSystem.Component.Render (sorting, toolbar)
 import SlamData.FileSystem.Component.State (State, initialState)
@@ -85,9 +90,8 @@ import SlamData.LocalStorage.Keys as LSK
 import SlamData.Monad (Slam)
 import SlamData.Monad.License (notifyDaysRemainingIfNeeded)
 import SlamData.Notification.Component as NC
-import SlamData.Quasar (ldJSON) as API
 import SlamData.Quasar.Class (liftQuasar)
-import SlamData.Quasar.Data (makeFile, save) as API
+import SlamData.Quasar.Data (makeFile, makeDir, save) as API
 import SlamData.Quasar.FS (children, getNewName) as API
 import SlamData.Quasar.Mount (mountInfo) as API
 import SlamData.Render.ClassName as CN
@@ -286,18 +290,13 @@ eval = case _ of
            ⊕ " is not inside a mount."
     pure next
   UploadFile el next → do
-    mbInput ← H.liftEff $ DOM.querySelector "input" el
-    for_ mbInput \input →
-      void $ H.liftEff $ Be.raiseEvent "click" input
+    H.liftEff $ traverse_ (Be.raiseEvent "click") =<< DOM.querySelector "input" el
     pure next
   FileListChanged el next → do
-    fileArr ← map Cf.fileListToArray $ (H.liftAff $ Cf.files el)
-    H.liftEff $ Browser.clearValue el
-    -- TODO: notification? this shouldn't be a runtime exception anyway!
-    -- let err ∷ Slam Unit
-    --     err = throwError $ error "empty filelist"
-    -- in H.liftAff err
-    for_ (Array.head fileArr) uploadFileSelected
+    files ← H.liftEff $ HIE.files el
+    traverse_ uploadFileSelected (DFL.item 0 =<< files)
+    -- Clear the input so the same file can be re-uploaded if necessary
+    H.liftEff $ HIE.setValue "" el
     pure next
   Download next → do
     showDialog ∘ Dialog.Download ∘ R.Directory =<< H.gets _.path
@@ -468,40 +467,48 @@ dismissedIntroVideoBefore ∷ DSL Boolean
 dismissedIntroVideoBefore =
   either (const false) id <$> LS.retrieve J.decodeJson LSK.dismissedIntroVideoKey
 
-uploadFileSelected ∷ Cf.File → DSL Unit
+uploadFileSelected ∷ DF.File → DSL Unit
 uploadFileSelected f = do
   { path, sort, salt } ← H.get
-  name ←
-    H.liftEff (Cf.name f)
-      <#> RX.replace (unsafePartial fromRight $ RX.regex "/" RXF.global) ":"
-      >>= API.getNewName path
-
+  let fileName = RX.replace (unsafePartial fromRight $ RX.regex "/" RXF.global) ":" (DFF.name f)
+  name ← API.getNewName path $ fromMaybe fileName $ S.stripSuffix (S.Pattern ".zip") fileName
   case name of
     Left err → handleError err
-    Right name' → do
-      reader ← H.liftEff Cf.newReaderEff
-      content' ← H.liftAff $ Cf.readAsBinaryString f reader
-
-      let fileName = path </> file name'
-          res = R.File fileName
-          fileItem = PhantomItem res
-          ext = Array.last (S.split (S.Pattern ".") name')
-          mime = if ext ≡ Just "csv"
-                 then textCSV
-                 else if isApplicationJSON content'
-                      then applicationJSON
-                      else API.ldJSON
-      _ ← H.query' CS.cpListing unit $ H.action (Listing.Add fileItem)
-      f' ← API.makeFile fileName (CustomData mime content')
-      _ ← H.query' CS.cpListing unit $ H.action $ Listing.Filter (not ∘ eq res ∘ itemResource)
-      case f' of
-        Left err → handleError err
-        Right _ →
-          void $ H.query' CS.cpListing unit $ H.action $ Listing.Add (Item res)
-
+    Right uploadName → do
+      case Array.last (S.split (S.Pattern ".") fileName) of
+        Just "zip" →
+          uploadDir path uploadName (DF.fileToBlob f)
+        Just "csv" → do
+          uploadFile path uploadName ∘ QD.QData (Right CSV.defaultOptions) =<< H.liftAff (UF.readAsText f)
+        _ → do
+          content ← H.liftAff $ UF.readAsText f
+          let encoding = if isArrayEncoded content then Json.Array else Json.LineDelimited
+          let options = Json.Options { precision: Json.Readable, encoding }
+          uploadFile path uploadName $ QD.QData (Left options) content
   where
-  isApplicationJSON ∷ String → Boolean
-  isApplicationJSON content'
+
+  bracketUpload ∷ R.Resource → DSL (Either QE.QError Unit) → DSL Unit
+  bracketUpload res upload = do
+    _ ← H.query' CS.cpListing unit $ H.action $ Listing.Add (PhantomItem res)
+    uploadResult ← upload
+    _ ← H.query' CS.cpListing unit $ H.action $ Listing.Filter (not ∘ eq res ∘ itemResource)
+    case uploadResult of
+      Left err → handleError err
+      Right _ → void $ H.query' CS.cpListing unit $ H.action $ Listing.Add (Item res)
+
+  uploadFile ∷ DirPath → String → QD.QData → DSL Unit
+  uploadFile path name qdata = do
+    let fileName = path </> file name
+    bracketUpload (R.File fileName) (API.makeFile fileName qdata)
+
+  uploadDir ∷ DirPath → String → DF.Blob → DSL Unit
+  uploadDir path name zipdata = do
+    let dirName = path </> dir name
+    let mkRes = if isJust (S.stripSuffix (S.Pattern ".slam") name) then R.Workspace else R.Directory
+    bracketUpload (mkRes dirName) (API.makeDir dirName zipdata)
+
+  isArrayEncoded ∷ String → Boolean
+  isArrayEncoded content'
     -- Parse if content is small enough
     | S.length content' < 1048576 = isRight $ J.jsonParser content'
     -- Or check if its first/last characters are [/]
@@ -551,11 +558,14 @@ configure fromRoot m = do
   let anyPath = R.mountPath m
   API.mountInfo anyPath >>= case m, _ of
     R.View path, Left err → raiseError err
+    R.Module path, Left err → raiseError err
     R.Database path, Left err
       | path /= rootDir → raiseError err
       | otherwise → showMountDialog Mount.Root
     R.View path, Right mount →
       showMountDialog $ Mount.Edit { path: Right path, mount, fromRoot }
+    R.Module path, Right mount →
+      showMountDialog $ Mount.Edit { path: Left path, mount, fromRoot }
     R.Database path, Right mount →
       showMountDialog $ Mount.Edit { path: Left path, mount, fromRoot }
   where

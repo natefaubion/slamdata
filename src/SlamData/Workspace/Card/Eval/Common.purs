@@ -18,90 +18,181 @@ module SlamData.Workspace.Card.Eval.Common where
 
 import SlamData.Prelude
 
-import Control.Monad.Aff.Class (class MonadAff)
-import Data.Lens ((^?), _Right, (<>~), (%~))
+import Control.Monad.Writer.Class (class MonadTell)
+import Data.Argonaut as J
+import Data.Array as A
+import Data.Int as Int
+import Data.Json.Extended as E
+import Data.Lens ((.~), (?~))
 import Data.List as L
+import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as Path
 import Data.StrMap as SM
-import Matryoshka (embed)
+import Quasar.QuasarF as Q
 import Quasar.Advanced.QuasarAF as QF
-import Quasar.Types (FilePath)
-import SlamData.Effects (SlamDataEffects)
-import SlamData.Quasar.Class (class QuasarDSL, class ParQuasarDSL, sequenceQuasar)
+import Quasar.Data.Json as QJ
+import Quasar.Data.Json.Extended (resultsAsEJson)
+import Quasar.Types (FilePath, Pagination)
+import SlamData.Quasar.Class (class QuasarDSL, class ParQuasarDSL, sequenceQuasar, liftQuasar)
 import SlamData.Quasar.Error as QE
+import SlamData.Quasar.Query as QQ
 import SlamData.Workspace.Card.Error as CE
 import SlamData.Workspace.Card.Eval.Monad as CEM
-import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Eval.Process as Process
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SqlSquared as Sql
+import Utils.Path (tmpDir, parentDir, DirPath)
 
 validateResources
-  ∷ ∀ m v t
-  . MonadAff SlamDataEffects m
-  ⇒ MonadThrow (Variant (qerror ∷ CE.QError | v)) m
+  ∷ ∀ m t
+  . Monad m
   ⇒ QuasarDSL m
   ⇒ ParQuasarDSL m
   ⇒ Traversable t
   ⇒ t FilePath
-  → m Unit
-validateResources fs = do
+  → m (Either CE.QError Unit)
+validateResources fs = runExceptT do
   res ← sequenceQuasar (map (\path → Tuple path <$> QF.fileMetadata path) fs)
   for_ res case _ of
     path × Left reason →
-      CE.throwQError $ QE.prefixMessage ("Resource `" ⊕ Path.printPath path ⊕ "` is unavailable") reason
+      throwError $ QE.prefixMessage ("Resource `" ⊕ Path.printPath path ⊕ "` is unavailable") reason
     _ →
       pure unit
+
+localEvalResource
+  ∷ ∀ m
+  . MonadAsk CEM.CardEnv m
+  ⇒ MonadTell CEM.CardLog m
+  ⇒ ParQuasarDSL m
+  ⇒ Sql.SqlQuery
+  → VM.VarMap
+  → m (Either QE.QError VM.Resource)
+localEvalResource sql varMap = runExceptT do
+  CEM.CardEnv { cardId, readOnly } ← ask
+  let
+    Path.FileName fileName × result = Process.elaborate Path.currentDir parentDir cardId varMap sql
+  case result of
+    Left sqlQuery → do
+      filePath × relFilePath ← lift $ CEM.temporaryOutputResource
+      unless readOnly do
+        let
+          varMap' = VM.toURLVarMap varMap
+          compilePath = fromMaybe Path.rootDir (Path.parentDir filePath)
+        { inputs } ← ExceptT $ QQ.compile compilePath sqlQuery varMap'
+        ExceptT $ validateResources inputs
+        lift $ CEM.addSources inputs
+        ExceptT $ QQ.viewQuery filePath sqlQuery varMap'
+        ExceptT $ QQ.liftQuasar $ QF.fileMetadata filePath
+      pure $ VM.View relFilePath sqlQuery varMap
+    Right sqlModule → do
+      dirPath × relDirPath ← lift $ CEM.temporaryOutputModule
+      -- TODO: Attempt a compile (currently unsupported by backend)
+      unless readOnly do
+        ExceptT $ QQ.mountModule dirPath sqlModule
+      pure $ VM.Process (relDirPath Path.</> Path.file fileName) sqlModule varMap
+
+sampleResource'
+  ∷ ∀ m
+  . QuasarDSL m
+  ⇒ QJ.PrecisionMode
+  → DirPath
+  → VM.Resource
+  → Maybe Pagination
+  → m (Either QE.QError J.JArray)
+sampleResource' mode path res pagination =
+  liftQuasar $ case res of
+    VM.Path filePath → QF.readFile mode filePath pagination
+    VM.View filePath _ _ → QF.readFile mode (path </> tmpDir </> filePath) pagination
+    VM.Process filePath _ varMap → left $ Q.invokeFile mode (path </> tmpDir </> filePath) (VM.toURLVarMap varMap) pagination
+
+sampleResource
+  ∷ ∀ m
+  . QuasarDSL m
+  ⇒ DirPath
+  → VM.Resource
+  → Maybe Pagination
+  → m (Either QE.QError J.JArray)
+sampleResource = sampleResource' QJ.Readable
+
+sampleResourceEJson
+  ∷ ∀ m
+  . Functor m
+  ⇒ QuasarDSL m
+  ⇒ DirPath
+  → VM.Resource
+  → Maybe Pagination
+  → m (Either QE.QError (Array E.EJson))
+sampleResourceEJson path res pagination =
+  resultsAsEJson <$> sampleResource' QJ.Precise path res pagination
+
+runElaboratedQuery'
+  ∷ ∀ m
+  . QuasarDSL m
+  ⇒ QJ.PrecisionMode
+  → DirPath
+  → Sql.SqlQuery
+  → VM.VarMap
+  → m (Either QE.QError J.JArray)
+runElaboratedQuery' mode path query varMap =
+  let query' = Process.elaborateQuery (Path.unsandbox (Path.currentDir </> tmpDir)) varMap query
+  in liftQuasar $ QF.readQuery QJ.Readable path (Sql.printQuery query') (VM.toURLVarMap varMap) Nothing
+
+runElaboratedQuery
+  ∷ ∀ m
+  . QuasarDSL m
+  ⇒ DirPath
+  → Sql.SqlQuery
+  → VM.VarMap
+  → m (Either QE.QError J.JArray)
+runElaboratedQuery = runElaboratedQuery' QJ.Readable
+
+runElaboratedQueryEJson
+  ∷ ∀ m
+  . Functor m
+  ⇒ QuasarDSL m
+  ⇒ DirPath
+  → Sql.SqlQuery
+  → VM.VarMap
+  → m (Either QE.QError (Array E.EJson))
+runElaboratedQueryEJson path query varMap =
+  resultsAsEJson <$> runElaboratedQuery' QJ.Precise path query varMap
+
+countResource
+  ∷ ∀ m
+  . MonadAsk CEM.CardEnv m
+  ⇒ QuasarDSL m
+  ⇒ VM.Resource
+  → m (Either QE.QError Int)
+countResource res = do
+  CEM.CardEnv { varMap, cardId, path } ← ask
+  let varMap' = VM.insert cardId (VM.Var "resource") (VM.Resource res) varMap
+  count ← runElaboratedQuery path selectCount varMap'
+  pure $ map (fromMaybe 0 ∘ readCount) count
+
+selectCount ∷ Sql.SqlQuery
+selectCount =
+  Sql.Query mempty
+    $ Sql.buildSelect
+    $ (Sql._relations ?~ Sql.VariRelation { vari: "resource", alias: Nothing })
+    ∘ (Sql._projections .~ L.singleton
+        (Sql.as "count"
+          $ Sql.projection
+          $ Sql.invokeFunction "COUNT"
+          $ L.singleton
+          $ Sql.splice Nothing))
+
+readCount ∷ J.JArray → Maybe Int
+readCount =
+  Int.fromNumber
+    <=< J.toNumber
+    <=< SM.lookup "count"
+    <=< J.toObject
+    <=< A.head
 
 evalComposite
   ∷ ∀ m
   . MonadAsk CEM.CardEnv m
-  ⇒ m Port.DataMap
+  ⇒ m VM.VarMap
 evalComposite = do
-  CEM.CardEnv { children } ← ask
-  pure $ foldl mergeChildren SM.empty children
-  where
-  mergeChildren ∷ Port.DataMap → CEM.ChildOut → Port.DataMap
-  mergeChildren vm { namespace, varMap } = case namespace of
-    "" → SM.fold (update id) vm varMap
-    ns → SM.fold (update \k → ns <> "." <> k) vm varMap
-
-  alterFn
-    ∷ Port.Resource ⊹ Port.VarMapValue
-    → Maybe (Port.Resource ⊹ Port.VarMapValue)
-    → Maybe (Port.Resource ⊹ Port.VarMapValue)
-  alterFn val = case _ of
-    Nothing → Just val
-    Just v → case v ^? _Right ∘ Port._VarMapValue ∘ Sql._SetLiteral of
-      Nothing →
-        let
-          v1 ∷ Sql.Sql
-          v1 = toValue val
-          v2 ∷ Sql.Sql
-          v2 = toValue v
-
-        in
-          Just
-            if v1 ≡ v2
-              then val
-              else Right $ Port.VarMapValue $ embed $ Sql.SetLiteral $ L.fromFoldable [ v1, v2 ]
-      Just _ → Just case val ^? _Right ∘ Port._VarMapValue ∘ Sql._SetLiteral of
-        Nothing →
-          v # _Right ∘ Port._VarMapValue ∘ Sql._SetLiteral
-            %~ (\s → let val' = toValue val
-                     in if L.elem val' s
-                        then s
-                        else L.snoc s val')
-        Just news →
-          v # _Right ∘ Port._VarMapValue ∘ Sql._SetLiteral <>~ news
-
-  update
-    ∷ (String → String)
-    → Port.DataMap
-    → String
-    → Port.Resource ⊹ Port.VarMapValue
-    → Port.DataMap
-  update mkKey acc key val =
-    SM.alter (alterFn val) (mkKey key) acc
-
-  toValue ∷ Port.Resource ⊹ Port.VarMapValue → Sql.Sql
-  toValue =
-    unwrap ∘ either Port.resourceToVarMapValue id
+  CEM.CardEnv { varMap, children, cardId } ← ask
+  pure $ foldr (\ch → VM.union cardId ch.namespace ch.varMap) varMap children

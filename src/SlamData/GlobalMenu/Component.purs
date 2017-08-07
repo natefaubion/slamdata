@@ -141,7 +141,10 @@ render state =
 
     userInfo =
       flip foldMap state.email \e →
-        [ HH.div [ HP.class_ $ HH.ClassName "user-info" ] [ HH.text e ] ]
+        [ HH.div
+          [ HP.class_ $ HH.ClassName "user-info" ]
+          [ HH.span_ [ HH.text e ] ]
+        ]
 
     adminMenu =
       [ HH.div

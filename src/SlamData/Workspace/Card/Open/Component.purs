@@ -48,7 +48,6 @@ import SlamData.Workspace.Card.Open.Component.Query as Q
 import SlamData.Workspace.Card.Open.Component.State (State, initialState)
 import SlamData.Workspace.Card.Open.Item (AnyItem(..), AnyItem', AnyPath', anyItemToOpen)
 import SlamData.Workspace.Card.Open.Model as Open
-import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.LevelOfDetails as LOD
 import SlamData.Workspace.MillerColumns.BasicItem.Component as MCI
@@ -96,7 +95,7 @@ renderItem r =
             [ itemGlyph r
             , HH.text (itemName r)
             ]
-        , guard (not isActionable r) $> I.chevronRightSm
+        , guard (not (isLeaf (isRight ∘ R.getPath)) r) $> I.chevronRightSm
         ]
 
 isLeaf ∷ ∀ a. (a → Boolean) → AnyItem a → Boolean
@@ -107,7 +106,13 @@ isLeaf f = case _ of
   Resource r → f r
 
 isActionable ∷ AnyItem' → Boolean
-isActionable = isLeaf (isRight ∘ R.getPath)
+isActionable = isLeaf (isRight ∘ R.getPath) || isResource
+
+isResource ∷ ∀ a. AnyItem a → Boolean
+isResource = case _ of
+  Resource _ → true
+  _ → false
+
 
 itemName ∷ AnyItem' → String
 itemName = case _ of
@@ -132,6 +137,8 @@ iconForResource = case _ of
   R.Directory _ → I.folderSm
   R.Mount (R.Database _) → I.database
   R.Mount (R.View _) → I.file
+  -- TODO: Different icon
+  R.Mount (R.Module _) → I.database
 
 evalOpen ∷ Query ~> DSL
 evalOpen = case _ of
@@ -168,7 +175,7 @@ evalCard = case _ of
   CC.Load _ next →
     pure next
   CC.ReceiveInput _ varMap next → do
-    let vars = VM.variables $ Port.flattenResources varMap
+    let vars = VM.variables varMap
     selection ← CMS.state \st -> st.selection × (st { currentVars = vars })
     -- We need to reload the variables column in response to a new varMap,
     -- but only if it might be visible.

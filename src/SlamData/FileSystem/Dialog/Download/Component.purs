@@ -24,11 +24,13 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+import Quasar.Data.CSV as CSV
+import Quasar.Data.Json as Json
 import SlamData.Dialog.Component as D
 import SlamData.Download.Model as DM
 import SlamData.Download.Render as DR
-import SlamData.FileSystem.Resource as R
 import SlamData.FileSystem.Dialog.Download.Component.State as S
+import SlamData.FileSystem.Resource as R
 import SlamData.Monad (Slam)
 import SlamData.Quasar.Auth as QAuth
 import SlamData.Render.ClassName as CN
@@ -61,21 +63,33 @@ dialog res =
 render ∷ S.State → H.ComponentHTML Query
 render state@{ options, targetName } =
   HH.div_
-    [ HH.div
-        [ HP.classes [ CN.formGroup, CN.downloadSource ] ]
-        [ HH.label_
-            [ HH.span_ [ HH.text "Source" ]
-            , HH.text (R.resourcePath state.resource)
+    $ join
+        [ pure $ HH.div
+            [ HP.classes [ CN.formGroup, CN.downloadSource ] ]
+            [ HH.label_
+                [ HH.span_ [ HH.text "Source" ]
+                , HH.text (R.resourcePath state.resource)
+                ]
             ]
+        , pure $ DR.fldName
+            (DM.shouldCompress state)
+            options
+            targetName
+            (\name → Modify (_ { targetName = name }))
+        , guard (not DM.alwaysCompress state.resource) $>
+            HH.div
+              [ HP.classes [ CN.formGroup, H.ClassName "sd-download-compress-option" ] ]
+              [ HH.label_
+                  [ HH.input
+                      [ HP.type_ HP.InputCheckbox
+                      , HE.onChecked $ HE.input (\b → Modify (_ { compress = b }))
+                      ]
+                  , HH.text "Compress as .zip"
+                  ]
+              ]
+        , guard (not R.isWorkspace state.resource) $> renderOptions state
+        , pure $ renderError state
         ]
-    , DR.fldName
-        (DM.shouldCompress state)
-        options
-        targetName
-        (\name → Modify (_ { targetName = name }))
-    , renderOptions state
-    , renderError state
-    ]
 
 renderOptions ∷ S.State → H.ComponentHTML Query
 renderOptions { options } =
@@ -102,16 +116,16 @@ renderOptions { options } =
 setOutput ∷ ∀ r. DM.OutputType → DM.DownloadModel r → DM.DownloadModel r
 setOutput ty st = case ty, st.options of
   DM.CSV, Left _ → st
-  DM.CSV, _ → st { options = Left DM.initialCSVOptions }
+  DM.CSV, _ → st { options = Left CSV.defaultOptions }
   DM.JSON, Right _ → st
   DM.JSON, _ → st { options = Right DM.initialJSONOptions }
 
-renderOptionsCSV ∷ DM.CSVOptions → H.ComponentHTML Query
+renderOptionsCSV ∷ CSV.Options → H.ComponentHTML Query
 renderOptionsCSV =
   DR.optionsCSV \lens v →
     Modify \st → st { options = st.options # _Left ∘ lens .~ v }
 
-renderOptionsJSON ∷ DM.JSONOptions → H.ComponentHTML Query
+renderOptionsJSON ∷ Json.Options → H.ComponentHTML Query
 renderOptionsJSON =
   DR.optionsJSON \lens v →
     Modify \st → st { options = st.options # _Right ∘ lens .~ v }

@@ -21,7 +21,10 @@ import SlamData.Prelude
 import Halogen as H
 import Halogen.Component.Utils as HCU
 
-data SettingsQuery s a = ModifyState (s -> s) a
+data SettingsQuery s a = ModifyState (s → s) a
+
+onModify ∷ ∀ s a. (s → s) → SettingsQuery s a → SettingsQuery s a
+onModify f (ModifyState g a) = ModifyState (f ∘ g) a
 
 data SettingsMessage a = Modified (Either String a)
 

@@ -188,6 +188,8 @@ itemView state@{ item } selected presentActions | otherwise =
     Directory _ → I.folderSm
     Mount (Database _) → I.databaseSm
     Mount (View _) → I.documentSm
+    -- TODO: Different icon
+    Mount (Module _) → I.databaseSm
 
 itemActions ∷ Boolean → Item → Array HTML
 itemActions presentActions item | not presentActions = pure $ HH.text ""

@@ -70,8 +70,8 @@ package = P.onPrism (M._BuildGraph ∘ _Just) $ DS.interpret do
 
   color ←
     P.optional PL._color PP._color
-      >>= P.addSource _.category
-      >>= P.addSource _.time
+      >>= P.addAll
+      >>= P.isFilteredBy size
       >>= P.isFilteredBy source
       >>= P.isFilteredBy target
 

@@ -43,6 +43,7 @@ import Quasar.Advanced.Types as QTA
 import SlamData.Monad (Slam)
 import SlamData.Quasar.Security as Q
 import SlamData.Render.ClassName as CN
+import SlamData.Render.Common as RC
 import SlamData.Render.Icon as I
 import SlamData.Workspace.Dialog.Share.Model (ShareResume(..), printShareResume)
 import SlamData.Workspace.Dialog.Share.Model as Model
@@ -172,7 +173,7 @@ render state =
             $ [ CN.alert, CN.alertInfo, HH.ClassName "share-loading" ]
             ⊕ if state.loading then [ ] else [ CN.hidden ]
         ]
-        [ HH.img [ HP.src "img/blue-spin.svg" ]
+        [ RC.spinner
         , HH.text "Loading"
         ]
 

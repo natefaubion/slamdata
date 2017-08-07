@@ -18,11 +18,11 @@ module SlamData.Workspace.Card.Cache.Component.State where
 
 import Data.Lens (Lens', lens)
 import Data.Maybe (Maybe(..))
-import Data.Path.Pathy as Path
+import Utils.Path as PU
 
 type State =
   { pathString ∷ Maybe String
-  , confirmedPath ∷ Maybe (Path.AbsFile Path.Sandboxed)
+  , confirmedPath ∷ Maybe (PU.AnyFilePath)
   }
 
 initialState ∷ State

@@ -27,11 +27,15 @@ data StringOperation
   | Upper
   | Length
 
+transformStringSql ∷ StringOperation → Sql.Sql → Sql.Sql
+transformStringSql op expr =
+  Sql.invokeFunction (printStringOperation op) $ pure expr
+
 applyStringOperation ∷ StringOperation → Sql.Projection Sql.Sql → Sql.Projection Sql.Sql
 applyStringOperation op (Sql.Projection { expr, alias }) =
   Sql.Projection
   { alias
-  , expr: Sql.invokeFunction (printStringOperation op) $ pure expr
+  , expr: transformStringSql op expr
   }
 
 

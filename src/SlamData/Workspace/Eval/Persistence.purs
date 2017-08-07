@@ -662,8 +662,8 @@ debounce ms key make cache init run = do
   prev ← Cache.remove key cache
   Cache.put key (make avar) cache
   case prev of
-    Just { avar } →
-      liftAff $ killVar avar (Exn.error "debounce")
+    Just { avar: avar' } →
+      liftAff $ killVar avar' (Exn.error "debounce")
     Nothing →
       void $ fork init
 

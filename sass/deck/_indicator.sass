@@ -11,7 +11,9 @@
   padding: 0 0.4rem
 
   i
-    display: inline-block
+    display: inline-flex
+    justify-content: center
+    align-items: center
     flex: 0 0 auto
     position: relative
     width: 1rem
@@ -26,55 +28,50 @@
       width: 1rem
       height: 1rem
 
+  .sd-spinner
+    margin-top: -0.2rem
+
   .placeholder
+    color: $indicator-color
+
     &::before
       width: 0.2rem
       left: 0.4rem
-      background: $indicator-color
+      background-color: $indicator-color
 
     &::after
       height: 0.2rem
       top: 0.4rem
-      background: $indicator-color
+      background-color: $indicator-color
 
     &.focused
+      color: $indicator-active-color
+
       &::before, &::after
-        background: $indicator-active-color
+        background-color: $indicator-active-color
 
   .errored
-    &::before
-      background: $indicator-color
+    color: $indicator-color
 
-    &.focused::before
-      background: $brand-danger
+    &::before
+      background-color: $indicator-color
+
+    &.focused
+      color: $indicator-error-color
+
+      &::before
+        background-color: $indicator-error-color
 
   .available, .pending
     &:not(.running)
+      color: $indicator-color
+
       &::before
         background: $indicator-color
         border-radius: 1.2rem
 
-      &.focused::before
-        background: $indicator-active-color
+      &.focused
+        color: $indicator-active-color
 
-    &.running
-      &::before
-        display: inline-block
-        content: " "
-        position: relative
-        font-size: 1rem
-        line-height: 1rem
-        background-size: 1rem
-        // TODO: umm, this system needs a revamp to work with IE, so well,
-        // they get old stuff
-        background-image: url("../img/gray-spin.svg")
-
-        @supports(mask-image: url(#test))
-          background: $indicator-color
-          mask-image: url("../img/gray-spin.svg")
-          mask-size: 1rem
-          mask-position: 50% 50%
-
-      &.focused::before
-        @supports(mask-image: url(#test))
-          background: $indicator-active-color
+        &::before
+          background-color: $indicator-active-color

@@ -58,14 +58,15 @@ package = P.onPrism (M._BuildGauge ∘ _Just) $ DS.interpret do
 
   parallel ←
     P.optional PL._parallel PP._parallel
-      >>= P.addSource _.category
-      >>= P.addSource _.time
+      >>= P.addAll
       >>= P.isActiveWhen value
+      >>= P.isFilteredBy value
 
   multiple ←
     P.optional PL._multiple PP._multiple
-      >>= P.addSource _.category
-      >>= P.addSource _.time
+      >>= P.addAll
+      >>= P.isActiveWhen value
+      >>= P.isFilteredBy value
       >>= P.isActiveWhen value
       >>= P.isFilteredBy parallel
 

@@ -42,6 +42,7 @@ import Data.Validation.Semigroup as V
 import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.Model as CM
 import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Variables.Eval as Variables
 import SlamData.Workspace.Deck.DeckId as DID
 import SlamData.Workspace.Dialog.Share.Model (SharingInput)
@@ -112,7 +113,7 @@ getVarMaps = Map.fromFoldable ∘ goDeck
       case card.model of
         CM.Variables vars →
           let varMap = Variables.buildVarMap cardId Map.empty vars
-          in pure (cardId × V.unV (const StrMap.empty) id varMap)
+          in pure (cardId × V.unV (const VM.empty) id varMap)
         _ → foldMap goDeck decks
 
 getSharingInput ∷ DirPath → TraverseDeck Deck.Cell Card.Cell → SharingInput

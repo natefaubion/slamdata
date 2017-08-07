@@ -57,21 +57,17 @@ package ∷ DS.Package
 package = P.onPrism (M._BuildPunchCard ∘ _Just) $ DS.interpret do
   abscissa ←
     P.field PL._abscissa PP._abscissa
-      >>= P.addSource _.category
-      >>= P.addSource _.time
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
+      >>= P.addAll
 
   ordinate ←
     P.field PL._ordinate PP._ordinate
-      >>= P.addSource _.category
-      >>= P.addSource _.time
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
+      >>= P.addAll
 
   value ←
     P.field PL._value PP._value
       >>= P.addSource _.value
+      >>= P.isFilteredBy abscissa
+      >>= P.isFilteredBy ordinate
   pure unit
 
 punchCardBuilderComponent ∷ CC.CardOptions → CC.CardComponent

@@ -2,7 +2,6 @@
     { "owner": "quasar-analytics"
     , "repo": "quasar"
     , "tag": "v20.0.1"
-
     , "prefix": "quasar-web-assembly"
     }
 , "quasar-advanced":

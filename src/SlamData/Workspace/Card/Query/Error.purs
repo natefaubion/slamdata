@@ -26,16 +26,19 @@ data QueryError
   = QueryCompileError QError
   -- ???: It's not entirely clear how this arises, the QueryCompileError case seems to catch the test cases we tried -gb
   | QueryRetrieveResultError QError
+  | QueryParseError String
 
 instance showQueryError ∷ Show QueryError where
   show = case _ of
     QueryCompileError qe → "(QueryCompileError " <> show qe <> ")"
     QueryRetrieveResultError qe → "(QueryRetrieveResultError " <> show qe <> ")"
+    QueryParseError pe → "(QueryParseError " <> show pe <> ")"
 
 queryToGlobalError ∷ QueryError → Maybe GE.GlobalError
 queryToGlobalError = case _ of
   QueryCompileError qErr → hush (GE.fromQError qErr)
   QueryRetrieveResultError qErr → hush (GE.fromQError qErr)
+  QueryParseError pe → Nothing
 
 throwQueryError ∷ forall v m a. MonadThrow (Variant (query ∷ QueryError | v)) m ⇒ QueryError → m a
 throwQueryError = throwVariantError (SProxy :: SProxy "query")

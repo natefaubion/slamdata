@@ -57,12 +57,7 @@ package ∷ DS.Package
 package = P.onPrism (M._BuildArea ∘ _Just) $ DS.interpret do
   dimension ←
     P.field PL._dimension PP._dimension
-      >>= P.addSource _.time
-      >>= P.addSource _.value
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
-      >>= P.addSource _.category
-
+      >>= P.addAll
   value ←
     P.field PL._value PP._value
       >>= P.isFilteredBy dimension
@@ -70,11 +65,7 @@ package = P.onPrism (M._BuildArea ∘ _Just) $ DS.interpret do
 
   series ←
     P.optional PL._series PP._series
-      >>= P.addSource _.time
-      >>= P.addSource _.value
-      >>= P.addSource _.date
-      >>= P.addSource _.datetime
-      >>= P.addSource _.category
+      >>= P.addAll
       >>= P.isFilteredBy value
       >>= P.isFilteredBy dimension
       >>= P.isActiveWhen dimension

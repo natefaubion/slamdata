@@ -33,6 +33,7 @@ module SlamData.Workspace.Card.Eval.State
   , _PivotTable
   , _ChartOptions
   , _Geo
+  , _SlamDown
   , _Leaflet
   , _BuildLeaflet
   , _Layers
@@ -42,24 +43,21 @@ module SlamData.Workspace.Card.Eval.State
 import SlamData.Prelude
 
 import Control.Monad.Aff (Aff)
-
 import Data.Argonaut (Json)
 import Data.Array as Array
 import Data.Lens (Prism', prism', Traversal', wander, lens)
 import Data.Set as Set
-
 import ECharts.Monad (DSL)
 import ECharts.Types.Phantom (OptionI)
-
 import Leaflet.Core as LC
-
 import SlamData.Effects (SlamDataEffects)
-
 import SlamData.Workspace.Card.Chart.PivotTableRenderer.Common (PTree)
 import SlamData.Workspace.Card.Model as CM
+import SlamData.Workspace.Card.Markdown.Model (MarkdownExpr)
 import SlamData.Workspace.Card.Port (Resource, PivotTablePort)
 import SlamData.Workspace.Card.Setups.Axis (Axes)
 import SlamData.Workspace.Card.Setups.Semantics as Sem
+import Text.Markdown.SlamDown.Halogen.Component as SDH
 
 type AnalysisR =
   { resource ∷ Resource
@@ -79,7 +77,6 @@ type TableR =
   , pageSize ∷ Int
   , size ∷ Int
   }
-
 
 type GeoR =
   { leaflet ∷ Maybe LC.Leaflet
@@ -107,6 +104,7 @@ data EvalState
   | PivotTable PivotTableR
   | ChartOptions (DSL OptionI)
   | Geo GeoR
+  | SlamDown (SDH.SlamDownFormState MarkdownExpr)
 
 initialEvalState ∷ CM.AnyCardModel → Maybe EvalState
 initialEvalState = case _ of
@@ -174,6 +172,11 @@ _ResourceSize = wander \f s → case s of
 _Geo ∷ Prism' EvalState GeoR
 _Geo = prism' Geo case _ of
   Geo r → Just r
+  _ → Nothing
+
+_SlamDown ∷ Prism' EvalState (SDH.SlamDownFormState MarkdownExpr)
+_SlamDown = prism' SlamDown case _ of
+  SlamDown r → Just r
   _ → Nothing
 
 _Leaflet ∷ Traversal' EvalState (Maybe LC.Leaflet)

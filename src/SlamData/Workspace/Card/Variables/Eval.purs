@@ -26,6 +26,7 @@ import SlamData.SqlSquared.Tagged (ParseError)
 import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Variables.Error (VError(..), VariablesError(..), throwVariablesError)
 import SlamData.Workspace.Card.Variables.Model (Model)
 import SlamData.Workspace.FormBuilder.Item.Component.State (sanitiseValueFromForm)
@@ -40,11 +41,11 @@ eval
 eval model = do
   CEM.CardEnv { cardId, urlVarMaps } ← ask
   varMap ← V.unV throwVariablesError pure $ buildVarMap cardId urlVarMaps model
-  pure (Port.Variables × map Right varMap)
+  pure (Port.Variables × varMap)
 
 buildVarMap ∷ CardId → Map.Map CardId Port.URLVarMap → Model → V VariablesError Port.VarMap
 buildVarMap cardId urlVarMaps model =
-  foldl go (pure SM.empty) model.items
+  foldl go (pure VM.empty) model.items
   where
     go ∷ V VariablesError Port.VarMap → FB.Model → V VariablesError Port.VarMap
     go acc { name, fieldType, defaultValue } = case unit of
@@ -52,7 +53,7 @@ buildVarMap cardId urlVarMaps model =
       _ | unwrap name == "" →
             -- TODO: are there other cases? -gb
             accumError (InvalidVariableNameError name)
-      _ | V.unV (const false) (SM.member (unwrap name)) acc →
+      _ | V.unV (const false) (VM.member (VM.Var (unwrap name))) acc →
             accumError (DuplicateVariableError name)
       _ | otherwise →
             case SM.lookup (unwrap name) =<< Map.lookup cardId urlVarMaps, defaultValue of
@@ -71,7 +72,7 @@ buildVarMap cardId urlVarMaps model =
         parseValue toError value =
           either
             (accumError ∘ toError name)
-            (\v → map (SM.insert (unwrap name) v) acc)
+            (\v → map (VM.insert cardId (VM.Var (unwrap name)) v) acc)
             -- TODO: sanitiseValueFromForm can be removed at some point in the
             -- future, but for now ommitting it may cause some glitches with
             -- existing workspaces (will start complaining about incorrect

@@ -17,11 +17,11 @@ limitations under the License.
 module SlamData.FileSystem.Dialog.Mount.Scheme where
 
 import SlamData.Prelude
-import Quasar.Mount as QM
 
 data Scheme
   = MongoDB
   | SQL2
+  | Module
   | Couchbase
   | MarkLogic
   | SparkHDFS
@@ -29,11 +29,13 @@ data Scheme
   | SparkLocal
 
 derive instance eqScheme ∷ Eq Scheme
+
 derive instance ordScheme ∷ Ord Scheme
 
 schemeToString :: Scheme -> String
 schemeToString MongoDB = "MongoDB"
 schemeToString SQL2 = "SQL²"
+schemeToString Module = "SQL² Module"
 schemeToString Couchbase = "Couchbase"
 schemeToString MarkLogic = "MarkLogic"
 schemeToString SparkHDFS = "HDFS on Spark"
@@ -43,6 +45,7 @@ schemeToString SparkLocal = "Local on Spark"
 schemeFromString :: String -> Maybe Scheme
 schemeFromString "MongoDB" = Just MongoDB
 schemeFromString "SQL²" = Just SQL2
+schemeFromString "SQL² Module" = Just Module
 schemeFromString "Couchbase" = Just Couchbase
 schemeFromString "MarkLogic" = Just MarkLogic
 schemeFromString "HDFS on Spark" = Just SparkHDFS
@@ -54,20 +57,10 @@ schemes :: Array Scheme
 schemes =
   [ MongoDB
   , SQL2
+  , Module
   , Couchbase
   , MarkLogic
   , SparkHDFS
   , SparkFTP
   , SparkLocal
   ]
-
-fromConfig ∷ QM.MountConfig → Scheme
-fromConfig = case _ of
-  QM.MongoDBConfig _ → MongoDB
-  QM.ViewConfig _ → SQL2
-  QM.CouchbaseConfig _ → Couchbase
-  QM.MarkLogicConfig _ → MarkLogic
-  QM.SparkFTPConfig _ → SparkFTP
-  QM.SparkHDFSConfig _ → SparkHDFS
-  QM.SparkLocalConfig _ → SparkLocal
-  QM.ModuleConfig _ → SQL2
