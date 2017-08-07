@@ -32,8 +32,7 @@ import SlamData.Workspace.Card.Setups.DisplayOptions.Model as M
 import SlamData.Render.Form as RF
 
 data Query a
-  = NoOp a
-  | Modify (M.DisplayOptionsR → M.DisplayOptionsR) a
+  = Modify (M.DisplayOptionsR → M.DisplayOptionsR) a
   | Raise Message a
 
 data Message
@@ -73,7 +72,7 @@ renderAlignment { horz, vert } =
     [ HH.div_
         [ HH.label_
             [ HH.text "Horizontal alignment"
-            , RF.renderSelect_
+            , RF.renderSelect
                 M.alignments
                 horz
                 M.horzAlign
@@ -83,7 +82,7 @@ renderAlignment { horz, vert } =
     , HH.div_
         [ HH.label_
             [ HH.text "Vertical alignment"
-            , RF.renderSelect_
+            , RF.renderSelect
                 M.alignments
                 vert
                 M.vertAlign
@@ -104,14 +103,13 @@ renderStyle style =
   where
     renderStyle ∷ M.StyleOption → String → HTML
     renderStyle opt label =
-      RF.renderCheckbox_
+      RF.renderCheckbox
         label
         (M.hasStyle opt style)
         (\b → Modify (\st → st { style = M.toggleStyle opt b st.style }))
 
 eval ∷ Query ~> DSL
 eval = case _ of
-  NoOp next → pure next
   Modify f next → do
     H.modify (_Newtype f)
     pure next

@@ -21,19 +21,18 @@ import SlamData.Prelude
 import Data.Array as Array
 import Data.Lens as Lens
 import Data.List.NonEmpty as NEL
-import DOM.HTML.Indexed as I
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 
-renderCheckbox_
+renderCheckbox
   ∷ ∀ a f p
   . String
   → Boolean
   → (Boolean → H.Action f)
   → H.HTML p f
-renderCheckbox_ label checked query =
+renderCheckbox label checked query =
   HH.label_
     [ HH.input
         [ HP.type_ HP.InputCheckbox
@@ -46,30 +45,19 @@ renderCheckbox_ label checked query =
 renderSelect
   ∷ ∀ a f p
   . Eq a
-  ⇒ Array (H.IProp I.HTMLselect f)
-  → NEL.NonEmptyList a
+  ⇒ NEL.NonEmptyList a
   → a
   → Lens.Prism' String a
   → (a → H.Action f)
   → H.HTML p f
-renderSelect props values value prism query =
+renderSelect values value prism query =
   HH.select
-    (props `Array.snoc` HE.onValueChange (map (flip query unit) ∘ Lens.preview prism))
+    [ HE.onValueChange (map (flip query unit) ∘ Lens.preview prism)
+    , HP.class_ (H.ClassName "sd-form-input")
+    ]
     $ map renderOption (Array.fromFoldable values)
   where
     renderOption opt =
       HH.option
         [ HP.selected (value == opt) ]
         [ HH.text (Lens.review prism opt) ]
-
-renderSelect_
-  ∷ ∀ a f p
-  . Eq a
-  ⇒ NEL.NonEmptyList a
-  → a
-  → Lens.Prism' String a
-  → (a → H.Action f)
-  → H.HTML p f
-renderSelect_ values value prism =
-  -- can't η-reduce further due to type inference issue
-  renderSelect [] values value prism
