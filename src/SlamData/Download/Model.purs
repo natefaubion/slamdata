@@ -67,7 +67,7 @@ renderURL authHeaders opts =
              $ append authHeaders
              $ toHeaders opts (shouldCompress opts)
              $ Just (opts.targetName <> ext))
-    ext = extension opts.compress opts.options
+    ext = extension (shouldCompress opts) opts.options
   in
     Q.encodeURI (P.printPath QP.data_ <> R.resourcePath opts.resource) <> headers
 
