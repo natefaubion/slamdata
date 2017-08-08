@@ -18,14 +18,22 @@ module SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.Render where
 
 import SlamData.Prelude
 
+import CSS.Common (bottom, middle) as CSS
+import CSS.Font (bold, fontWeight) as CSS
+import CSS.Stylesheet as CSSS
+import CSS.Text (textDecoration, underline) as CSS
+import CSS.TextAlign (center, rightTextAlign, textAlign) as CSS
+import CSS.VerticalAlign (verticalAlign) as CSS
 import Data.Argonaut as J
 import Data.Array as Array
 import Data.Lens ((^.), (^?))
+import Data.Newtype (un)
 import Halogen as H
 import Halogen.HTML as HH
+import Halogen.HTML.CSS as HCSS
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import SlamData.Render.CSS.New as CSS
+import SlamData.Render.CSS.New as RC
 import SlamData.Render.Icon as I
 import SlamData.Workspace.Card.Chart.PivotTableRenderer.Common (PTree, foldTree, sizeOfRow, topField)
 import SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.Query as Q
@@ -36,6 +44,7 @@ import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.DisplayOptions.Model as Display
 import SlamData.Workspace.Card.Setups.Transform as T
 import Utils (showPrettyNumber, showFormattedNumber)
+import Utils.CSS (fontStyle, italic) as CSS
 
 type HTML = H.ComponentHTML Q.Query
 
@@ -80,7 +89,13 @@ renderTable pageCount dims cols tree
       HH.table_
           $ [ HH.tr_
               $ (dims <#> \(n × dim) → HH.th_ [ HH.text (headingText n dim) ])
-              ⊕ (cols <#> \(n × _ × col) → HH.th_ [ HH.text (headingText (columnHeading n col) col) ])
+              ⊕ (cols <#> \(n × dopts × col) →
+                  let
+                    opts = un Display.DisplayOptions dopts
+                  in
+                    HH.th
+                      [ HCSS.style (horzAlign opts.alignment.horz) ]
+                      [ HH.text (headingText (columnHeading n col) col) ])
           ]
           ⊕ renderRows cols tree
 
@@ -123,12 +138,39 @@ renderLeaf cols row =
     rowLen = sizeOfRow cols row
   in
     Array.range 0 (rowLen - 1) <#> \rowIx →
-      cols <#> \(c × opts × col) →
-        let text = renderValue opts rowIx (col ^. D._value) <$> J.cursorGet (topField c) row
-        in HH.td_ [ HH.text (fromMaybe "" text) ]
+      cols <#> \(c × dopts × col) →
+        let
+          opts = un Display.DisplayOptions dopts
+          text = renderValue opts.format rowIx (col ^. D._value) <$> J.cursorGet (topField c) row
+        in
+          HH.td
+            [ HCSS.style do
+                horzAlign opts.alignment.horz
+                vertAlign opts.alignment.vert
+                strong (Display.hasStyle Display.Strong opts.style)
+                underline (Display.hasStyle Display.Underline opts.style)
+                emphasis (Display.hasStyle Display.Emphasis opts.style)
+            ]
+            [ HH.text (fromMaybe "" text) ]
+  where
+    strong = flip when $ CSS.fontWeight CSS.bold
+    underline = flip when $ CSS.textDecoration CSS.underline
+    emphasis = flip when $ CSS.fontStyle CSS.italic
 
-renderValue ∷ Display.DisplayOptions → Int → D.Category Column → J.Json → String
-renderValue opts = case _, _ of
+horzAlign ∷ Display.Alignment → CSSS.CSS
+horzAlign = case _ of
+  Display.AlignStart → pure unit
+  Display.AlignMiddle → CSS.textAlign CSS.center
+  Display.AlignEnd → CSS.textAlign CSS.rightTextAlign
+
+vertAlign ∷ Display.Alignment → CSSS.CSS
+vertAlign = case _ of
+  Display.AlignStart → pure unit
+  Display.AlignMiddle → CSS.verticalAlign CSS.middle
+  Display.AlignEnd → CSS.verticalAlign CSS.bottom
+
+renderValue ∷ Display.FormatOptions → Int → D.Category Column → J.Json → String
+renderValue fmt = case _, _ of
   0, D.Static _ → renderJson
   0, D.Projection (Just T.Count) _ → J.foldJsonNumber "" showFormattedNumber
   0, D.Projection _ (Column _) → foldJsonArray' renderJson (maybe "" renderJson ∘ flip Array.index 0)
@@ -142,15 +184,15 @@ renderJson =
 renderPrevButtons ∷ Boolean → HTML
 renderPrevButtons enabled =
   HH.div
-    [ HP.class_ CSS.formButtonGroup ]
+    [ HP.class_ RC.formButtonGroup ]
     [ HH.button
-        [ HP.class_ CSS.formButton
+        [ HP.class_ RC.formButton
         , HP.disabled (not enabled)
         , HE.onClick $ HE.input_ (Q.StepPage Q.First)
         ]
         [ I.playerRewind ]
     , HH.button
-        [ HP.class_ CSS.formButton
+        [ HP.class_ RC.formButton
         , HP.disabled (not enabled)
         , HE.onClick $ HE.input_ (Q.StepPage Q.Prev)
         ]
@@ -175,7 +217,7 @@ renderPageField currentPage customPage totalPages =
 renderNextButtons ∷ Boolean → HTML
 renderNextButtons enabled =
   HH.div
-    [ HP.class_ CSS.formButtonGroup ]
+    [ HP.class_ RC.formButtonGroup ]
     [ HH.button
         [ HP.disabled (not enabled)
         , HE.onClick $ HE.input_ (Q.StepPage Q.Next)

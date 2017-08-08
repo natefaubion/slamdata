@@ -24,8 +24,6 @@ import SlamData.Prelude
 
 import Halogen as H
 import Halogen.HTML as HH
-import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties as HP
 import SlamData.Monad (Slam)
 import SlamData.Workspace.Card.Setups.Dialog as CSD
 import SlamData.Workspace.Card.Setups.DisplayOptions.Model as M
