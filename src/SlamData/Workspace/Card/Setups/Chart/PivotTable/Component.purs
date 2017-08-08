@@ -271,24 +271,25 @@ evalOptions = case _ of
     case msg of
       AS.Dismiss →
         H.modify _ { selecting = Nothing }
-      AS.Confirm mbt →
+      AS.Confirm mbt → do
         H.modify
           $ _ { selecting = Nothing }
           ∘ case fd of
               ForGroupBy slot → PS.setGroupByTransform mbt slot
               ForColumn slot → PS.setColumnTransform mbt slot
-    H.raise CC.modelUpdate
+        H.raise CC.modelUpdate
     pure next
   HandleFormatting fd msg next → do
     case msg of
-      Display.Confirm opts →
+      Display.Dismiss →
+        H.modify _ { selecting = Nothing }
+      Display.Confirm opts → do
         H.modify
           $ _ { selecting = Nothing }
           ∘ case fd of
               ForColumn slot → PS.setColumnDisplayOptions opts slot
               ForGroupBy _ → id
-      Display.Dismiss →
-        H.modify _ { selecting = Nothing }
+        H.raise CC.modelUpdate
     pure next
 
 transformOptions ∷ Array T.Transform → Maybe T.Transform → Array T.Transform
