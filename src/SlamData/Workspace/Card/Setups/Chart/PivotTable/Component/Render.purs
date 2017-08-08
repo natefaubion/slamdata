@@ -152,7 +152,7 @@ renderDimension orderingDimension size (slot × dimension) =
      ] <> dimensionEvents)
     [ HH.div
         [ HP.classes [ HH.ClassName "sd-pivot-options-dim-inner"]
-        , HC.style (dimensionStyles size)
+        , HC.style dimensionStyles
         ]
         [ I.dimensionButton
             { configurable: true
@@ -182,7 +182,7 @@ renderDimension orderingDimension size (slot × dimension) =
           Just opts | opts.over == Just slot → [ HH.ClassName "ordering-over" ]
           _ → []
 
-    dimensionStyles size = do
+    dimensionStyles = do
       case orderingDimension of
         Just opts | opts.source == slot → C.top (C.px opts.offset)
         _ → pure unit
@@ -238,7 +238,7 @@ renderColumn orderingColumn size (slot × formatOptions × dimension@(D.Dimensio
      ] <> columnEvents)
     [ HH.div
         [ HP.classes [ HH.ClassName "sd-pivot-options-col-inner"]
-        , HC.style (columnStyles size)
+        , HC.style columnStyles
         ]
         [ I.dimensionButton
             { configurable: true
@@ -268,7 +268,7 @@ renderColumn orderingColumn size (slot × formatOptions × dimension@(D.Dimensio
           Just opts | opts.over == Just slot → [ HH.ClassName "ordering-over" ]
           _ → []
 
-    columnStyles size =
+    columnStyles =
       case orderingColumn of
         Just opts | opts.source == slot → C.left (C.px opts.offset)
         _ → pure unit

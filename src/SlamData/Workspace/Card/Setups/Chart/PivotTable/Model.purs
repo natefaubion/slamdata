@@ -31,6 +31,7 @@ import SlamData.Workspace.Card.Setups.Transform as T
 import Test.StrongCheck.Arbitrary (class Arbitrary, arbitrary)
 import Test.StrongCheck.Data.Argonaut (ArbJCursor(..))
 import Test.StrongCheck.Gen as SCG
+import Utils (decodec)
 
 type Model =
   { dimensions ∷ Array GroupByDimension
@@ -93,7 +94,7 @@ decode js
 
   decodeCurrentColumn ∷ Json → Either String ColumnDimension
   decodeCurrentColumn =
-    ltraverse (lmap CA.printJsonDecodeError ∘ CA.decode Display.codecDisplayOptions) <=< decodeJson
+    ltraverse (decodec Display.codecDisplayOptions) <=< decodeJson
 
   decodeLegacyColumn ∷ Json → Either String (D.Dimension Void Column)
   decodeLegacyColumn = decodeJson

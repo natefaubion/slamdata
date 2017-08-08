@@ -71,7 +71,7 @@ renderAlignment { horz, vert } =
         [ HH.label_
             [ HH.text "Horizontal alignment"
             , RF.renderSelect
-                M.alignments
+                M.alignmentOptions
                 horz
                 M.horzAlign
                 (Modify ∘ flip (_ { alignment { horz = _ } }))
@@ -81,7 +81,7 @@ renderAlignment { horz, vert } =
         [ HH.label_
             [ HH.text "Vertical alignment"
             , RF.renderSelect
-                M.alignments
+                M.alignmentOptions
                 vert
                 M.vertAlign
                 (Modify ∘ flip (_ { alignment { vert = _ } }))
