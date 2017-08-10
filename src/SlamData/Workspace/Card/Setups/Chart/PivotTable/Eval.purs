@@ -126,34 +126,25 @@ mkSql options (VM.Var vari) =
   in
     port × sql
 
+type PortAcc =
+  { taken ∷ Set.Set String
+  , names ∷ Map.Map (Either PTM.GroupByDimension PTM.ColumnDimension) String
+  }
+
 genPort ∷ Boolean → PTM.Model → Port.PivotTablePort
 genPort isSimpleQuery model =
   toPort
     (foldl go { names: Map.empty, taken: Set.empty }
       (map Left model.dimensions <> map Right model.columns))
   where
-  toPort
-    ∷ { taken ∷ Set.Set String
-      , names ∷ Map.Map (Either PTM.GroupByDimension PTM.ColumnDimension) String
-      }
-    → { dimensions ∷ Array (Tuple String PTM.GroupByDimension)
-      , columns ∷ Array (Tuple String PTM.ColumnDimension)
-      , isSimpleQuery ∷ Boolean
-      }
+  toPort ∷ PortAcc → Port.PivotTablePort
   toPort res =
     let
       dimensions = flip Array.mapMaybe model.dimensions \j → (_ × j) <$> Map.lookup (Left j) res.names
       columns = flip Array.mapMaybe model.columns \j → (_ × j) <$> Map.lookup (Right j) res.names
     in { dimensions, columns, isSimpleQuery }
 
-  go
-    ∷ { taken ∷ Set.Set String
-      , names ∷ Map.Map (Either PTM.GroupByDimension PTM.ColumnDimension) String
-      }
-    → Either PTM.GroupByDimension PTM.ColumnDimension
-    → { names ∷ Map.Map (Either PTM.GroupByDimension PTM.ColumnDimension) String
-      , taken ∷ Set.Set String
-      }
+  go ∷ PortAcc → Either PTM.GroupByDimension PTM.ColumnDimension → PortAcc
   go { names, taken } a
     | Map.member a names = { names, taken }
     | otherwise =
@@ -208,5 +199,10 @@ escapeColumn = case _ of
   _ × D.Dimension _ (D.Projection tr (PTM.Column cur)) →
     tr × (Sql.projection $ QQ.jcursorToSql (Just (Sql.Ident "row")) cur)
 
-pivotTableError ∷ ∀ e a m v. MonadThrow (Variant (pivotTable ∷ PivotTableError | v)) m ⇒ (e → PivotTableError) → Either e a → m a
+pivotTableError
+  ∷ ∀ e a m v
+  . MonadThrow (Variant (pivotTable ∷ PivotTableError | v)) m
+  ⇒ (e → PivotTableError)
+  → Either e a
+  → m a
 pivotTableError f = either (throwPivotTableError ∘ f) pure
