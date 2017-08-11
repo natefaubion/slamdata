@@ -25,6 +25,7 @@ module SlamData.Workspace.Class
 
 import SlamData.Prelude
 
+import Control.Monad.Aff (delay)
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
@@ -90,6 +91,9 @@ changeTheme theme = do
     let d = 350.0 - ((unwrap $ unInstant end) - (unwrap $ unInstant start))
     _ ← setTimeout (ceil $ Math.max 0.0 d) hideLoadingOverlay
     pure unit
+  -- We need to defer rendering the app by a non-zero tick (so as not to
+  -- invoke setImmediate) to give FF a chance to recalc styles.
+  liftAff $ delay one
   Wiring.setTheme theme
 
 navigateToDeck
