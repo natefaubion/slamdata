@@ -14,9 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 module SlamData.Workspace.Card.Setups.DisplayOptions.Component
-  ( Query
-  , Message(..)
-  , component
+  ( component
+  , module Q
   , module M
   ) where
 
@@ -25,92 +24,43 @@ import SlamData.Prelude
 import Halogen as H
 import Halogen.HTML as HH
 import SlamData.Monad (Slam)
-import SlamData.Workspace.Card.Setups.Dialog as CSD
+import SlamData.Workspace.Card.Setups.DisplayOptions.Component.ChildSlot as CS
+import SlamData.Workspace.Card.Setups.DisplayOptions.Component.State as S
+import SlamData.Workspace.Card.Setups.DisplayOptions.Component.Query as Q
+import SlamData.Workspace.Card.Setups.DisplayOptions.Component.Render as R
 import SlamData.Workspace.Card.Setups.DisplayOptions.Model as M
-import SlamData.Render.Form as RF
 
-data Query a
-  = Modify (M.DisplayOptionsR → M.DisplayOptionsR) a
-  | Raise Message a
+type DSL = H.ParentDSL S.State Q.Query CS.ChildQuery CS.ChildSlot Q.Message Slam
 
-data Message
-  = Confirm M.DisplayOptions
-  | Dismiss
-
-type HTML = H.ComponentHTML Query
-type DSL = H.ComponentDSL M.DisplayOptions Query Message Slam
-
-component ∷ H.Component HH.HTML Query M.DisplayOptions Message Slam
+component ∷ H.Component HH.HTML Q.Query M.DisplayOptions Q.Message Slam
 component =
-  H.component
-    { render
+  H.parentComponent
+    { render: R.render
     , eval
-    , initialState: id
+    , initialState: S.fromModel
     , receiver: const Nothing
     }
 
-render ∷ M.DisplayOptions → HTML
-render st@(M.DisplayOptions { alignment, style, format }) =
-  CSD.pickerDialog
-    { onDismiss: Raise Dismiss
-    , onConfirm: Raise ∘ Confirm
-    , selection: Just st
-    , isSelectable: const true
-    , classes: [ HH.ClassName "sd-format-options" ]
-    , title: [ HH.text "Formatting options" ]
-    , content:
-        [ renderAlignment alignment
-        , renderStyle style
-        ]
-    }
-
-renderAlignment ∷ { horz ∷ M.Alignment, vert ∷ M.Alignment } → HTML
-renderAlignment { horz, vert } =
-  HH.div_
-    [ HH.div_
-        [ HH.label_
-            [ HH.text "Horizontal alignment"
-            , RF.renderSelect
-                M.alignmentOptions
-                horz
-                M.horzAlign
-                (Modify ∘ flip (_ { alignment { horz = _ } }))
-            ]
-        ]
-    , HH.div_
-        [ HH.label_
-            [ HH.text "Vertical alignment"
-            , RF.renderSelect
-                M.alignmentOptions
-                vert
-                M.vertAlign
-                (Modify ∘ flip (_ { alignment { vert = _ } }))
-            ]
-        ]
-    ]
-
-renderStyle ∷ M.Style → HTML
-renderStyle style =
-  HH.div_
-    [ HH.ul_
-        [ HH.li_ [ renderStyle M.Emphasis "Emphasis" ]
-        , HH.li_ [ renderStyle M.Strong "Strong" ]
-        , HH.li_ [ renderStyle M.Underline "Underline" ]
-        ]
-    ]
-  where
-    renderStyle ∷ M.StyleOption → String → HTML
-    renderStyle opt label =
-      RF.renderCheckbox
-        label
-        (M.hasStyle opt style)
-        (\b → Modify (\st → st { style = M.toggleStyle opt b st.style }))
-
-eval ∷ Query ~> DSL
+eval ∷ Q.Query ~> DSL
 eval = case _ of
-  Modify f next → do
-    H.modify (_Newtype f)
+  Q.SetHorzAlignment align next → do
+    H.modify (_ { alignment { horz = align } })
     pure next
-  Raise msg next → do
+  Q.SetVertAlignment align next → do
+    H.modify (_ { alignment { vert = align } })
+    pure next
+  Q.ToggleStyle opt b next → do
+    H.modify (\st → st { style = M.toggleStyle opt b st.style })
+    pure next
+  Q.SetFormat fmt next → do
+    oldFormat ← H.gets _.format
+    when (fmt /= oldFormat) do
+      let fmtV = if fmt == M.Default then Just M.DefaultFormat else Nothing
+      H.modify (_ { format = fmt, formatValue = fmtV })
+    pure next
+  Q.HandleFormatChange opts next → do
+    H.modify (_ { formatValue = opts })
+    pure next
+  Q.Raise msg next → do
     H.raise msg
     pure next

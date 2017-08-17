@@ -18,6 +18,7 @@ module SlamData.Render.Form where
 
 import SlamData.Prelude
 
+import DOM.HTML.Indexed (HTMLselect, HTMLinput)
 import Data.Array as Array
 import Data.Lens as Lens
 import Data.List.NonEmpty as NEL
@@ -27,18 +28,28 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 
 renderCheckbox
-  ∷ ∀ a f p
+  ∷ ∀ f p
   . String
   → Boolean
   → (Boolean → H.Action f)
   → H.HTML p f
-renderCheckbox label checked query =
+renderCheckbox = renderCheckbox' []
+
+renderCheckbox'
+  ∷ ∀ f p
+  . Array (H.IProp HTMLinput f)
+  → String
+  → Boolean
+  → (Boolean → H.Action f)
+  → H.HTML p f
+renderCheckbox' props label checked query =
   HH.label_
     [ HH.input
-        [ HP.type_ HP.InputCheckbox
-        , HP.checked checked -- checked (M.hasStyle opt style)
-        , HE.onChecked (HE.input query) -- \b → Modify (\st → st { style = M.toggleStyle opt b st.style }))
-        ]
+        (props <>
+          [ HP.type_ HP.InputCheckbox
+          , HP.checked checked
+          , HE.onChecked (HE.input query)
+          ])
     , HH.span_ [ HH.text label ]
     ]
 
@@ -50,11 +61,23 @@ renderSelect
   → Lens.Prism' String a
   → (a → H.Action f)
   → H.HTML p f
-renderSelect values value prism query =
+renderSelect values value prism = renderSelect' [] values value prism
+
+renderSelect'
+  ∷ ∀ a f p
+  . Eq a
+  ⇒ Array (H.IProp HTMLselect f)
+  → NEL.NonEmptyList a
+  → a
+  → Lens.Prism' String a
+  → (a → H.Action f)
+  → H.HTML p f
+renderSelect' props values value prism query =
   HH.select
-    [ HE.onValueChange (map (flip query unit) ∘ Lens.preview prism)
-    , HP.class_ (H.ClassName "sd-form-input")
-    ]
+    (props <>
+      [ HE.onValueChange (map (flip query unit) ∘ Lens.preview prism)
+      , HP.class_ (H.ClassName "sd-form-input")
+      ])
     $ map renderOption (Array.fromFoldable values)
   where
     renderOption opt =

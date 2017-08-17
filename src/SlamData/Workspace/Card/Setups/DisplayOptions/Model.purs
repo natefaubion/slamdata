@@ -50,7 +50,7 @@ initialDisplayOptions =
   DisplayOptions
     { alignment: A.defaultAlignments
     , style: mempty
-    , format: F.defaultFormat
+    , format: F.DefaultFormat
     }
 
 genDisplayOptions ∷ ∀ m. MonadGen m ⇒ m DisplayOptions

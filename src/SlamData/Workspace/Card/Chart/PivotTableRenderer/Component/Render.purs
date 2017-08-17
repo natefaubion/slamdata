@@ -27,7 +27,11 @@ import CSS.VerticalAlign (verticalAlign) as CSS
 import Data.Argonaut as J
 import Data.Array as Array
 import Data.Lens ((^.), (^?))
+import Data.List ((:))
+import Data.List as L
 import Data.Newtype (un)
+import Data.String as Str
+import Data.StrMap as SM
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.CSS as HCSS
@@ -45,6 +49,11 @@ import SlamData.Workspace.Card.Setups.DisplayOptions.Model as Display
 import SlamData.Workspace.Card.Setups.Transform as T
 import Utils (showPrettyNumber, showFormattedNumber)
 import Utils.CSS (fontStyle, italic) as CSS
+import Data.Formatter.DateTime as FDT
+import SlamData.Workspace.Card.Setups.DisplayOptions.BooleanFormat.Model as BooleanFormat
+import SlamData.Workspace.Card.Setups.DisplayOptions.TextFormat.Model as TextFormat
+import SlamData.Workspace.Card.Setups.DisplayOptions.DecimalFormat.Model as DecimalFormat
+import SlamData.Workspace.Card.Setups.DisplayOptions.IntegerFormat.Model as IntegerFormat
 
 type HTML = H.ComponentHTML Q.Query
 
@@ -123,7 +132,9 @@ renderHeading (k × rs) =
     Just { head, tail } →
       Array.cons
         (Array.cons
-          (HH.th [ HP.rowSpan (Array.length rs) ] [ HH.text (renderJson k) ])
+          (HH.th
+            [ HP.rowSpan (Array.length rs) ]
+            [ HH.text (renderJson Display.DefaultFormat k) ])
           head)
         tail
     Nothing →
@@ -170,16 +181,117 @@ vertAlign = case _ of
   Display.AlignEnd → CSS.verticalAlign CSS.bottom
 
 renderValue ∷ Display.FormatOptions → Int → D.Category Column → J.Json → String
-renderValue fmt = case _, _ of
-  0, D.Static _ → renderJson
+renderValue opts = case _, _ of
+  0, D.Static _ → renderJson opts
   0, D.Projection (Just T.Count) _ → J.foldJsonNumber "" showFormattedNumber
-  0, D.Projection _ (Column _) → foldJsonArray' renderJson (maybe "" renderJson ∘ flip Array.index 0)
-  i, D.Projection _ _ → foldJsonArray' (const "") (maybe "" renderJson ∘ flip Array.index i)
+  0, D.Projection _ (Column _) → foldJsonArray' (renderJson opts) (maybe "" (renderJson opts) ∘ flip Array.index 0)
+  i, D.Projection _ _ → foldJsonArray' (const "") (maybe "" (renderJson opts) ∘ flip Array.index i)
   _, _ → const ""
 
-renderJson ∷ J.Json → String
-renderJson =
-  J.foldJson show show showPrettyNumber id (show ∘ J.fromArray) (show ∘ J.fromObject)
+renderJson ∷ Display.FormatOptions → J.Json → String
+renderJson opts =
+  J.foldJson
+    show
+    (renderBoolean opts)
+    (renderNumber opts)
+    (renderString opts)
+    (renderArray opts)
+    (renderObject opts)
+
+renderBoolean ∷ Display.FormatOptions → Boolean → String
+renderBoolean = case _ of
+  Display.BooleanFormat fmt → BooleanFormat.render fmt
+  _ → show
+
+renderNumber ∷ Display.FormatOptions → Number → String
+renderNumber = case _ of
+  Display.IntegerFormat fmt → IntegerFormat.render fmt
+  Display.DecimalFormat fmt → DecimalFormat.render fmt
+  Display.CurrencyFormat fmt → DecimalFormat.render fmt
+  _ → showPrettyNumber
+
+renderString ∷ Display.FormatOptions → String → String
+renderString = case _ of
+  Display.TextFormat fmt → TextFormat.render fmt
+  _ → id
+
+renderArray ∷ Display.FormatOptions → J.JArray → String
+renderArray opts arr = "[" <> Str.joinWith ", " (renderJson opts <$> arr) <> "]"
+
+renderObject ∷ Display.FormatOptions → J.JObject → String
+renderObject opts = case _ of
+  jobj
+    | Just time ← J.toString =<< SM.lookup "$time" jobj →
+        renderTime opts time
+    | Just date ← J.toString =<< SM.lookup "$date" jobj →
+        renderDate opts date
+    | Just timestamp ← J.toString =<< SM.lookup "$timestamp" jobj →
+        renderTimestamp opts timestamp
+    | Just interval ← J.toString =<< SM.lookup "$interval" jobj →
+        interval
+    | Just binary ← J.toString =<< SM.lookup "$binary" jobj →
+        binary
+    | Just oid ← J.toString =<< SM.lookup "$oid" jobj →
+        oid
+    | Just obj ← J.toObject =<< SM.lookup "$obj" jobj →
+        renderObject opts obj
+    | Just set ← J.toArray =<< SM.lookup "$set" jobj →
+        renderArray opts set
+    | otherwise →
+        show (J.fromObject jobj)
+
+-- | The format definition used when parsing `$time` values from Quasar.
+renderTime ∷ Display.FormatOptions → String → String
+renderTime opts value = case opts of
+  Display.TimeFormat fmt
+    | Right dt ← FDT.unformat timeFormat (Str.take 8 value) → FDT.format fmt dt
+  _ →
+    value
+
+timeFormat ∷ FDT.Formatter
+timeFormat
+  = FDT.Hours24
+  : FDT.Placeholder ":"
+  : FDT.MinutesTwoDigits
+  : FDT.Placeholder ":"
+  : FDT.SecondsTwoDigits
+  : L.Nil
+
+renderDate ∷ Display.FormatOptions → String → String
+renderDate opts value = case opts of
+  Display.DateFormat fmt
+    | Right dt ← FDT.unformat dateFormat value → FDT.format fmt dt
+  _ →
+    value
+
+-- | The format definition used when parsing `$date` values from Quasar.
+dateFormat ∷ FDT.Formatter
+dateFormat
+  = FDT.YearFull
+  : FDT.Placeholder "-"
+  : FDT.MonthTwoDigits
+  : FDT.Placeholder "-"
+  : FDT.DayOfMonthTwoDigits
+  : L.Nil
+
+renderTimestamp ∷ Display.FormatOptions → String → String
+renderTimestamp opts value = case opts of
+  Display.DateTimeFormat fmt
+    | Right dt ← FDT.unformat timestampFormat (Str.take 19 value) → FDT.format fmt dt
+  Display.DateFormat fmt
+    | Right dt ← FDT.unformat dateFormat (Str.take 10 value) → FDT.format fmt dt
+  Display.TimeFormat fmt
+    | Right dt ← FDT.unformat timeFormat (Str.take 8 (Str.drop 11 value)) → FDT.format fmt dt
+  _ →
+    value
+
+-- | The format definition used when parsing `$timestamp` values from Quasar.
+timestampFormat ∷ FDT.Formatter
+timestampFormat = join
+  $ dateFormat
+  : pure (FDT.Placeholder "T")
+  : timeFormat
+  : L.Nil
 
 renderPrevButtons ∷ Boolean → HTML
 renderPrevButtons enabled =
