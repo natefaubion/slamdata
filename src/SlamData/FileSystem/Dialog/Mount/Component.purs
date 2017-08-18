@@ -273,7 +273,6 @@ mountTypes =
   , QMT.SparkHDFS
   , QMT.SparkFTP
   , QMT.SparkLocal
-  , QMT.Mimir
   , QMT.Unknown Nothing
   ]
 
