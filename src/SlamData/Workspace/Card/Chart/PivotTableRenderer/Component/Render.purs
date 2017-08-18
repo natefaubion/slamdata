@@ -201,6 +201,7 @@ renderJson opts =
 renderBoolean ∷ Display.FormatOptions → Boolean → String
 renderBoolean = case _ of
   Display.BooleanFormat fmt → BooleanFormat.render fmt
+  Display.TextFormat fmt → TextFormat.render fmt ∘ show
   _ → show
 
 renderNumber ∷ Display.FormatOptions → Number → String
@@ -208,6 +209,7 @@ renderNumber = case _ of
   Display.IntegerFormat fmt → IntegerFormat.render fmt
   Display.DecimalFormat fmt → DecimalFormat.render fmt
   Display.CurrencyFormat fmt → DecimalFormat.render fmt
+  Display.TextFormat fmt → TextFormat.render fmt ∘ showPrettyNumber
   _ → showPrettyNumber
 
 renderString ∷ Display.FormatOptions → String → String
@@ -245,6 +247,8 @@ renderTime ∷ Display.FormatOptions → String → String
 renderTime opts value = case opts of
   Display.TimeFormat fmt
     | Right dt ← FDT.unformat timeFormat (Str.take 8 value) → FDT.format fmt dt
+  Display.TextFormat fmt →
+    TextFormat.render fmt value
   _ →
     value
 
@@ -261,6 +265,8 @@ renderDate ∷ Display.FormatOptions → String → String
 renderDate opts value = case opts of
   Display.DateFormat fmt
     | Right dt ← FDT.unformat dateFormat value → FDT.format fmt dt
+  Display.TextFormat fmt →
+    TextFormat.render fmt value
   _ →
     value
 
@@ -282,6 +288,8 @@ renderTimestamp opts value = case opts of
     | Right dt ← FDT.unformat dateFormat (Str.take 10 value) → FDT.format fmt dt
   Display.TimeFormat fmt
     | Right dt ← FDT.unformat timeFormat (Str.take 8 (Str.drop 11 value)) → FDT.format fmt dt
+  Display.TextFormat fmt →
+    TextFormat.render fmt value
   _ →
     value
 

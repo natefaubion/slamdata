@@ -61,9 +61,16 @@ formatDecimal ∷ DecimalFormat → String → String → String
 formatDecimal fmt integral decimal =
   fmt.prefix
     <> IntegerFormat.renderGroupedDigits { sep: fmt.thousands, value: integral }
-    <> fmt.decimal
-    <> pad (fromMaybe 0 fmt.minPlaces) (round fmt.rounding fmt.maxPlaces decimal)
+    <> decimalPart
     <> fmt.suffix
+  where
+    decimalPart
+      | decimal == "0" && isNothing fmt.minPlaces = ""
+      | otherwise =
+          fmt.decimal <>
+            pad
+              (fromMaybe 0 fmt.minPlaces)
+              (round fmt.rounding fmt.maxPlaces decimal)
 
 round ∷ RB.RoundBehaviour → Maybe Int → String → String
 round rounding (Just digits) s
