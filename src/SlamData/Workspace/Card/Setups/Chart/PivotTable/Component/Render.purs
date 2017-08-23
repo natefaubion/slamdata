@@ -46,8 +46,8 @@ import Utils (showPrettyJCursor, showJCursorTip)
 
 type HTML = CC.InnerCardParentHTML Query PCS.ChildQuery PCS.ChildSlot
 
-render ∷ PS.State → HTML
-render st =
+render ∷ String → PS.State → HTML
+render uniqueCardId st =
   HH.div
     [ HP.classes [ HH.ClassName "sd-pivot-options" ] ]
     [ HH.div
@@ -64,11 +64,11 @@ render st =
     , HH.div
         [ HP.classes [ HH.ClassName "sd-pivot-options-preview" ] ]
         []
-    , maybe (HH.text "") renderSelect st.selecting
+    , maybe (HH.text "") (renderSelect uniqueCardId) st.selecting
     ]
 
-renderSelect ∷ PS.Selecting → HTML
-renderSelect = case _ of
+renderSelect ∷ String → PS.Selecting → HTML
+renderSelect uniqueCardId = case _ of
   PS.SelectColumn values →
     HH.slot' PCS.cpCol unit
       (DPC.picker
@@ -109,9 +109,14 @@ renderSelect = case _ of
     HH.slot'
       PCS.cpFormatting
       unit
-      Display.component
+      (Display.component (uniqueCardId <> "-" <> mkDimensionId slot))
       options
       (Just ∘ right ∘ H.action ∘ HandleFormatting slot)
+
+mkDimensionId ∷ ForDimension → String
+mkDimensionId = case _ of
+  ForGroupBy i → "groupby-" <> show i
+  ForColumn i → "col-" <> show i
 
 renderedDimensions
   ∷ Maybe PS.OrderingOpts

@@ -27,6 +27,7 @@ import Data.Lens ((^?), (.~), _Just)
 import Data.Lens as Lens
 import Halogen as H
 import Halogen.Component.Utils.Drag as Drag
+import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.CardType.ChartType as CHT
 import SlamData.Workspace.Card.Component as CC
@@ -45,19 +46,23 @@ import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
 import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (flattenJCursors)
 import SlamData.Workspace.Card.Setups.DisplayOptions.Component as Display
 import SlamData.Workspace.Card.Setups.Transform as T
+import SlamData.Workspace.Deck.DeckId as DID
 import SlamData.Workspace.LevelOfDetails (LevelOfDetails(..))
 import Utils.Lens as UL
 
 type DSL = CC.InnerCardParentDSL PS.State Query PCS.ChildQuery PCS.ChildSlot
 
 pivotTableBuilderComponent ∷ CC.CardOptions → CC.CardComponent
-pivotTableBuilderComponent =
-  CC.makeCardComponent (CT.ChartOptions CHT.PivotTable) $ H.parentComponent
-    { render: PR.render
+pivotTableBuilderComponent options =
+  CC.makeCardComponent (CT.ChartOptions CHT.PivotTable) (H.parentComponent
+    { render: PR.render uniqueCardId
     , eval: coproduct evalCard evalOptions
     , initialState: const PS.initialState
     , receiver: const Nothing
-    }
+    }) options
+  where
+  uniqueCardId =
+    foldMap DID.toString options.cursor <> CID.toString options.cardId
 
 evalCard ∷ CC.CardEvalQuery ~> DSL
 evalCard = case _ of

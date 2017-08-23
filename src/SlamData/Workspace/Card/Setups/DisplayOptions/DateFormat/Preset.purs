@@ -17,7 +17,6 @@ module SlamData.Workspace.Card.Setups.DisplayOptions.DateFormat.Preset where
 
 import SlamData.Prelude
 
-import Data.Bitraversable (ltraverse)
 import Data.Formatter.DateTime as FDT
 import Data.Lens as Lens
 import Data.List ((:))
@@ -34,61 +33,53 @@ data Preset
   | Medium
   | Long
   | LongUS
-  | Custom
 
 derive instance eqPreset ∷ Eq Preset
 
-presetFormat ∷ Preset → Maybe FDT.Formatter
+presetFormat ∷ Preset → FDT.Formatter
 presetFormat = case _ of
   ISO8601 →
-    Just
-      $ FDT.YearFull
+    FDT.YearFull
       : FDT.Placeholder "-"
       : FDT.MonthTwoDigits
       : FDT.Placeholder "-"
       : FDT.DayOfMonthTwoDigits
       : L.Nil
   Short →
-    Just
-      $ FDT.DayOfMonthTwoDigits
+    FDT.DayOfMonthTwoDigits
       : FDT.Placeholder "/"
       : FDT.MonthTwoDigits
       : FDT.Placeholder "/"
       : FDT.YearFull
       : L.Nil
   Medium →
-    Just
-      $ FDT.DayOfMonth
+    FDT.DayOfMonth
       : FDT.Placeholder " "
       : FDT.MonthShort
       : FDT.Placeholder " "
       : FDT.YearFull
       : L.Nil
   Long →
-    Just
-      $ FDT.DayOfMonth
+    FDT.DayOfMonth
       : FDT.Placeholder " "
       : FDT.MonthFull
       : FDT.Placeholder " "
       : FDT.YearFull
       : L.Nil
   ShortUS →
-    Just
-      $ FDT.MonthTwoDigits
+    FDT.MonthTwoDigits
       : FDT.Placeholder "/"
       : FDT.DayOfMonthTwoDigits
       : FDT.Placeholder "/"
       : FDT.YearFull
       : L.Nil
   LongUS →
-    Just
-      $ FDT.MonthFull
+    FDT.MonthFull
       : FDT.Placeholder " "
       : FDT.DayOfMonth
       : FDT.Placeholder ", "
       : FDT.YearFull
       : L.Nil
-  Custom → Nothing
 
 preset ∷ Lens.Prism' String Preset
 preset = Lens.prism' to from
@@ -100,7 +91,6 @@ preset = Lens.prism' to from
       Medium → "D MMM YYYY"
       Long → "D MMMM YYYY"
       LongUS → "MMMM D, YYYY"
-      Custom → "Custom"
     from = case _ of
       "International standard (YYYY-MM-DD)" → Just ISO8601
       "DD/MM/YYYY" → Just Short
@@ -108,7 +98,6 @@ preset = Lens.prism' to from
       "D MMM YYYY" → Just Medium
       "D MMMM YYYY" → Just Long
       "MMMM D, YYYY" → Just LongUS
-      "Custom" → Just Custom
       _ → Nothing
 
 presets ∷ NEL.NonEmptyList Preset
@@ -119,9 +108,26 @@ presets = SL.toNEL
   SL.: Medium
   SL.: Long
   SL.: LongUS
-  SL.: Custom
   SL.: SL.nil
 
 presetsByFormat ∷ M.Map FDT.Formatter Preset
 presetsByFormat =
-  M.fromFoldable (NEL.mapMaybe (ltraverse id ∘ (presetFormat &&& id)) presets)
+  M.fromFoldable $ map (presetFormat &&& id) presets
+
+isDateElement ∷ FDT.FormatterCommand → Boolean
+isDateElement = case _ of
+  FDT.YearFull → true
+  FDT.YearTwoDigits → true
+  FDT.YearAbsolute → true
+  FDT.MonthFull → true
+  FDT.MonthShort → true
+  FDT.MonthTwoDigits → true
+  FDT.DayOfMonthTwoDigits → true
+  FDT.DayOfMonth → true
+  FDT.DayOfWeek → true
+  _ → false
+
+isPlaceholder ∷ FDT.FormatterCommand → Boolean
+isPlaceholder = case _ of
+  FDT.Placeholder _ → true
+  _ → false

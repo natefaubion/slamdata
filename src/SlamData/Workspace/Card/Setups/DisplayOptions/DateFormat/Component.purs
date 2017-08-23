@@ -19,6 +19,8 @@ import SlamData.Prelude
 
 import Data.Foldable (any)
 import Data.Formatter.DateTime as FDT
+import Data.Lens as Lens
+import Data.List.NonEmpty as NEL
 import Data.Map as M
 import Data.String as Str
 import Halogen as H
@@ -26,6 +28,8 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import SlamData.Render.Form as RF
+import SlamData.Render.Form.ClassNames as RFCN
+import SlamData.Workspace.Card.Setups.DisplayOptions.Common.ClassNames as CCN
 import SlamData.Workspace.Card.Setups.DisplayOptions.Common.Query as CQ
 import SlamData.Workspace.Card.Setups.DisplayOptions.Common.Render as CR
 import SlamData.Workspace.Card.Setups.DisplayOptions.DateFormat.Preset as P
@@ -33,66 +37,41 @@ import SlamData.Workspace.Card.Setups.DisplayOptions.DateFormat.Preset as P
 type Query = CQ.Query State
 
 type State =
-  { preset ∷ P.Preset
-  , custom ∷ String
+  { format ∷ Either String P.Preset
   , error ∷ Maybe String
   }
 
 initialState ∷ State
 initialState =
-  { preset: P.ISO8601
-  , custom: ""
+  { format: Right P.ISO8601
   , error: Nothing
   }
 
 fromModel ∷ FDT.Formatter → State
 fromModel fmt =
-  case M.lookup fmt P.presetsByFormat of
-    Nothing →
-      { preset: P.Custom
-      , custom: FDT.printFormatter fmt
-      , error: Nothing
-      }
-    Just preset →
-      { preset
-      , custom: ""
-      , error: Nothing
-      }
+  { format: maybe' (\_ → Left (FDT.printFormatter fmt)) Right (M.lookup fmt P.presetsByFormat)
+  , error: Nothing
+  }
 
 toModel ∷ State → Either String FDT.Formatter
-toModel st = case P.presetFormat st.preset of
-  Nothing
-    | Str.null (Str.trim st.custom) →
-        Left "The custom format cannot be left empty when the 'Custom' preset is selected"
-    | otherwise → do
-        fmt ← FDT.parseFormatString st.custom #
-          lmap ("There was a problem parsing the custom format: " <> _)
-        when (any (not isDateElement) fmt) $
-          Left ("The custom date format contains a time element")
-        pure fmt
-  Just fmt →
+toModel st = case st.format of
+  Right preset →
+    pure (P.presetFormat preset)
+  Left custom → do
+    when (Str.null (Str.trim custom)) $
+      Left "The custom format cannot be left empty when the 'Custom' preset is selected"
+    fmt ← FDT.parseFormatString custom #
+      lmap ("There was a problem parsing the custom format: " <> _)
+    when (any (not (P.isDateElement || P.isPlaceholder)) fmt) $
+      Left ("The custom date format contains a time element")
     pure fmt
-
-isDateElement ∷ FDT.FormatterCommand → Boolean
-isDateElement = case _ of
-  FDT.YearFull → true
-  FDT.YearTwoDigits → true
-  FDT.YearAbsolute → true
-  FDT.MonthFull → true
-  FDT.MonthShort → true
-  FDT.MonthTwoDigits → true
-  FDT.DayOfMonthTwoDigits → true
-  FDT.DayOfMonth → true
-  FDT.DayOfWeek → true
-  FDT.Placeholder _ → true
-  _ → false
 
 type HTML = H.ComponentHTML Query
 
-component ∷ ∀ m. H.Component HH.HTML Query (Maybe FDT.Formatter) (Maybe FDT.Formatter) m
-component =
+component ∷ ∀ m. String → H.Component HH.HTML Query (Maybe FDT.Formatter) (Maybe FDT.Formatter) m
+component uniqueId =
   H.lifecycleComponent
-    { render
+    { render: render uniqueId
     , eval: CQ.eval toModel
     , initialState: maybe initialState fromModel
     , receiver: const Nothing
@@ -100,41 +79,68 @@ component =
     , finalizer: Nothing
     }
 
-render ∷ State → HTML
-render st =
+render ∷ String → State → HTML
+render uniqueId st =
   HH.div
     [ HP.class_ (H.ClassName "sd-display-options-date") ]
     $ join
-        [ pure $ renderPresetDropdown st
-        , guard (st.preset == P.Custom) $> renderCustomField st
+        [ pure $ renderPresetDropdown (either (const Nothing) Just st.format)
+        , either (pure ∘ renderCustomField) mempty st.format
         , pure $ CR.renderError st.error
         ]
 
-renderPresetDropdown ∷ State → HTML
-renderPresetDropdown st =
-  HH.label_
-    [ HH.span_ [ HH.text "Format preset" ]
-    , RF.renderSelect P.presets st.preset P.preset (CQ.Modify ∘ changePreset)
-    ]
-
-renderCustomField ∷ State → HTML
-renderCustomField st =
-  HH.label_
-    [ HH.span_ [ HH.text "Custom format" ]
-    , HH.input
-        [ HP.class_ (H.ClassName "sd-form-input")
-        , HP.type_ HP.InputText
-        , HP.value st.custom
-        , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { custom = _ }))
+renderPresetDropdown ∷ Maybe P.Preset → HTML
+renderPresetDropdown preset =
+  HH.div
+    [ HP.class_ CCN.row ]
+    [ HH.label_
+        [ HH.span
+            [ HP.class_ RFCN.label ]
+            [ HH.text "Format preset" ]
+        , RF.renderSelect mpresets preset mpreset (CQ.Modify ∘ changePreset)
         ]
     ]
 
-changePreset ∷ P.Preset → State → State
+renderCustomField ∷ String → HTML
+renderCustomField custom =
+  HH.div
+    [ HP.class_ CCN.row ]
+    [ HH.label_
+        [ HH.span
+            [ HP.class_ RFCN.label ]
+            [ HH.text "Custom format" ]
+        , HH.input
+            [ HP.class_ RFCN.input
+            , HP.type_ HP.InputText
+            , HP.value custom
+            , HE.onValueInput $
+                HE.input (CQ.Modify ∘ \v st → st { format = Left v })
+            ]
+        ]
+    ]
+
+changePreset ∷ Maybe P.Preset → State → State
 changePreset preset st =
   st
-    { preset = preset
-    , custom =
-        if preset == P.Custom
-        then maybe st.custom FDT.printFormatter (P.presetFormat st.preset)
-        else ""
+    { format =
+        maybe
+          (either Left (Left ∘ FDT.printFormatter ∘ P.presetFormat) st.format)
+          Right
+          preset
     }
+
+mpreset ∷ Lens.Prism' String (Maybe P.Preset)
+mpreset = Lens.prism' to from
+  where
+    to ∷ Maybe P.Preset → String
+    to = case _ of
+      Just p → Lens.review P.preset p
+      Nothing → "Custom"
+    from ∷ String → Maybe (Maybe P.Preset)
+    from s = (Just <$> Lens.preview P.preset s)
+      <|> case s of
+        "Custom" → Just Nothing
+        _ → Nothing
+
+mpresets ∷ NEL.NonEmptyList (Maybe P.Preset)
+mpresets = map Just P.presets `NEL.snoc` Nothing

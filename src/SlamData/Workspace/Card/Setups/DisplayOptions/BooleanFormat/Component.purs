@@ -21,8 +21,10 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import SlamData.Workspace.Card.Setups.DisplayOptions.Common.Query as CQ
+import SlamData.Render.Form.ClassNames as RFCN
 import SlamData.Workspace.Card.Setups.DisplayOptions.BooleanFormat.Model as M
+import SlamData.Workspace.Card.Setups.DisplayOptions.Common.ClassNames as CCN
+import SlamData.Workspace.Card.Setups.DisplayOptions.Common.Query as CQ
 
 type Query = CQ.Query M.BooleanFormat
 
@@ -46,22 +48,32 @@ render ∷ M.BooleanFormat → HTML
 render st =
   HH.div
     [ HP.class_ (H.ClassName "sd-display-options-boolean") ]
-    [ HH.label_
-        [ HH.span_ [ HH.text "True value" ]
-        , HH.input
-            [ HP.class_ (H.ClassName "sd-form-input")
-            , HP.type_ HP.InputText
-            , HP.value st.true
-            , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { true = _ }))
+    [ HH.div
+        [ HP.class_ CCN.row ]
+        [ HH.label_
+            [ HH.span
+                [ HP.class_ RFCN.label ]
+                [ HH.text "True value" ]
+            , HH.input
+                [ HP.class_ RFCN.input
+                , HP.type_ HP.InputText
+                , HP.value st.true
+                , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { true = _ }))
+                ]
             ]
         ]
-    , HH.label_
-        [ HH.span_ [ HH.text "False value" ]
-        , HH.input
-            [ HP.class_ (H.ClassName "sd-form-input")
-            , HP.type_ HP.InputText
-            , HP.value st.false
-            , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { false = _ }))
+    , HH.div
+        [ HP.class_ CCN.row ]
+        [ HH.label_
+            [ HH.span
+                [ HP.class_ RFCN.label ]
+                [ HH.text "False value" ]
+            , HH.input
+                [ HP.class_ RFCN.input
+                , HP.type_ HP.InputText
+                , HP.value st.false
+                , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { false = _ }))
+                ]
             ]
         ]
     ]

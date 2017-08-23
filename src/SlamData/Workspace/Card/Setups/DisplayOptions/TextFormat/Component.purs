@@ -26,6 +26,8 @@ import Halogen.HTML.Properties as HP
 import SlamData.Workspace.Card.Setups.DisplayOptions.Common.Query as CQ
 import SlamData.Workspace.Card.Setups.DisplayOptions.Common.Render as CR
 import SlamData.Workspace.Card.Setups.DisplayOptions.TextFormat.Model as M
+import SlamData.Render.Form.ClassNames as RFCN
+import SlamData.Workspace.Card.Setups.DisplayOptions.Common.ClassNames as CCN
 
 type Query = CQ.Query State
 
@@ -76,24 +78,34 @@ render ∷ State → HTML
 render { maxLength, truncated, error } =
   HH.div
     [ HP.class_ (H.ClassName "sd-display-options-text") ]
-    [ HH.label_
-        [ HH.span_ [ HH.text "Maximum length" ]
-        , HH.input
-            [ HP.class_ (H.ClassName "sd-form-input")
-            , HP.type_ HP.InputNumber
-            , HP.pattern "[0-9]"
-            , HP.value maxLength
-            , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { maxLength = _ }))
-            ]
+    [ HH.div
+        [ HP.class_ CCN.row ]
+        [ HH.label_
+          [ HH.span
+              [ HP.class_ RFCN.label ]
+              [ HH.text "Maximum length" ]
+          , HH.input
+              [ HP.class_ RFCN.input
+              , HP.type_ HP.InputNumber
+              , HP.pattern "[0-9]"
+              , HP.value maxLength
+              , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { maxLength = _ }))
+              ]
+          ]
         ]
-    , HH.label_
-        [ HH.span_ [ HH.text "Truncation mark" ]
-        , HH.input
-            [ HP.class_ (H.ClassName "sd-form-input")
-            , HP.type_ HP.InputText
-            , HP.value truncated
-            , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { truncated = _ }))
-            ]
+    , HH.div
+        [ HP.class_ CCN.row ]
+        [ HH.label_
+          [ HH.span
+              [ HP.class_ RFCN.label ]
+              [ HH.text "Truncation mark" ]
+          , HH.input
+              [ HP.class_ RFCN.input
+              , HP.type_ HP.InputText
+              , HP.value truncated
+              , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { truncated = _ }))
+              ]
+          ]
         ]
     , CR.renderError error
     ]

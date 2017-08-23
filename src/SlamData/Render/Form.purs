@@ -18,14 +18,15 @@ module SlamData.Render.Form where
 
 import SlamData.Prelude
 
-import DOM.HTML.Indexed (HTMLselect, HTMLinput)
 import Data.Array as Array
 import Data.Lens as Lens
 import Data.List.NonEmpty as NEL
+import DOM.HTML.Indexed (HTMLselect, HTMLinput)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+import SlamData.Render.Form.ClassNames as RFC
 
 renderCheckbox
   ∷ ∀ f p
@@ -76,7 +77,7 @@ renderSelect' props values value prism query =
   HH.select
     (props <>
       [ HE.onValueChange (map (flip query unit) ∘ Lens.preview prism)
-      , HP.class_ (H.ClassName "sd-form-input")
+      , HP.class_ RFC.input
       ])
     $ map renderOption (Array.fromFoldable values)
   where
@@ -84,3 +85,11 @@ renderSelect' props values value prism query =
       HH.option
         [ HP.selected (value == opt) ]
         [ HH.text (Lens.review prism opt) ]
+
+renderLabelled ∷ ∀ p f. String → Array (H.HTML p f) → H.HTML p f
+renderLabelled label inner =
+  HH.label_
+    $ [ HH.span
+          [ HP.class_ RFC.label ]
+          [ HH.text label ]
+      ] <> inner

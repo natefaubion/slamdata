@@ -23,6 +23,8 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import SlamData.Render.Form as RF
+import SlamData.Render.Form.ClassNames as RFCN
+import SlamData.Workspace.Card.Setups.DisplayOptions.Common.ClassNames as CCN
 import SlamData.Workspace.Card.Setups.DisplayOptions.Common.Query as CQ
 import SlamData.Workspace.Card.Setups.DisplayOptions.Common.Render as CR
 import SlamData.Workspace.Card.Setups.DisplayOptions.DecimalFormat.Model as M
@@ -90,20 +92,26 @@ render st =
   HH.div
     [ HP.class_ (H.ClassName "sd-display-options-currency") ]
     [ HH.div
-        [ HP.class_ (H.ClassName "sd-display-options-currency-row") ]
-        [ HH.label_
-            [ HH.span_ [ HH.text "Prefix" ]
+        [ HP.class_ CCN.row ]
+        [ HH.label
+            [ HP.class_ CCN.col ]
+            [ HH.span
+                [ HP.class_ RFCN.label ]
+                [ HH.text "Prefix" ]
             , HH.input
-                [ HP.class_ (H.ClassName "sd-form-input")
+                [ HP.class_ RFCN.input
                 , HP.type_ HP.InputText
                 , HP.value st.prefix
                 , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { prefix = _ }))
                 ]
             ]
-        , HH.label_
-            [ HH.span_ [ HH.text "Suffix" ]
+        , HH.label
+            [ HP.class_ CCN.col ]
+            [ HH.span
+                [ HP.class_ RFCN.label ]
+                [ HH.text "Suffix" ]
             , HH.input
-                [ HP.class_ (H.ClassName "sd-form-input")
+                [ HP.class_ RFCN.input
                 , HP.type_ HP.InputText
                 , HP.value st.suffix
                 , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { suffix = _ }))
@@ -111,33 +119,44 @@ render st =
             ]
         ]
     , HH.div
-        [ HP.class_ (H.ClassName "sd-display-options-currency-row") ]
-        [ HH.label_
-            [ HH.span_ [ HH.text "Thousands separator" ]
+        [ HP.class_ CCN.row ]
+        [ HH.label
+            [ HP.class_ CCN.col ]
+            [ HH.span
+                [ HP.class_ RFCN.label ]
+                [ HH.text "Thousands separator" ]
             , HH.input
-                [ HP.class_ (H.ClassName "sd-form-input")
+                [ HP.class_ RFCN.input
                 , HP.type_ HP.InputText
                 , HP.value st.thousands
                 , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { thousands = _ }))
                 ]
             ]
-        , HH.label_
-            [ HH.span_ [ HH.text "Decimal separator" ]
+        , HH.label
+            [ HP.class_ CCN.col ]
+            [ HH.span
+                [ HP.class_ RFCN.label ]
+                [ HH.text "Decimal separator" ]
             , HH.input
-                [ HP.class_ (H.ClassName "sd-form-input")
+                [ HP.class_ RFCN.input
                 , HP.type_ HP.InputText
                 , HP.value st.decimal
                 , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { decimal = _ }))
                 ]
             ]
         ]
-    , HH.label_
-        [ HH.span_ [ HH.text "Rounding behaviour" ]
-        , RF.renderSelect
-            M.roundBehaviours
-            st.rounding
-            M.roundBehaviour
-            (CQ.Modify ∘ flip (_ { rounding = _ }))
+    , HH.div
+        [ HP.class_ CCN.row ]
+        [ HH.label_
+            [ HH.span
+                [ HP.class_ RFCN.label ]
+                [ HH.text "Rounding behaviour" ]
+            , RF.renderSelect
+                M.roundBehaviours
+                st.rounding
+                M.roundBehaviour
+                (CQ.Modify ∘ flip (_ { rounding = _ }))
+            ]
         ]
     , CR.renderError st.error
     ]

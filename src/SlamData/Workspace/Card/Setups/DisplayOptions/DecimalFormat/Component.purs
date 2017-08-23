@@ -24,6 +24,8 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import SlamData.Render.Form as RF
+import SlamData.Render.Form.ClassNames as RFCN
+import SlamData.Workspace.Card.Setups.DisplayOptions.Common.ClassNames as CCN
 import SlamData.Workspace.Card.Setups.DisplayOptions.Common.Query as CQ
 import SlamData.Workspace.Card.Setups.DisplayOptions.Common.Render as CR
 import SlamData.Workspace.Card.Setups.DisplayOptions.DecimalFormat.Model as M
@@ -100,10 +102,10 @@ toModel st = do
 
 type HTML = H.ComponentHTML Query
 
-component ∷ ∀ m. H.Component HH.HTML Query (Maybe M.DecimalFormat) (Maybe M.DecimalFormat) m
-component =
+component ∷ ∀ m. String → H.Component HH.HTML Query (Maybe M.DecimalFormat) (Maybe M.DecimalFormat) m
+component uniqueId =
   H.lifecycleComponent
-    { render
+    { render: render uniqueId
     , eval: CQ.eval toModel
     , initialState: maybe initialState fromModel
     , receiver: const Nothing
@@ -111,87 +113,40 @@ component =
     , finalizer: Nothing
     }
 
-render ∷ State → HTML
-render st =
+render ∷ String → State → HTML
+render uniqueId st =
   HH.div
     [ HP.class_ (H.ClassName "sd-display-options-decimal") ]
-    $   [ renderPrefixSuffix st
-        , renderSeparators st
-        , HH.label_
-            [ HH.span_ [ HH.text "Minimum decimal places" ]
-            , HH.div
-                [ HP.class_ (H.ClassName "sd-form-input-group") ]
-                [ HH.span
-                    [ HP.class_ (H.ClassName "sd-form-input-addon") ]
-                    [ HH.input
-                        [ HP.type_ HP.InputCheckbox
-                        , HP.checked st.pad
-                        , HE.onChecked $ HE.input (CQ.Modify ∘ flip (_ { pad = _ }))
-                        ]
-                    ]
-                , HH.input
-                    [ HP.class_ (H.ClassName "sd-form-input")
-                    , HP.type_ HP.InputNumber
-                    , HP.pattern "[0-9]"
-                    , HP.value st.minPlaces
-                    , HP.enabled st.pad
-                    , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { minPlaces = _ }))
-                    ]
-                ]
-            ]
-        -- TODO: move inputs out of label for these cases, and link to the checkbox input
-        , HH.label_
-            [ HH.span_ [ HH.text "Maximum decimal places" ]
-            , HH.div
-                [ HP.class_ (H.ClassName "sd-form-input-group") ]
-                [ HH.span
-                    [ HP.class_ (H.ClassName "sd-form-input-addon") ]
-                    [ HH.input
-                        [ HP.type_ HP.InputCheckbox
-                        , HP.checked st.round
-                        , HE.onChecked $ HE.input (CQ.Modify ∘ flip (_ { round = _ }))
-                        ]
-                    ]
-                , HH.input
-                    [ HP.class_ (H.ClassName "sd-form-input")
-                    , HP.type_ HP.InputNumber
-                    , HP.pattern "[0-9]"
-                    , HP.value st.maxPlaces
-                    , HP.enabled st.round
-                    , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { maxPlaces = _ }))
-                    ]
-                , if st.round
-                  then
-                    RF.renderSelect'
-                      [ HP.enabled st.round ]
-                      M.roundBehaviours
-                      st.rounding
-                      M.roundBehaviour
-                      (CQ.Modify ∘ flip (_ { rounding = _ }))
-                  else
-                    HH.text ""
-                ]
-            ]
-        , CR.renderError st.error
-        ]
+    [ renderPrefixSuffix st
+    , renderSeparators st
+    , renderMinPlaces uniqueId st
+    , renderMaxPlaces uniqueId st
+    , CR.renderError st.error
+    ]
 
 renderPrefixSuffix ∷ State → HTML
 renderPrefixSuffix st =
   HH.div
-    [ HP.class_ (H.ClassName "sd-display-options-decimal-row") ]
-    [ HH.label_
-        [ HH.span_ [ HH.text "Prefix" ]
+    [ HP.class_ CCN.row ]
+    [ HH.label
+        [ HP.class_ CCN.col ]
+        [ HH.span
+            [ HP.class_ RFCN.label ]
+            [ HH.text "Prefix" ]
         , HH.input
-            [ HP.class_ (H.ClassName "sd-form-input")
+            [ HP.class_ RFCN.input
             , HP.type_ HP.InputText
             , HP.value st.prefix
             , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { prefix = _ }))
             ]
         ]
-    , HH.label_
-        [ HH.span_ [ HH.text "Suffix" ]
+    , HH.label
+        [ HP.class_ CCN.col ]
+        [ HH.span
+            [ HP.class_ RFCN.label ]
+            [ HH.text "Suffix" ]
         , HH.input
-            [ HP.class_ (H.ClassName "sd-form-input")
+            [ HP.class_ RFCN.input
             , HP.type_ HP.InputText
             , HP.value st.suffix
             , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { suffix = _ }))
@@ -202,23 +157,107 @@ renderPrefixSuffix st =
 renderSeparators ∷ State → HTML
 renderSeparators st =
   HH.div
-    [ HP.class_ (H.ClassName "sd-display-options-decimal-row") ]
-    [ HH.label_
-        [ HH.span_ [ HH.text "Thousands separator" ]
+    [ HP.class_ CCN.row ]
+    [ HH.label
+        [ HP.class_ CCN.col ]
+        [ HH.span
+            [ HP.class_ RFCN.label ]
+            [ HH.text "Thousands separator" ]
         , HH.input
-            [ HP.class_ (H.ClassName "sd-form-input")
+            [ HP.class_ RFCN.input
             , HP.type_ HP.InputText
             , HP.value st.thousands
             , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { thousands = _ }))
             ]
         ]
-    , HH.label_
-        [ HH.span_ [ HH.text "Decimal separator" ]
+    , HH.label
+        [ HP.class_ CCN.col ]
+        [ HH.span
+            [ HP.class_ RFCN.label ]
+            [ HH.text "Decimal separator" ]
         , HH.input
-            [ HP.class_ (H.ClassName "sd-form-input")
+            [ HP.class_ RFCN.input
             , HP.type_ HP.InputText
             , HP.value st.decimal
             , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { decimal = _ }))
             ]
         ]
     ]
+
+renderMinPlaces ∷ String → State → HTML
+renderMinPlaces uniqueId st =
+  let
+    checkboxId = uniqueId <> "-pad-toggle"
+  in
+    HH.div
+      [ HP.class_ CCN.row ]
+      [ HH.label
+          [ HP.for checkboxId ]
+          [ HH.span
+              [ HP.class_ RFCN.label ]
+              [ HH.text "Minimum decimal places" ]
+          ]
+      , HH.div_
+          [ HH.span
+              [ HP.class_ RFCN.inputAddon ]
+              [ HH.input
+                  [ HP.id_ checkboxId
+                  , HP.type_ HP.InputCheckbox
+                  , HP.checked st.pad
+                  , HE.onChecked $ HE.input (CQ.Modify ∘ flip (_ { pad = _ }))
+                  ]
+              ]
+          , HH.input
+              [ HP.class_ RFCN.input
+              , HP.type_ HP.InputNumber
+              , HP.pattern "[0-9]"
+              , HP.value st.minPlaces
+              , HP.enabled st.pad
+              , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { minPlaces = _ }))
+              ]
+          ]
+      ]
+
+renderMaxPlaces ∷ String → State → HTML
+renderMaxPlaces uniqueId st =
+  let
+    checkboxId = uniqueId <> "-round-toggle"
+  in
+    HH.div
+      [ HP.class_ CCN.row ]
+      [ HH.label
+          [ HP.for checkboxId ]
+          [ HH.span
+              [ HP.class_ RFCN.label ]
+              [ HH.text "Maximum decimal places" ]
+          ]
+      , HH.div_
+          [ HH.span
+              [ HP.class_ RFCN.inputAddon ]
+              [ HH.input
+                  [ HP.id_ checkboxId
+                  , HP.type_ HP.InputCheckbox
+                  , HP.checked st.round
+                  , HE.onChecked $ HE.input (CQ.Modify ∘ flip (_ { round = _ }))
+                  ]
+              ]
+          , HH.input
+              [ HP.class_ RFCN.input
+              , HP.type_ HP.InputNumber
+              , HP.pattern "[0-9]"
+              , HP.value st.maxPlaces
+              , HP.enabled st.round
+              , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (_ { maxPlaces = _ }))
+              ]
+          , if st.round
+              then
+                RF.renderSelect'
+                  [ HP.enabled st.round ]
+                  M.roundBehaviours
+                  st.rounding
+                  M.roundBehaviour
+                  (CQ.Modify ∘ flip (_ { rounding = _ }))
+              else
+                HH.text ""
+          ]
+      ]

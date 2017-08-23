@@ -32,10 +32,10 @@ import SlamData.Workspace.Card.Setups.DisplayOptions.Model as M
 
 type DSL = H.ParentDSL S.State Q.Query CS.ChildQuery CS.ChildSlot Q.Message Slam
 
-component ∷ H.Component HH.HTML Q.Query M.DisplayOptions Q.Message Slam
-component =
+component ∷ String → H.Component HH.HTML Q.Query M.DisplayOptions Q.Message Slam
+component uniqueId =
   H.parentComponent
-    { render: R.render
+    { render: R.render uniqueId
     , eval
     , initialState: S.fromModel
     , receiver: const Nothing

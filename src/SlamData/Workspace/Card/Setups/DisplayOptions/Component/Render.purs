@@ -42,8 +42,8 @@ import SlamData.Render.ClassName as CN
 
 type HTML = H.ParentHTML Q.Query CS.ChildQuery CS.ChildSlot Slam
 
-render ∷ S.State → HTML
-render st@{ alignment, style, format, formatValue } =
+render ∷ String → S.State → HTML
+render uniqueId st@{ alignment, style, format, formatValue } =
   CSD.pickerDialog
     { onDismiss: Q.Raise Q.Dismiss
     , onConfirm: Q.Raise ∘ Q.Confirm
@@ -57,7 +57,7 @@ render st@{ alignment, style, format, formatValue } =
             [ renderAlignment alignment
             , renderStyle style
             ]
-        , renderFormatBlock format formatValue
+        , renderFormatBlock uniqueId format formatValue
         ]
     }
 
@@ -104,8 +104,8 @@ renderStyle style =
     renderOpt opt label =
       RF.renderCheckbox label (M.hasStyle opt style) (Q.ToggleStyle opt)
 
-renderFormatBlock ∷ M.Format → Maybe M.FormatOptions → HTML
-renderFormatBlock fmt fmtV =
+renderFormatBlock ∷ String → M.Format → Maybe M.FormatOptions → HTML
+renderFormatBlock uniqueId fmt fmtV =
   HH.div
     [ HP.class_ (H.ClassName "sd-display-options-formatting") ]
     [ HH.label
@@ -113,26 +113,26 @@ renderFormatBlock fmt fmtV =
         [ HH.span_ [ HH.text "Value type" ]
         , RF.renderSelect M.formats fmt M.format Q.SetFormat
         ]
-    , renderFormatOptions fmt fmtV
+    , renderFormatOptions uniqueId fmt fmtV
     ]
 
-renderFormatOptions ∷ M.Format → Maybe M.FormatOptions → HTML
-renderFormatOptions fmt fmtV =
+renderFormatOptions ∷ String → M.Format → Maybe M.FormatOptions → HTML
+renderFormatOptions uniqueId fmt fmtV =
   case fmt of
     M.Default →
       HH.text ""
     M.Currency →
       embed CS.cpCurrencyFormat CurrencyFormat.component M._CurrencyFormat
     M.Decimal →
-      embed CS.cpDecimalFormat DecimalFormat.component M._DecimalFormat
+      embed CS.cpDecimalFormat (DecimalFormat.component uniqueId) M._DecimalFormat
     M.Integer →
       embed CS.cpIntegerFormat IntegerFormat.component M._IntegerFormat
     M.Date →
-      embed CS.cpDateFormat DateFormat.component M._DateFormat
+      embed CS.cpDateFormat (DateFormat.component uniqueId) M._DateFormat
     M.Time →
       embed CS.cpTimeFormat TimeFormat.component M._TimeFormat
     M.DateTime →
-      embed CS.cpDateTimeFormat DateTimeFormat.component M._DateTimeFormat
+      embed CS.cpDateTimeFormat (DateTimeFormat.component uniqueId) M._DateTimeFormat
     M.Text →
       embed CS.cpTextFormat TextFormat.component M._TextFormat
     M.Boolean →
