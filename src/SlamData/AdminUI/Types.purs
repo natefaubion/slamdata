@@ -14,9 +14,9 @@ limitations under the License.
 module SlamData.AdminUI.Types (module X, HTML, DSL) where
 
 import Halogen as H
-import SlamData.AdminUI.Component.ChildSlot (ChildQuery, ChildSlot, MillerQuery, cpDialog, cpDatabase, cpGroups, cpUsers) as X
+import SlamData.AdminUI.Component.ChildSlot (ChildQuery, ChildSlot, MillerQuery, cpMySettings, cpDialog, cpDatabase, cpGroups, cpUsers) as X
 import SlamData.AdminUI.Component.Query (GroupItem(..), GroupMessage(..), Query(..), groupItemName, Message(..)) as X
-import SlamData.AdminUI.Component.State (GroupsState(..), MySettingsState(..), ServerState(..), State, TabIndex(..), allTabs, defaultGroupsState, defaultMySettingsState, defaultServerState, tabTitle) as X
+import SlamData.AdminUI.Component.State (ServerState(..), State, TabIndex(..), allTabs, defaultServerState, tabTitle) as X
 import SlamData.Monad (Slam)
 
 type HTML = H.ParentHTML X.Query X.ChildQuery X.ChildSlot Slam

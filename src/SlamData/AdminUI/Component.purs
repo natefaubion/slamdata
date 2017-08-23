@@ -18,10 +18,7 @@ module SlamData.AdminUI.Component
 import SlamData.Prelude
 
 import Control.Monad.Eff.Exception as Exception
-import Data.Argonaut as J
 import Data.Array as Array
-import Data.Lens ((.=))
-import Data.Lens.Record (prop)
 import Data.Newtype (over)
 import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as Pathy
@@ -34,11 +31,10 @@ import Quasar.Advanced.Types as QA
 import SlamData.AdminUI.Database.Component as DB
 import SlamData.AdminUI.Dialog as Dialog
 import SlamData.AdminUI.Group as Group
+import SlamData.AdminUI.MySettings.Component as MySettings
 import SlamData.AdminUI.Types as AT
 import SlamData.AdminUI.Users as Users
 import SlamData.AdminUI.Users.Component as UC
-import SlamData.LocalStorage.Class as LS
-import SlamData.LocalStorage.Keys as LK
 import SlamData.Monad (Slam)
 import SlamData.Notification as Notification
 import SlamData.Quasar.Security (createGroup, deleteGroup)
@@ -52,10 +48,7 @@ component =
        { open: false
        , active: AT.Users
        , formState:
-          { mySettings: AT.defaultMySettingsState
-          , server: AT.defaultServerState
-          , groups: AT.defaultGroupsState
-          }
+          { server: AT.defaultServerState }
       , dialog: Nothing
        }
     , render
@@ -108,9 +101,10 @@ tabBody state =
         ]
     activeTab = case state.active of
       AT.MySettings →
-        pure $ HH.div
-          [ HP.class_ (HH.ClassName "sd-admin-ui-my-settings") ]
-          (renderMySettingsForm state.formState.mySettings)
+        [ HH.slot' AT.cpMySettings unit MySettings.component unit absurd ]
+        -- pure $ HH.div
+        --   [ HP.class_ (HH.ClassName "sd-admin-ui-my-settings") ]
+        --   (renderMySettingsForm state.formState.mySettings)
       AT.Database →
         [ HH.slot' AT.cpDatabase unit DB.component unit absurd ]
       AT.Server →
@@ -122,66 +116,10 @@ tabBody state =
       AT.Groups →
         pure $ HH.div
           [ HP.class_ (HH.ClassName "sd-admin-ui-groups") ]
-          (Group.renderGroupsForm state.formState.groups)
+          Group.renderGroupsForm
       _ →
         [HH.text "Not implemented"]
       -- AT.Authentication → ?x
-
-themes ∷ Array String
-themes = ["Dark", "Light"]
-
-renderMySettingsForm ∷ AT.MySettingsState → Array AT.HTML
-renderMySettingsForm (AT.MySettingsState state) =
-    [ HH.fieldset
-        [ HP.class_ (HH.ClassName "home-directory") ]
-        [ HH.legend_ [ HH.text "Location of my home directory in the SlamData file system:" ]
-        , HH.input
-            [ HP.classes [ HH.ClassName "form-control" ]
-            , HP.id_ "HomeDirectory"
-            , HP.value state.homeDirectory
-            ]
-        , HH.div
-            [ HP.classes [ HH.ClassName "form-group" ] ]
-            [ HH.div
-                [ HP.classes [ HH.ClassName "checkbox" ] ]
-                [ HH.label_
-                    [ HH.input
-                        [ HP.checked state.isolateArtifacts
-                        , HP.type_ HP.InputCheckbox
-                        ]
-                    , HH.text "Isolate SlamData artifacts to a specific location in the SlamData file system"
-                    ]
-                ]
-            , HH.input
-                [ HP.classes [ HH.ClassName "form-control" ]
-                , HP.id_ "IsolateLocation"
-                , HP.disabled (not state.isolateArtifacts)
-                , HP.value state.isolateArtifactsDirectory
-                ]
-            , HH.p_
-                [ HH.text $ fold
-                    [ "If you choose this option, while you can still virtually locate decks anywhere inside the file system, "
-                    , "they will always be physically stored in the above location. This allows you to keep production systems "
-                    , "free of SlamData artifacts, while still centrally locating and backing them up."
-                    ]
-                ]
-            ]
-        ]
-    , HH.fieldset
-        [ HP.class_ (HH.ClassName "themes") ]
-        [ HH.legend_ [ HH.text "Default theme for new decks:" ]
-        , HH.div
-            [ HP.class_ (HH.ClassName "theme-pickers") ]
-            [ HH.select
-                [ HP.classes [ HH.ClassName "form-control" ]
-                , HP.id_ "ThemeSelection"
-                , HE.onValueChange (HE.input AT.DefaultThemeChanged)
-                , HP.value state.defaultTheme
-                ]
-                (themes <#> \t → HH.option_ [HH.text t])
-            ]
-        ]
-    ]
 
 renderServerForm ∷ AT.ServerState → Array AT.HTML
 renderServerForm (AT.ServerState state) =
@@ -213,19 +151,9 @@ renderServerForm (AT.ServerState state) =
       ]
   ]
 
-setDefaultTheme ∷ String → AT.DSL Unit
-setDefaultTheme theme =
-  prop (SProxy ∷ SProxy "formState")
-    ∘ prop (SProxy ∷ SProxy "mySettings")
-    ∘ _Newtype
-    ∘ prop (SProxy ∷ SProxy "defaultTheme")
-    .= theme
-
 eval ∷ AT.Query ~> AT.DSL
 eval = case _ of
   AT.Init next → do
-    defaultTheme ← LS.retrieve J.decodeJson LK.adminUIDefaultTheme
-    for_ defaultTheme setDefaultTheme
     pure next
   AT.Open next → do
     H.modify (_ { open = true })
@@ -237,18 +165,8 @@ eval = case _ of
   AT.SetActive ix next → do
     H.modify (_ { active = ix })
     pure next
-  AT.SetMySettings new next → do
-    H.modify (_ { formState { mySettings = new } })
-    pure next
-  AT.DefaultThemeChanged newTheme next → do
-    LS.persist J.encodeJson LK.adminUIDefaultTheme newTheme
-    setDefaultTheme newTheme
-    pure next
   AT.SetServer new next → do
     H.modify (_ { formState { server = new } })
-    pure next
-  AT.SetGroups new next → do
-    H.modify (_ { formState { groups = new } })
     pure next
   AT.HandleColumns columnMsg next → do
     case columnMsg of
