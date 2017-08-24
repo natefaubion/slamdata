@@ -26,23 +26,21 @@ import Halogen.HTML.Properties as HP
 import SlamData.LocalStorage.Class as LS
 import SlamData.LocalStorage.Keys as LK
 import SlamData.Monad (Slam)
+import SlamData.Theme.Theme as Theme
 
 data Query a
   = Init a
   | DefaultThemeChanged String a
+  | HomeDirectoryChanged String a
 
 type State =
   { homeDirectory ∷ String
-  , isolateArtifacts ∷ Boolean
-  , isolateArtifactsDirectory ∷ String
   , defaultTheme ∷ String
   }
 
 defaultState ∷ State
 defaultState =
-  { homeDirectory: ""
-  , isolateArtifacts: false
-  , isolateArtifactsDirectory: ""
+  { homeDirectory: "/"
   , defaultTheme: "Dark"
   }
 
@@ -55,31 +53,42 @@ type DSL = H.ComponentDSL State Query Message Slam
 
 component ∷ H.Component HH.HTML Query Unit Message Slam
 component =
-  H.component
-    { render
+  H.lifecycleComponent
+    { initializer: Just (H.action Init)
+    , finalizer: Nothing
+    , render
     , eval
     , receiver: const Nothing
     , initialState: const defaultState
     }
     where
       render state =
-        HH.div
-          [ HP.class_ (HH.ClassName "sd-admin-ui-database") ]
-          [ HH.fieldset
-              [ HP.class_ (HH.ClassName "database-form-wrapper") ]
-              (renderForm state)
-          ]
+        HH.form
+          [ HP.class_ (HH.ClassName "sd-admin-ui-my-settings") ]
+          (renderForm state)
 
       eval ∷ Query ~> DSL
       eval = case _ of
         Init next → do
           defaultTheme ← LS.retrieve J.decodeJson LK.adminUIDefaultTheme
+          homeDirectory ← LS.retrieve J.decodeJson LK.adminUIHomeDirectory
           for_ defaultTheme \theme →
             H.modify (_ { defaultTheme = theme })
+          for_ homeDirectory \dir → do
+            H.modify (_ { homeDirectory = dir })
           pure next
         DefaultThemeChanged newTheme next → do
           LS.persist J.encodeJson LK.adminUIDefaultTheme newTheme
           H.modify (_ { defaultTheme = newTheme })
+          let
+            fromString = case _ of
+              "Light" → Theme.Light
+              "Dark" → Theme.Dark
+              _→ Theme.default
+          pure next
+        HomeDirectoryChanged newDirectory next → do
+          LS.persist J.encodeJson LK.adminUIHomeDirectory newDirectory
+          H.modify (_ { homeDirectory = newDirectory })
           pure next
 
 themes ∷ Array String
@@ -94,46 +103,18 @@ renderForm state =
             [ HP.classes [ HH.ClassName "form-control" ]
             , HP.id_ "HomeDirectory"
             , HP.value state.homeDirectory
-            ]
-        , HH.div
-            [ HP.classes [ HH.ClassName "form-group" ] ]
-            [ HH.div
-                [ HP.classes [ HH.ClassName "checkbox" ] ]
-                [ HH.label_
-                    [ HH.input
-                        [ HP.checked state.isolateArtifacts
-                        , HP.type_ HP.InputCheckbox
-                        ]
-                    , HH.text "Isolate SlamData artifacts to a specific location in the SlamData file system"
-                    ]
-                ]
-            , HH.input
-                [ HP.classes [ HH.ClassName "form-control" ]
-                , HP.id_ "IsolateLocation"
-                , HP.disabled (not state.isolateArtifacts)
-                , HP.value state.isolateArtifactsDirectory
-                ]
-            , HH.p_
-                [ HH.text $ fold
-                    [ "If you choose this option, while you can still virtually locate decks anywhere inside the file system, "
-                    , "they will always be physically stored in the above location. This allows you to keep production systems "
-                    , "free of SlamData artifacts, while still centrally locating and backing them up."
-                    ]
-                ]
+            , HE.onValueChange (HE.input HomeDirectoryChanged)
             ]
         ]
     , HH.fieldset
         [ HP.class_ (HH.ClassName "themes") ]
         [ HH.legend_ [ HH.text "Default theme for new decks:" ]
-        , HH.div
-            [ HP.class_ (HH.ClassName "theme-pickers") ]
-            [ HH.select
-                [ HP.classes [ HH.ClassName "form-control" ]
-                , HP.id_ "ThemeSelection"
-                , HE.onValueChange (HE.input DefaultThemeChanged)
-                , HP.value state.defaultTheme
-                ]
-                (themes <#> \t → HH.option_ [HH.text t])
+        , HH.select
+            [ HP.classes [ HH.ClassName "form-control" ]
+            , HP.id_ "ThemeSelection"
+            , HE.onValueChange (HE.input DefaultThemeChanged)
+            , HP.value state.defaultTheme
             ]
+            (themes <#> \t → HH.option_ [HH.text t])
         ]
     ]

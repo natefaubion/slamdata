@@ -91,6 +91,9 @@ autoCompletePathsKey = LS.Key "sd-autocomplete-paths"
 adminUIDefaultTheme ∷ LS.Key String
 adminUIDefaultTheme = LS.Key "sd-admin-ui-default-theme"
 
+adminUIHomeDirectory ∷ LS.Key String
+adminUIHomeDirectory = LS.Key "sd-admin-ui-home-directory"
+
 -- Licensing
 
 licenseDaysRemainingPresentedBefore ∷ LS.Key Date
