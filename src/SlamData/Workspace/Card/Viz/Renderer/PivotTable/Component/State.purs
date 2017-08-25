@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 
-module SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.State where
+module SlamData.Workspace.Card.Viz.Renderer.PivotTable.Component.State where
 
 import SlamData.Prelude
 

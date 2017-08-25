@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 
-module SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.Render where
+module SlamData.Workspace.Card.Setups.PivotTable.Component.Render where
 
 import SlamData.Prelude
 
@@ -30,15 +30,15 @@ import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
 import SlamData.Monad (Slam)
 import SlamData.Workspace.Card.Setups.ActionSelect.Component as AS
-import SlamData.Workspace.Card.Setups.PivotTable.Component.ChildSlot as CS
-import SlamData.Workspace.Card.Setups.PivotTable.Component.Query as Q
-import SlamData.Workspace.Card.Setups.PivotTable.Component.State as PS
-import SlamData.Workspace.Card.Setups.PivotTable.Model as PTM
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.DimensionPicker.Column (showColumn)
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
 import SlamData.Workspace.Card.Setups.DisplayOptions.Component as Display
 import SlamData.Workspace.Card.Setups.Inputs as I
+import SlamData.Workspace.Card.Setups.PivotTable.Component.ChildSlot as CS
+import SlamData.Workspace.Card.Setups.PivotTable.Component.Query as Q
+import SlamData.Workspace.Card.Setups.PivotTable.Component.State as PS
+import SlamData.Workspace.Card.Setups.PivotTable.Model as PTM
 import SlamData.Workspace.Card.Setups.Transform as T
 import SlamData.Workspace.Card.Setups.Transform.Numeric as N
 import SlamData.Workspace.Card.Setups.Transform.Place.Component as TPC

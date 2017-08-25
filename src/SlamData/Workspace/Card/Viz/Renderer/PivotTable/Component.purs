@@ -27,9 +27,9 @@ import Global (readFloat)
 import Halogen as H
 import Halogen.HTML as HH
 import SlamData.Monad (Slam)
-import SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.Query as Q
-import SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.Render as R
-import SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.State as S
+import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Component.Query as Q
+import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Component.Render as R
+import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Component.State as S
 
 type DSL = H.ComponentDSL S.State Q.Query Q.Message Slam
 

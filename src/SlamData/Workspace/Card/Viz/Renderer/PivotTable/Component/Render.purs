@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 
-module SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.Render where
+module SlamData.Workspace.Card.Viz.Renderer.PivotTable.Component.Render where
 
 import SlamData.Prelude
 
@@ -26,6 +26,7 @@ import CSS.TextAlign (center, rightTextAlign, textAlign) as CSS
 import CSS.VerticalAlign (verticalAlign) as CSS
 import Data.Argonaut as J
 import Data.Array as Array
+import Data.Formatter.DateTime as FDT
 import Data.Lens ((^.), (^?))
 import Data.List ((:))
 import Data.List as L
@@ -39,21 +40,20 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import SlamData.Render.CSS.New as RC
 import SlamData.Render.Icon as I
-import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Common (PTree, foldTree, sizeOfRow, topField)
-import SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.Query as Q
-import SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.State as S
-import SlamData.Workspace.Card.Setups.PivotTable.Model (Column(..))
-import SlamData.Workspace.Card.Setups.PivotTable.Model as PTM
 import SlamData.Workspace.Card.Setups.Dimension as D
-import SlamData.Workspace.Card.Setups.DisplayOptions.Model as Display
-import SlamData.Workspace.Card.Setups.Transform as T
-import Utils (showPrettyNumber, showFormattedNumber)
-import Utils.CSS (fontStyle, italic) as CSS
-import Data.Formatter.DateTime as FDT
 import SlamData.Workspace.Card.Setups.DisplayOptions.BooleanFormat.Model as BooleanFormat
-import SlamData.Workspace.Card.Setups.DisplayOptions.TextFormat.Model as TextFormat
 import SlamData.Workspace.Card.Setups.DisplayOptions.DecimalFormat.Model as DecimalFormat
 import SlamData.Workspace.Card.Setups.DisplayOptions.IntegerFormat.Model as IntegerFormat
+import SlamData.Workspace.Card.Setups.DisplayOptions.Model as Display
+import SlamData.Workspace.Card.Setups.DisplayOptions.TextFormat.Model as TextFormat
+import SlamData.Workspace.Card.Setups.PivotTable.Model (Column(..))
+import SlamData.Workspace.Card.Setups.PivotTable.Model as PTM
+import SlamData.Workspace.Card.Setups.Transform as T
+import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Common (PTree, foldTree, sizeOfRow, topField)
+import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Component.Query as Q
+import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Component.State as S
+import Utils (showPrettyNumber, showFormattedNumber)
+import Utils.CSS (fontStyle, italic) as CSS
 
 type HTML = H.ComponentHTML Q.Query
 

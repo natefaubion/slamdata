@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 
-module SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.Query where
+module SlamData.Workspace.Card.Viz.Renderer.PivotTable.Component.Query where
 
 import DOM.Event.Types (Event)
-import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Model as PTRM
 import SlamData.Workspace.Card.Eval.State as ES
+import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Model as PTRM
 
 data Query a
   = Update ES.PivotTableR a

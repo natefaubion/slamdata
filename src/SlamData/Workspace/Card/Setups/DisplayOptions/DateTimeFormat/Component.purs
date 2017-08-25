@@ -201,7 +201,7 @@ render uniqueId st =
     , CR.renderError st.error
     ]
   where
-    fromOptions ∷ ∀ a b c. (Options → c) → Either Options String → Either c c
+    fromOptions ∷ ∀ a. (Options → a) → Either Options String → Either a a
     fromOptions f = either (Right ∘ f) (Left ∘ f ∘ inferOptions')
 
 renderPresetDropdown ∷ Either P.Preset P.Preset → HTML
@@ -308,7 +308,7 @@ renderCustomField uniqueId value =
               , HP.type_ HP.InputText
               , HP.value (either id id value)
               , HP.enabled (isRight value)
-              , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (\st value → st { format = Right value }))
+              , HE.onValueInput $ HE.input (CQ.Modify ∘ flip (\st v → st { format = Right v }))
               ]
           ]
       ]

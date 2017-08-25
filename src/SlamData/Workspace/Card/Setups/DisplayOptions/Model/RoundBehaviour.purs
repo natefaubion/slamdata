@@ -43,8 +43,8 @@ render rb n =
     Floor → Math.floor
     Truncate → Math.trunc
   where
-    print n =
-      let s = show n
+    print n' =
+      let s = show n'
       in Str.take (Str.length s - 2) s
 
 roundBehaviours ∷ NEL.NonEmptyList RoundBehaviour

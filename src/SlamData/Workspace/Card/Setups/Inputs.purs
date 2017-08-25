@@ -263,11 +263,11 @@ dimensionButton opts =
             ]
         ] ) ⊕
      [ HH.div
-        [ HP.class_ toolbarClass ]
+        [ HP.class_ (HH.ClassName "sd-dimension-button-toolbar") ]
         $ join
           [ guard opts.dismissable $>
               HH.button
-                [ HP.classes [ HH.ClassName "sd-dismiss-button" ]
+                [ HP.class_ (HH.ClassName "sd-dismiss-button")
                 , HP.title "Dismiss"
                 , ARIA.label "Dismiss"
                 , HE.onClick opts.onDismiss
@@ -313,12 +313,6 @@ dimensionButton opts =
   where
   value = opts.dimension ^. D._value
   label = opts.dimension ^. D._category
-
-  toolbarClass =
-    HH.ClassName
-      if opts.labelless
-        then "sd-dimension-button-toolbar-wo-label"
-        else "sd-dimension-button-toolbar"
 
   buttonClass =
     HH.ClassName

@@ -31,7 +31,7 @@ import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Setups.ActionSelect.Component as AS
 import SlamData.Workspace.Card.Setups.Axis as Ax
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.Render as PR
+import SlamData.Workspace.Card.Setups.PivotTable.Component.Render as PR
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.DimensionPicker.Column (flattenColumns)
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC

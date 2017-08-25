@@ -76,56 +76,60 @@ render options state =
       then [ picker ]
       else [ button ] <> dims )
   ⊕ aux
-  ⊕ [ pivotOptions ]
+  ⊕ pivotOptions
   where
-  icon ∷ Array HTML
-  icon = (pure ∘ I.unIconHTML ∘ VCT.icon) state.vizType
 
-  pivotOptions ∷ HTML
+  pivotOptions ∷ Array HTML
   pivotOptions =
-    HH.div
-    [ HP.classes
-        $ CN.hidden
-        <$ guard
-            ( state.vizTypePickerExpanded
-              ∨ ( CT.pivot ≠ state.vizType ) )
-    ]
-    [ HH.slot' CS.cpPivot unit (PT.component options) unit
-      $ HE.input \e → right ∘ Q.HandlePivotTable e
-    ]
+    guard (not state.vizTypePickerExpanded && state.vizType == CT.pivot) $>
+      HH.slot'
+        CS.cpPivot
+        unit
+        (PT.component options)
+        unit
+        (HE.input \e → right ∘ Q.HandlePivotTable e)
 
 
   button =
     HH.button
-      [ HE.onClick $ HE.input_ $ right ∘ Q.ToggleVizPicker
-      , HP.classes
-          [ HH.ClassName "sd-viztype-button"
-          ]
+      [ HE.onClick $ HE.input_ (right ∘ Q.ToggleVizPicker)
+      , HP.class_ (HH.ClassName "sd-viztype-button")
       , ARIA.label "Select visualization type"
       ]
-      $ ( icon )
-      ⊕ ( pure ∘ HH.p_ ∘ pure ∘ HH.text ∘ VCT.name $ state.vizType )
-
-  picker =
-    HH.slot' CS.cpPicker unit VT.component unit
-      $ HE.input \e → right ∘ Q.HandlePicker e
-  dims = fromMaybe [ ] do
-    package ← lm.lookup state.vizType DP.packages
-    pure
-      [ HH.slot' CS.cpDims unit DM.component package
-        $ HE.input \e → right ∘ Q.HandleDims e
+      [ I.unIconHTML (VCT.icon state.vizType)
+      , HH.p_ [ HH.text (VCT.name state.vizType) ]
       ]
 
-  aux = fromMaybe [ ] do
+  picker =
+    HH.slot'
+      CS.cpPicker
+      unit
+      VT.component
+      unit
+      (HE.input \e → right ∘ Q.HandlePicker e)
+
+  dims = foldMap pure do
+    package ← lm.lookup state.vizType DP.packages
+    pure $
+      HH.slot'
+        CS.cpDims
+        unit
+        DM.component
+        package
+        (HE.input \e → right ∘ Q.HandleDims e)
+
+  aux = foldMap pure do
     auxState ← lm.lookup state.vizType state.auxes
     comp ← Aux.vizTypeAux state.vizType
-    pure
-      $ A.singleton
-      $ HH.div_
-      $ A.singleton
-      $ HH.slot' CS.cpAux unit comp auxState
-      $ HE.input \e → right ∘ Q.HandleAux e
-
+    pure $
+      HH.div_
+        [ HH.slot'
+            CS.cpAux
+            unit
+            comp
+            auxState
+            (HE.input \e → right ∘ Q.HandleAux e)
+        ]
 
 cardEval ∷ CC.CardEvalQuery ~> DSL
 cardEval = case _ of

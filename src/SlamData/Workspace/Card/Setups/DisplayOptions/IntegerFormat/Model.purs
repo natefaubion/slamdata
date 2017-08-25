@@ -50,13 +50,13 @@ render { prefix, suffix, thousands, rounding } n
 renderGroupedDigits ∷ { sep ∷ String, value ∷ String } → String
 renderGroupedDigits { sep, value }
   | Str.null sep = value
-  | otherwise = go sep "" value
+  | otherwise = go "" value
       where
-        go ∷ String → String → String → String
-        go sep acc s
-          | Str.length s <= 3 = extendAcc sep acc s
+        go ∷ String → String → String
+        go acc s
+          | Str.length s <= 3 = extendAcc acc s
           | otherwise =
               let i = Str.length s - 3
-              in go sep (extendAcc sep acc (Str.drop i s)) (Str.take i s)
-        extendAcc ∷ String → String → String → String
-        extendAcc sep acc s = if Str.null acc then s else s <> sep <> acc
+              in go (extendAcc acc (Str.drop i s)) (Str.take i s)
+        extendAcc ∷ String → String → String
+        extendAcc acc s = if Str.null acc then s else s <> sep <> acc
