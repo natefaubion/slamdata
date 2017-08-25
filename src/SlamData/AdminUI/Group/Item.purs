@@ -18,6 +18,7 @@ module SlamData.AdminUI.Group.Item (component) where
 
 import SlamData.Prelude
 
+import Data.List.NonEmpty as NEL
 import Data.Newtype (un)
 import Data.Path.Pathy as Pathy
 import Halogen as H
@@ -40,7 +41,7 @@ component
   → H.Component HH.HTML (MCI.Query AT.GroupItem AT.GroupMessage) MCI.State (MCI.Message' AT.GroupItem AT.GroupMessage) Slam
 component i = proxy ∘ component' i
 
-data Action = Delete
+data Action = Delete | DisplayUsers
 
 data Query a
   = UpdateState MCI.State a
@@ -95,7 +96,11 @@ component' path item =
       when (old /= new) $ H.put new
       pure next
     HandleSliderMessage msg next → do
-      H.raise $ Right $ AT.DeleteGroup { path }
+      case msg of
+        MCIM.ActionMsg Delete →
+          H.raise $ Right $ AT.DeleteGroup { path }
+        MCIM.ActionMsg DisplayUsers →
+          H.raise $ Right $ AT.DisplayUsers { path }
       pure next
     Selected next → do
       H.raise $ Left $ MCI.RaisePopulate item
@@ -110,4 +115,8 @@ renderItem ci =
     ]
 
 slider :: H.Component HH.HTML (MCIM.Query Action) Unit (MCIM.Message Action) Slam
-slider = MCIM.component (pure { icon: I.trashCanSm, label: "Delete Group", action: Delete })
+slider =
+  MCIM.component
+    ({ icon: I.trashCanSm, label: "Delete Group", action: Delete }
+      `NEL.cons`
+       pure { icon: I.searchSm, label: "Display Users", action: DisplayUsers })

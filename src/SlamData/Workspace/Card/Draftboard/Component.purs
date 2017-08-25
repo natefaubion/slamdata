@@ -25,32 +25,30 @@ import Data.List as List
 import Data.Map as Map
 import Data.Ord (abs)
 import Data.Rational (Rational, (%))
-
 import Halogen as H
 import Halogen.Component.Utils.Drag as Drag
-
+import Math as Math
 import SlamData.Wiring as Wiring
 import SlamData.Workspace.Card.CardType as CT
-import SlamData.Workspace.Card.Component as CC
-import SlamData.Workspace.Card.Draftboard.Layout as Layout
-import SlamData.Workspace.Card.Draftboard.Orientation as Orn
-import SlamData.Workspace.Card.Draftboard.Pane as Pane
-import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Card.Common (CardOptions)
+import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Draftboard.Component.Common (DraftboardDSL, rootRef)
 import SlamData.Workspace.Card.Draftboard.Component.Query (Query(..))
 import SlamData.Workspace.Card.Draftboard.Component.Render (render)
 import SlamData.Workspace.Card.Draftboard.Component.State (MoveLocation(..), initialState, modelFromState, updateRect, updateLayout)
+import SlamData.Workspace.Card.Draftboard.Layout as Layout
+import SlamData.Workspace.Card.Draftboard.Orientation as Orn
+import SlamData.Workspace.Card.Draftboard.Pane as Pane
+import SlamData.Workspace.Card.Model as Card
 import SlamData.Workspace.Deck.Component.Query as DCQ
 import SlamData.Workspace.Deck.DeckId (DeckId)
 import SlamData.Workspace.Eval.Persistence as P
 import SlamData.Workspace.LevelOfDetails (LevelOfDetails(..))
-
 import Utils.DOM as DOM
 
 draftboardComponent ∷ CardOptions → CC.CardComponent
 draftboardComponent options =
-  CC.makeCardComponent CT.Draftboard component options
+  CC.makeCardComponent CT.draftboard component options
   where
   component = H.parentComponent
     { render: render options
@@ -250,7 +248,8 @@ evalBoard opts = case _ of
   Grabbing (deckId × cursor) ev next → do
     st ← H.get
     case ev of
-      Drag.Move _ d → do
+      -- Only moving if distance is more than 20.0 pixels
+      Drag.Move _ d | abs (Math.sqrt (d.offsetX * d.offsetX + d.offsetY * d.offsetY)) > 20.0 → do
         let
           x = d.x - st.rootRect.left
           y = d.y - st.rootRect.top
@@ -273,26 +272,29 @@ evalBoard opts = case _ of
             H.modify _ { moveLocation = Just move }
           _ →
             H.modify _ { moveLocation = Just (Floating x y) }
-      Drag.Done _ → do
-        for_ st.moveLocation case _ of
-          Floating _ _ →
+      Drag.Move _ d →
+        H.modify _ { moveLocation = Nothing }
+      Drag.Done _ | Just mvLoc ← st.moveLocation → case mvLoc of
+        Floating _ _ →
+          H.modify _ { moveLocation = Nothing }
+        Group cell orn bias →
+          for_ cell.value \deckId' → do
             H.modify _ { moveLocation = Nothing }
-          Group cell orn bias →
-            for_ cell.value \deckId' → do
-              H.modify _ { moveLocation = Nothing }
-              groupDeck orn bias deckId deckId'
-              H.raise CC.modelUpdate
-          Move cell → do
-            let
-              result =
-                pure st.layout
-                  >>= Pane.modifyAt (const (Pane.Cell Nothing)) cursor
-                  >>= Pane.modifyAt (const (Pane.Cell (Just deckId))) cell.cursor
-            H.modify
-              $ updateLayout (fromMaybe st.layout result)
-              ∘ _ { moveLocation = Nothing }
-            void $ H.query deckId $ H.action DCQ.UpdateCardSize
-            H.raise CC.modelUpdateSilently
+            groupDeck orn bias deckId deckId'
+            H.raise CC.modelUpdate
+        Move cell → do
+          let
+            result =
+              pure st.layout
+                >>= Pane.modifyAt (const (Pane.Cell Nothing)) cursor
+                >>= Pane.modifyAt (const (Pane.Cell (Just deckId))) cell.cursor
+          H.modify
+            $ updateLayout (fromMaybe st.layout result)
+            ∘ _ { moveLocation = Nothing }
+          void $ H.query deckId $ H.action DCQ.UpdateCardSize
+          H.raise CC.modelUpdateSilently
+      Drag.Done _ →
+        for_ (List.last opts.cursor) \rootId → Wiring.focusDeck rootId
     pure next
   AddDeck cursor next → do
     H.lift $ P.addDeckToDraftboard opts.cardId cursor >>= Wiring.focusDeck

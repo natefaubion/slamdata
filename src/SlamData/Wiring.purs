@@ -34,6 +34,8 @@ module SlamData.Wiring
   , showDialog
   , switchDeckToFlip
   , switchDeckToFront
+  , getTheme
+  , setTheme
   , unWiring
   ) where
 
@@ -44,7 +46,7 @@ import Control.Monad.Aff.AVar as AVar
 import Control.Monad.Aff.Bus as Bus
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Ref (Ref)
+import Control.Monad.Eff.Ref (Ref, readRef, writeRef)
 import Control.Monad.Eff.Ref as Ref
 import DOM.BrowserFeatures.Detectors (detectBrowserFeatures)
 import Data.BrowserFeatures (BrowserFeatures)
@@ -58,6 +60,7 @@ import SlamData.GlobalMenu.Bus (SignInBus)
 import SlamData.License (LicenseProblem)
 import SlamData.Notification as N
 import SlamData.Quasar.Auth.Authentication as Auth
+import SlamData.Theme.Theme as Theme
 import SlamData.Wiring.Cache (Cache)
 import SlamData.Wiring.Cache as Cache
 import SlamData.Workspace.AccessType (AccessType)
@@ -140,6 +143,7 @@ type BusWiring =
   , stepByStep ∷ Bus.BusRW GuideType
   , hintDismissals ∷ Bus.BusRW HintDismissalMessage
   , licenseProblems ∷ Bus.BusRW LicenseProblem
+  , themeChange ∷ Bus.BusRW (Maybe Theme.Theme)
   }
 
 type WiringR =
@@ -152,6 +156,7 @@ type WiringR =
   , bus ∷ BusWiring
   , echarts ∷ EChartsWiring
   , browserFeatures ∷ BrowserFeatures
+  , theme ∷ Ref (Maybe Theme.Theme)
   }
 
 newtype Wiring = Wiring WiringR
@@ -182,7 +187,9 @@ make path accessType vm permissionTokenHashes = liftAff do
   browserFeatures ← liftEff detectBrowserFeatures
   varMaps ← liftEff (Ref.newRef vm)
   license ← liftEff (Ref.newRef vm)
-  pure $ Wiring { path, accessType, varMaps, eval, auth, cache, bus, echarts, browserFeatures }
+  theme ← liftEff (Ref.newRef Nothing)
+  themeChange ← liftEff (Ref.newRef Nothing)
+  pure $ Wiring { path, accessType, varMaps, eval, auth, cache, bus, echarts, browserFeatures, theme }
 
   where
   makeEcharts = do
@@ -235,7 +242,17 @@ make path accessType vm permissionTokenHashes = liftAff do
     stepByStep ← Bus.make
     hintDismissals ← Bus.make
     licenseProblems ← Bus.make
-    pure { decks, workspace, notify, globalError, stepByStep, hintDismissals, licenseProblems }
+    themeChange ← Bus.make
+    pure
+      { decks
+      , workspace
+      , notify
+      , globalError
+      , stepByStep
+      , hintDismissals
+      , licenseProblems
+      , themeChange
+      }
 
 focusDeck
   ∷ ∀ m
@@ -276,3 +293,23 @@ showDialog
 showDialog dialog = do
   { bus } ← expose
   liftAff $ Bus.write (ShowDialog dialog) bus.workspace
+
+getTheme
+  ∷ ∀ m
+  . MonadAsk Wiring m
+  ⇒ MonadAff SlamDataEffects m
+  ⇒ m (Maybe Theme.Theme)
+getTheme = do
+  { theme: themeRef } ← expose
+  liftEff $ readRef themeRef
+
+setTheme
+  ∷ ∀ m
+  . MonadAsk Wiring m
+  ⇒ MonadAff SlamDataEffects m
+  ⇒ Maybe Theme.Theme
+  → m Unit
+setTheme theme = do
+  { bus, theme: themeRef } ← expose
+  liftEff $ writeRef themeRef theme
+  liftAff $ Bus.write theme bus.themeChange

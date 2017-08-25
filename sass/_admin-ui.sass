@@ -1,32 +1,36 @@
+@import admin-ui/users
+@import admin-ui/dialog
+@import admin-ui/autocomplete
+
+
 .sd-admin-ui
-  position: fixed
-  top: 0
-  left: 0
-  height: 100%
-  width: 100%
-  z-index: 10
-  background-color: white
-
-  padding-top: 10.5rem
-
   display: flex
   flex-direction: column
   align-items: center
+  position: fixed
+  z-index: 10
+  top: 0
+  left: 0
+  width: 100%
+  height: 100%
+  padding-top: 10.5rem
+  background-color: $body-bg
 
-.sd-admin-ui > .tabs
+
+.sd-admin-ui > .sd-admin-ui-tabs
   position: relative
   list-style-type: none
-  padding: 0
-  margin: 0 -1.5rem
   overflow-x: auto
   overflow-y: hidden
+  padding: 0
+  margin: 0 -1.5rem
 
   > li
-    line-height: 1.75rem
     display: inline-block
     padding: 0.5rem 1.5rem
     border-right: 0.07rem solid
     font-size: 1.5rem
+    line-height: 1.75rem
     cursor: pointer
 
   li:last-child
@@ -35,18 +39,19 @@
   .active-tab
     position: relative
 
-  .active-tab::after
-    display: block
-    content: ""
-    position: absolute
-    bottom: 0
-    left: 0.5rem
-    right: 0.5rem
-    height: 0.15rem
-    background-color: black
-    width: calc(100% - 1.2rem)
+    &::after
+      display: block
+      content: ""
+      position: absolute
+      bottom: 0
+      left: 0.5rem
+      right: 0.5rem
+      height: 0.15rem
+      background-color: #000
+      width: calc(100% - 1.2rem)
 
-.sd-admin-ui > .tab-body
+
+.sd-admin-ui > .sd-admin-ui-tab-body
   display: flex
   flex-direction: column
   margin-top: 2rem
@@ -57,7 +62,7 @@
   legend
     font-size: 1.7rem
 
-.sd-admin-ui > .tab-body > .my-settings
+.sd-admin-ui > .sd-admin-ui-tab-body > .sd-admin-ui-my-settings
   > fieldset
     margin-top: 3rem
 
@@ -77,7 +82,8 @@
       select
         max-width: 30rem
 
-.sd-admin-ui > .tab-body > .database
+
+.sd-admin-ui > .sd-admin-ui-tab-body > .sd-admin-ui-database
   .database-form-wrapper
     margin-top: 0
 
@@ -87,7 +93,8 @@
     &:first-child
       margin-top: 1rem
 
-.sd-admin-ui > .tab-body > .server
+
+.sd-admin-ui > .sd-admin-ui-tab-body > .sd-admin-ui-server
   > fieldset
     margin-top: 3rem
 
@@ -95,8 +102,7 @@
       margin-top: 1rem
 
 
-.sd-admin-ui > .tab-body > .groups
-
+.sd-admin-ui > .sd-admin-ui-tab-body > .sd-admin-ui-groups
   height: inherit
   flex-grow: 10
 
@@ -126,7 +132,7 @@
     padding-left: 4.5rem
     float: right
     padding: 0 1rem
-    color: lightgray
+    color: #d3d3d3
     cursor: text
 
     &.active
@@ -140,6 +146,7 @@
       padding: 0.4rem 0 0 1rem
       font-size: 2rem
 
+
 // Make space for the slider menu, and ensures that when expanded it has a solid
 // background
 .sd-miller-column-item-inner
@@ -147,9 +154,11 @@
     padding-right: 2.5rem
     background-color: inherit
 
+
 .sd-admin-ui-group-label
   overflow: hidden
   text-overflow: ellipsis
+
 
 .sd-miller-slider
   display: flex
@@ -165,6 +174,7 @@
   overflow: hidden
   transition: width 0.5s ease-in-out
 
+
 .sd-slider-button
   height: 100%
   font-size: 1.9rem
@@ -174,22 +184,27 @@
   &:hover
     background: darken($body-bg, 10%)
 
+
 .sd-slider-toggle
   height: 100%
   background: transparent
   border-style: none
-  border-left: solid 0.1rem darken(white, 10%)
+  border-left: solid 0.1rem darken(#fff, 10%)
 
   &:hover
-    background: darken(white, 10%)
+    background: darken(#fff, 10%)
 
+
+// TODO @kRITZCREEK: this scope
 li.selected
   .sd-slider-toggle
     border-style: none
     border-left: solid 0.1rem darken(#ddd, 10%)
+
   .sd-slider-toggle, .sd-slider-button
     &:hover
       background: darken(#ddd, 10%)
+
 
 .sd-admin-ui-close
   margin-top: 1rem

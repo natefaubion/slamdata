@@ -147,15 +147,19 @@ render state =
         ]
 
     adminMenu =
-      [ HH.div
-          [ HP.classes [ container, HH.ClassName "sign-in-menu-container" ] ] $
-          [ HH.button
-              [ HP.class_ $ HH.ClassName "sign-in-menu-button "
-              , HE.onClick $ stopProp $ AdminUIClicked
-              ]
-              [ I.settingsCog, HH.text "Settings" ]
-          ]
-      ]
+      if state.loggedIn
+      then
+        [ HH.div
+            [ HP.classes [ container, HH.ClassName "sign-in-menu-container" ] ] $
+            [ HH.button
+                [ HP.class_ $ HH.ClassName "sign-in-menu-button "
+                , HE.onClick $ stopProp $ AdminUIClicked
+                ]
+                [ I.settingsCog, HH.text "Settings" ]
+            ]
+        ]
+      else
+        []
 
     signInMenu =
       case state.providers, state.email of

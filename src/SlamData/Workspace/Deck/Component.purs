@@ -1,5 +1,5 @@
 {-
-Copyright 2016 SlamData, Inc.
+Copyright 2017 SlamData, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import Data.List ((:))
 import Data.List as L
 import Data.Set as Set
 import Data.Time.Duration (Milliseconds(..))
+import Data.Variant (default, on)
 import DOM.HTML.HTMLElement (getBoundingClientRect)
 import Halogen as H
 import Halogen.Component.Utils (sendAfter, busEventSource)
@@ -340,6 +341,9 @@ handleBackSide opts = case _ of
         if Array.length st.displayCards <= 1
           then H.lift $ Common.deleteDeck opts
           else Wiring.showDialog (Dialog.DeleteDeck opts)
+      Back.Theme → do
+        theme ← Wiring.getTheme
+        Wiring.showDialog $ Dialog.Theme opts theme
       Back.Mirror → do
         let mirrorCard = (hush =<< DCS.activeCard st) <|> DCS.findLastRealCard st
         deck ← H.lift $ P.getDeck opts.deckId
@@ -351,9 +355,10 @@ handleBackSide opts = case _ of
             parentId ← H.lift $ P.wrapAndMirrorDeck cardId opts.deckId
             navigateToDeck (parentId L.: opts.cursor)
           _, _ → pure unit
-      Back.WrapChoice CT.Draftboard → wrapDeck Card.singletonDraftboard
-      Back.WrapChoice CT.Tabs → wrapDeck Card.singletonTabs
-      Back.WrapChoice _ → pure unit
+      Back.WrapChoice ct → default (pure unit)
+        # on CT._tabs (const $ wrapDeck Card.singletonTabs)
+        # on CT._draftboard (const $ wrapDeck Card.singletonDraftboard)
+        $ ct
       Back.Wrap → pure unit
       Back.Unwrap → do
         deck ← H.lift $ P.getDeck opts.deckId

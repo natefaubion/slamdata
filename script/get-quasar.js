@@ -150,7 +150,7 @@ function fetchQuasar(githubAuthToken, quasarDistribution) {
 function main() {
   var githubAuthToken = process.env.GITHUB_AUTH_TOKEN
 
-  var quasarDistribution = process.argv.indexOf("--advanced") != -1 ? "quasar-advanced" : "quasar";
+  var quasarDistribution = process.argv.indexOf("--advanced") != -1 ? "slamdata-backend" : "quasar";
 
   if (!fs.existsSync("./jars")){
     fs.mkdirSync("./jars");

@@ -28,6 +28,7 @@ import SlamData.Workspace.Card.Eval.Monad as CEM
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Variables.Error (VError(..), VariablesError(..), throwVariablesError)
+import SlamData.Workspace.Card.Variables.Error.TypeMismatchError (TypeMismatchError)
 import SlamData.Workspace.Card.Variables.Model (Model)
 import SlamData.Workspace.FormBuilder.Item.Component.State (sanitiseValueFromForm)
 import SlamData.Workspace.FormBuilder.Item.Model as FB
@@ -59,25 +60,30 @@ buildVarMap cardId urlVarMaps model =
             case SM.lookup (unwrap name) =<< Map.lookup cardId urlVarMaps, defaultValue of
               -- If we have a VarMap value from the URL, prefer it over the default value
               Just cardValue, _ →
-                parseValue URLValueError cardValue
+                parseValue FB.urlVarMapValueToVarMapValue (URLValueError) cardValue
               _, Just defaultValue' →
-                parseValue DefaultValueError defaultValue'
+                -- TODO: sanitiseValueFromForm can be removed at some point in the
+                -- future, but for now ommitting it may cause some glitches with
+                -- existing workspaces (will start complaining about incorrect
+                -- format, but editing the value will fix it) -gb
+                parseValue
+                  (\ft v → FB.defaultValueToVarMapValue ft $ sanitiseValueFromForm ft v)
+                  DefaultValueError
+                  defaultValue'
               _, _ →
                 acc
       where
         parseValue
-          ∷ (FB.FieldName → ParseError → VError)
-          → String
+          ∷ ∀ a
+          . (FB.FieldType -> a -> Either (Either ParseError TypeMismatchError) Port.VarMapValue)
+          → (FB.FieldName → Either ParseError TypeMismatchError → VError)
+          → a
           → V VariablesError Port.VarMap
-        parseValue toError value =
+        parseValue f toError value =
           either
             (accumError ∘ toError name)
             (\v → map (VM.insert cardId (VM.Var (unwrap name)) v) acc)
-            -- TODO: sanitiseValueFromForm can be removed at some point in the
-            -- future, but for now ommitting it may cause some glitches with
-            -- existing workspaces (will start complaining about incorrect
-            -- format, but editing the value will fix it) -gb
-            (FB.defaultValueToVarMapValue fieldType (sanitiseValueFromForm fieldType value))
+            (f fieldType value)
 
         accumError ∷ VError -> V VariablesError Port.VarMap
         accumError err = acc <* V.invalid (VariablesError (pure err))

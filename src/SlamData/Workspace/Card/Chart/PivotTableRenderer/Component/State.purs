@@ -19,9 +19,9 @@ module SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.State where
 import SlamData.Prelude
 
 import Data.Argonaut as J
-import SlamData.Workspace.Card.Chart.PivotTableRenderer.Common (PTree)
-import SlamData.Workspace.Card.Chart.PivotTableRenderer.Model as PTRM
 import SlamData.Workspace.Card.Port as Port
+import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Common (PTree)
+import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Model as PTRM
 
 type State =
   { pageCount ∷ Int

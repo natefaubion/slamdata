@@ -21,8 +21,8 @@ module SlamData.Workspace.Card.Port
   , MetricPort
   , ChartInstructionsPort
   , PivotTablePort
-  , SetupLabeledFormInputPort
-  , SetupTextLikeFormInputPort
+  , SetupSelectPort
+  , SetupInputPort
   , GeoChartPort
   , tagPort
   , emptyOut
@@ -51,31 +51,26 @@ module SlamData.Workspace.Card.Port
 import SlamData.Prelude
 
 import Control.Monad.Aff (Aff)
-
-import Data.Argonaut (JCursor, Json)
+import Data.Argonaut (Json)
 import Data.Lens (Prism', prism', Traversal', wander, lens)
 import Data.List as List
 import Data.Map as Map
 import Data.Set as Set
 import Data.URI (URIRef)
-
 import ECharts.Monad (DSL)
 import ECharts.Types.Phantom (OptionI)
-
 import Leaflet.Core as LC
-
-import SlamData.Effects (SlamDataEffects)
 import SlamData.Download.Model (DownloadOptions)
+import SlamData.Effects (SlamDataEffects)
 import SlamData.Workspace.Card.CardId as CID
+import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Error as CE
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
-import SlamData.Workspace.Card.Setups.Semantics as Sem
-import SlamData.Workspace.Card.CardType.ChartType (ChartType)
-import SlamData.Workspace.Card.CardType.FormInputType (FormInputType)
 import SlamData.Workspace.Card.Markdown.Model as MD
 import SlamData.Workspace.Card.Port.VarMap (Var(..), VarMap, URLVarMap, VarMapValue(..), Resource(..))
 import SlamData.Workspace.Card.Port.VarMap as VM
-
+import SlamData.Workspace.Card.Setups.Dimension as D
+import SlamData.Workspace.Card.Setups.PivotTable.Model as PTM
+import SlamData.Workspace.Card.Setups.Semantics as Sem
 import Text.Markdown.SlamDown as SD
 import Utils.Path as PU
 
@@ -95,7 +90,7 @@ type MetricPort =
 
 type ChartInstructionsPort =
   { options ∷ Array Json → DSL OptionI
-  , chartType ∷ ChartType
+  , chartType ∷ CT.Chart ()
   }
 
 type PivotTablePort =
@@ -104,18 +99,16 @@ type PivotTablePort =
   , isSimpleQuery ∷ Boolean
   }
 
-type SetupLabeledFormInputPort =
-  { name ∷ String
+type SetupSelectPort =
+  { projection ∷ D.LabeledJCursor
   , valueLabelMap ∷ Map.Map Sem.Semantics (Maybe String)
-  , cursor ∷ JCursor
   , selectedValues ∷ Set.Set Sem.Semantics
-  , formInputType ∷ FormInputType
+  , formInputType ∷ CT.Select ()
   }
 
-type SetupTextLikeFormInputPort =
-  { name ∷ String
-  , cursor ∷ JCursor
-  , formInputType ∷ FormInputType
+type SetupInputPort =
+  { projection ∷ D.LabeledJCursor
+  , formInputType ∷ CT.Input ()
   }
 
 type GeoChartPort =
@@ -129,9 +122,9 @@ data Port
   | Variables
   | CardError CE.CardError
   | ResourceKey String
-  | SetupLabeledFormInput SetupLabeledFormInputPort
-  | SetupTextLikeFormInput SetupTextLikeFormInputPort
   | SlamDown (SD.SlamDownP MD.MarkdownExpr)
+  | SetupSelect SetupSelectPort
+  | SetupInput SetupInputPort
   | ChartInstructions ChartInstructionsPort
   | DownloadOptions DownloadPort
   | ValueMetric MetricPort
@@ -146,9 +139,9 @@ tagPort  = case _ of
   Variables → "Variables"
   CardError err → "CardError: " ⊕ CE.showCardError err
   ResourceKey str → "ResourceKey: " ⊕ show str
-  SetupLabeledFormInput _ → "SetupLabeledFormInput"
-  SetupTextLikeFormInput _ → "SetupTextLikeFormInput"
   SlamDown sd → "SlamDown"
+  SetupSelect _ → "SetupSelect"
+  SetupInput _ → "SetupInput"
   ChartInstructions _ → "ChartInstructions"
   DownloadOptions _ → "DownloadOptions"
   ValueMetric _ → "ValueMetric"

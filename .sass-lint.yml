@@ -1,0 +1,96 @@
+files:
+  include:
+    - "sass/**/*.s(a|c)ss"
+  ignore:
+    - "sass/_bootstrap.sass"
+    - "sass/_bootstrap-variables.sass"
+    - "sass/_normalize.sass"
+    - "sass/themes/*.sass"  # not ideal, but there's a parsing error
+
+
+rules:
+  attribute-quotes:
+    - 2
+    - include: true
+  border-zero:
+    - 2
+    - convention: none
+  brace-style:
+    - 2
+    - style: 1tbs
+    - allow-single-line: false
+  class-name-format:
+    - 0
+    - allow-leading-underscore: false
+  clean-import-paths:
+    - 2
+    - leading-underscore: false
+    - filename-extension: false
+  declarations-before-nesting: 2
+  empty-line-between-blocks:
+    - 2
+    - include: true
+    - allow-single-line-rulesets: false
+  extends-before-declarations: 2
+  extends-before-mixins: 2
+  hex-notation:
+    - 2
+    - style: lowercase
+  final-newline:
+    - include: true
+  force-attribute-nesting: 0
+  force-element-nesting: 0
+  force-pseudo-nesting: 0
+  function-name-format:
+    - 2
+    - convention: hyphenatedlowercase
+  indentation:
+    - 2
+    - size: 2
+  leading-zero:
+    - 2
+    - include: true
+  max-file-line-count:
+    - 2
+    - length: 3000
+  max-line-length:
+    - 1
+    - length: 400
+  mixin-name-format:
+    - 1
+    - convention: hyphenatedlowercase
+  mixins-before-declarations: 2
+  nesting-depth:
+    - 1
+    - max-depth: 6
+  no-color-keywords: 1
+  no-color-literals:
+    - 0  # Should probably adjust this
+  no-duplicate-properties:
+    - 1
+    - exclude:
+      - text-align
+  no-ids: 0
+  no-invalid-hex: 2
+  no-important: 0
+  no-misspelled-properties:
+    - 2
+    - extra-properties:
+      - touch-callout
+      - user-drag
+  no-qualifying-elements: 0
+  no-trailing-whitespace: 2
+  no-vendor-prefixes:
+    - 2
+    - ignore-non-standard: true
+  one-declaration-per-line: 2
+  placeholder-in-extend: 0
+  property-sort-order:
+    - 0
+    - order: smacss
+  pseudo-element: 2
+  quotes:
+    - 2
+    - style: double
+  single-line-per-selector: 0
+  url-quotes: 1

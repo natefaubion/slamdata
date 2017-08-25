@@ -21,16 +21,24 @@ import SlamData.Prelude
 import Halogen.Component.ChildPath as CP
 import Quasar.Advanced.Types as QA
 import SlamData.AdminUI.Component.Query (GroupItem, GroupMessage)
-import SlamData.AdminUI.Dialog.Component as Dialog
+import SlamData.AdminUI.Database.Component as Database
+import SlamData.AdminUI.Dialog as Dialog
+import SlamData.AdminUI.Users.Component as Users
 import SlamData.Workspace.MillerColumns.Component as Miller
 
 type MillerQuery = Miller.Query GroupItem QA.GroupPath GroupMessage
 
-type ChildQuery = MillerQuery ⨁ Dialog.Query ⨁ Const Void
-type ChildSlot = Unit ⊹ Dialog.Dialog ⊹ Void
+type ChildQuery = MillerQuery ⨁ Database.Query ⨁ Users.Query ⨁ Dialog.Query ⨁ Const Void
+type ChildSlot = Unit ⊹ Unit ⊹ Unit ⊹ Unit ⊹ Void
 
 cpGroups ∷ CP.ChildPath MillerQuery ChildQuery Unit ChildSlot
 cpGroups = CP.cp1
 
-cpDialog ∷ CP.ChildPath Dialog.Query ChildQuery Dialog.Dialog ChildSlot
-cpDialog = CP.cp2
+cpDatabase ∷ CP.ChildPath Database.Query ChildQuery Unit ChildSlot
+cpDatabase = CP.cp2
+
+cpUsers ∷ CP.ChildPath Users.Query ChildQuery Unit ChildSlot
+cpUsers = CP.cp3
+
+cpDialog ∷ CP.ChildPath Dialog.Query ChildQuery Unit ChildSlot
+cpDialog = CP.cp4

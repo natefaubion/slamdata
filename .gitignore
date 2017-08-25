@@ -29,4 +29,5 @@ yarn-error.log
 !.gitignore
 !.travis.yml
 !.editorconfig
+!.sass-lint.yml
 current.png

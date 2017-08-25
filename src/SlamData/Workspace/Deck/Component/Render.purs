@@ -211,10 +211,6 @@ deckFrameControls zoom { name } =
             [ HP.class_ CSS.deckName ]
 
 
-
-
-
-
 deckIndicator ∷ DCS.State → DeckHTML
 deckIndicator st =
   HH.div [ HP.classes [ HH.ClassName "indicator" ] ] $
@@ -240,7 +236,7 @@ deckIndicator st =
     renderCircle ix card =
       HH.i
         [ HP.classes $ classes ix card ]
-        [ if isRunning ix then RC.spinner else (HH.text "") ]
+        [ if isRunning ix then RC.spinnerSmall else (HH.text "") ]
 
 flipButton ∷ DeckHTML
 flipButton =

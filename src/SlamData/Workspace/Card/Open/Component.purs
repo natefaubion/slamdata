@@ -63,7 +63,7 @@ type HTML =  CC.InnerCardParentHTML Query ColumnsQuery Unit
 
 openComponent ∷ CC.CardOptions → CC.CardComponent
 openComponent =
-  CC.makeCardComponent CT.Open $ H.lifecycleParentComponent
+  CC.makeCardComponent CT.open $ H.lifecycleParentComponent
     { render: render
     , eval: evalCard ⨁ evalOpen
     , initialState: const initialState

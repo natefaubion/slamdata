@@ -21,22 +21,23 @@ module SlamData.Workspace.Card.Error
 
 import SlamData.Prelude
 import Data.List as L
-import Data.Variant (case_, on)
+import Data.Variant (on)
 import SlamData.GlobalError as GE
 import SlamData.Quasar.Error (QError)
 import SlamData.Workspace.Card.Cache.Error as CCE
-import SlamData.Workspace.Card.Chart.Error as CHE
+import SlamData.Workspace.Card.Viz.Error as VE
 import SlamData.Workspace.Card.DownloadOptions.Error as CDLOE
 import SlamData.Workspace.Card.Markdown.Error as CMDE
 import SlamData.Workspace.Card.Open.Error as COE
 import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.Query.Error as CQE
 import SlamData.Workspace.Card.Search.Error as CSE
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Error as CPT
-import SlamData.Workspace.Card.Setups.FormInput.Labeled.Error as FILE
-import SlamData.Workspace.Card.Setups.FormInput.Static.Error as FISE
+import SlamData.Workspace.Card.Setups.PivotTable.Error as CPT
+import SlamData.Workspace.Card.Setups.Viz.Error.Static as FISE
+import SlamData.Workspace.Card.Setups.Viz.Error.Select as FILE
 import SlamData.Workspace.Card.Table.Error as CTE
 import SlamData.Workspace.Card.Variables.Error as CVE
+import SlamData.Workspace.Card.Setups.Viz.Error as SVE
 import Utils (throwVariantError)
 
 type CardError = Variant
@@ -44,17 +45,18 @@ type CardError = Variant
   , stringly ∷ String
   , resource ∷ ResourceError
   , cache ∷ CCE.CacheError
-  , chart ∷ CHE.ChartError
+  , chart ∷ VE.ChartError
   , downloadOptions ∷ CDLOE.DownloadOptionsError
-  , formInputLabeled ∷ FILE.FormInputLabeledError
-  , formInputStatic ∷ FISE.FormInputStaticError
+  , formInputLabeled ∷ FILE.Error
+  , formInputStatic ∷ FISE.Error
   , markdown ∷ CMDE.MarkdownError
   , open ∷ COE.OpenError
-  , pivotTable ∷ CPT.PivotTableError
+  , pivotTable ∷ CPT.Error
   , query ∷ CQE.QueryError
   , search ∷ CSE.SearchError
   , table ∷ CTE.TableError
   , variables ∷ CVE.VariablesError
+  , setupViz ∷ SVE.Error
   )
 
 newtype ResourceError = ResourceError (L.List VM.Resource)
@@ -78,6 +80,7 @@ _query = SProxy ∷ SProxy "query"
 _search = SProxy ∷ SProxy "search"
 _table = SProxy ∷ SProxy "table"
 _variables = SProxy ∷ SProxy "variables"
+_setupViz = SProxy ∷ SProxy "setupViz"
 
 showCardError ∷ CardError → String
 showCardError =
@@ -97,6 +100,7 @@ showCardError =
     # on _search (\err → "(SearchCardError " <> show err <> ")")
     # on _table (\err → "(TableCardError " <> show err <> ")")
     # on _variables (\err → "(VariablesCardError " <> show err <> ")")
+    # on _setupViz (\err → "(SetupVizError " <> SVE.showError err <> ")")
 
 cardToGlobalError ∷ CardError → Maybe GE.GlobalError
 cardToGlobalError =
@@ -105,7 +109,7 @@ cardToGlobalError =
     # on _stringly (const Nothing)
     # on _resource (const Nothing)
     # on _cache CCE.cacheToGlobalError
-    # on _chart CHE.chartToGlobalError
+    # on _chart VE.chartToGlobalError
     # on _downloadOptions (const Nothing)
     # on _formInputLabeled (const Nothing)
     # on _formInputStatic (const Nothing)
@@ -116,6 +120,7 @@ cardToGlobalError =
     # on _search CSE.searchToGlobalError
     # on _table CTE.tableToGlobalError
     # on _variables (const Nothing)
+    # on _setupViz (const Nothing)
 
 -- TODO(Christoph): use this warn constraint to track down unstructured error messages
 -- throw ∷ ∀ m a. MonadThrow CardError m ⇒ Warn "You really don't want to" ⇒ String → m a

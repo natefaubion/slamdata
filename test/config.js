@@ -4,7 +4,7 @@ var databaseHost = env.getEnv("CONNECTOR_HOST")();
 var databasePort = env.getEnv("CONNECTOR_PORT")();
 var databaseType = env.getEnv("CONNECTOR_TYPE")();
 var quasarPort = env.getEnv("QUASAR_PORT")();
-
+var whoami = env.getEnv("USER")();
 
 module.exports = {
   selenium: {
@@ -22,5 +22,6 @@ module.exports = {
   },
   download: {
     folder: "tmp/test/downloads"
-  }
+  },
+  whoami: whoami
 }

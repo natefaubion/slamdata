@@ -24,11 +24,12 @@ body
 .content
   max-width: 75rem
   margin: auto
-  padding: 5rem 1.5rem 0 1.5rem
+  padding: 5rem 1.5rem 0
 
 
 button:focus
-  outline: 0
+  outline: none
+
 
 code
   padding: 0.1em 0.3em
@@ -143,7 +144,7 @@ ol.breadcrumb
 
   button, label
     background: none
-    border: 0
+    border: none
     padding: 0 0.5rem
     color: $link-color
 
@@ -176,7 +177,7 @@ ol.breadcrumb
   button
     padding: 1rem
     background: none
-    border: 0
+    border: none
     color: $brand-primary
     cursor: pointer
 
@@ -339,12 +340,9 @@ div.chart-card-editor
 
 
 .noselect
-  -webkit-touch-callout: none  // iOS Safari
-  -webkit-user-select: none  // Chrome/Safari/Opera
-  -moz-user-select: none  // Firefox
-  -ms-user-select: none  // Internet Explorer/Edge
-  user-select: none  // Non-prefixed version, currently not supported by any browser
-  -webkit-user-drag: none  // bonus for webkit, prevents things being dragged
+  -webkit-touch-callout: none
+  user-drag: none
+  user-select: none
 
 button
   @extend .noselect

@@ -372,7 +372,10 @@ loadingPanel ∷ DeckHTML
 loadingPanel =
   HH.div
     [ HP.classes [ HH.ClassName "sd-pending-overlay" ] ]
-    [ HH.div_
+    [ HH.div
+        [ HP.classes [ HH.ClassName "sd-pending-overlay-backdrop" ] ]
+        []
+    , HH.div_
         [ RC.spinner
         , HH.span_ [ HH.text "Please wait while this card is evaluated" ]
         ]

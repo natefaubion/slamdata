@@ -1,28 +1,33 @@
-
 $picker-error-color: $brand-danger !default
+
 
 .Picker
   list-style: none
   padding: 0
   margin: 0
 
+
 .Picker-component
   display: inline-block
 
+
 .Picker-placeholder
   white-space: pre
+
 
 .Picker .Picker
   margin: 0
   display: inline-block
 
+
 .Picker-component + .Picker-component,
 .Picker .Picker + .Picker
   margin-left: 0.5ch
 
+
 // We need this to increase specificity to override default input styles
-// .foo.foo.foo is same as .foo but with specifisity 3 instead of 1
-// for more see: https://csswizardry.com/2014/07/hacks-for-dealing-with-specificity/#safely-increasing-specificity
+// `.foo.foo.foo` is same as `.foo` but with specificity 3 instead of 1.
+// For more see: https://csswizardry.com/2014/07/hacks-for-dealing-with-specificity/#safely-increasing-specificity
 .Picker-input.Picker-input.Picker-input
   margin: 0
   box-sizing: content-box
@@ -30,7 +35,7 @@ $picker-error-color: $brand-danger !default
   display: inline-block
   height: 3.2rem
   line-height: 3.2rem
-  padding: 0 .75rem
+  padding: 0 0.75rem
 
   &.Picker-input--invalid
     color: $picker-error-color
@@ -53,6 +58,8 @@ $picker-error-color: $brand-danger !default
     &.Picker-input--length-#{$i}
       width: 1.2em * $i
 
+  // sass-lint:disable-all
   &.Picker-input--choice
     // https://stackoverflow.com/questions/13252835/safari-change-select-height
     -webkit-appearance: menulist-button
+    // sass-lint:enable-all

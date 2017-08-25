@@ -210,15 +210,6 @@ gulp.task("watch-sass", ["sass"], () => gulp.watch("./sass/**/*.sass", ["sass"])
 
 gulp.task("full", [ "add-headers", "trim-whitespace" ]);
 
-gulp.task("version-css", () => {
-  return gulp.src("./public/css/light.css")
-    .pipe(vinylPaths(del))
-    .pipe(rename((path) => {
-      path.basename += "-" + packageInfo.version;
-    }))
-    .pipe(gulp.dest("./public/css/"));
-})
-
 gulp.task("version-js", () => {
   return gulp.src(["./public/js/workspace.js", "./public/js/filesystem.js"])
     .pipe(vinylPaths(del))
@@ -228,23 +219,13 @@ gulp.task("version-js", () => {
     .pipe(gulp.dest("./public/js/"));
 })
 
-gulp.task("version-files", ["version-css", "version-js"])
+gulp.task("version-files", ["version-js"])
 
 gulp.task("version-inject", () => {
-  const styles = file("style-embed", "<link id=\"theme-css\" rel=\"stylesheet\" href=\"css/light-" + packageInfo.version + ".css\">", { src: true })
   const workspaceJS = file("workspace-embed", "<script type=\"text/javascript\" src=\"js/workspace-" + packageInfo.version + ".js\"></script>", { src: true })
   const filesystemJS = file("filesystem-embed", "<script type=\"text/javascript\" src=\"js/filesystem-" + packageInfo.version + ".js\"></script>", { src: true })
 
   return gulp.src("./public/**/*.html")
-    .pipe(inject(styles, {
-      starttag: "<!-- styles -->",
-      endtag: "<!-- /styles -->",
-      removeTags: false,
-      transform: (filePath, file) => {
-        console.log(filePath);
-        return file.contents.toString("utf8")
-      }
-    }))
     .pipe(inject(filesystemJS, {
       starttag: "<!-- filesystem-js -->",
       endtag: "<!-- /filesystem-js -->",

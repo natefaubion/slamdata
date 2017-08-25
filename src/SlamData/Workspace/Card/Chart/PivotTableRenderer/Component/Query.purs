@@ -17,7 +17,7 @@ limitations under the License.
 module SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.Query where
 
 import DOM.Event.Types (Event)
-import SlamData.Workspace.Card.Chart.PivotTableRenderer.Model as PTRM
+import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Model as PTRM
 import SlamData.Workspace.Card.Eval.State as ES
 
 data Query a

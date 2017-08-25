@@ -34,7 +34,7 @@ import Control.Monad.Aff (delay, forkAff)
 import Control.Monad.Aff.AVar (AVar, makeVar, takeVar, putVar)
 
 import Data.Array as Array
-import Data.HeytingAlgebra (tt, ff, implies)
+import Data.HeytingAlgebra (implies)
 
 import Halogen as H
 import Halogen.Component.Utils (busEventSource)

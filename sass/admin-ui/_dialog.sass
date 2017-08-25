@@ -1,0 +1,36 @@
+.sd-admin-ui-user-new-user
+  .sd-admin-ui-autocomplete
+    margin-top: $padding-base-horizontal
+
+  .sd-admin-ui-user-new-user-group
+    display: flex
+    // This way we don't cover up the buttons with the dropdown
+    margin-right: 18rem
+
+.sd-admin-ui-user-permissions
+  .sd-admin-ui-user-permissions-add-group
+    display: flex
+    margin-bottom: $padding-base-horizontal
+
+    .sd-admin-ui-autocomplete
+      margin-right: $padding-base-vertical
+
+  .sd-admin-ui-user-permissions-groups
+    padding: 0
+
+    .sd-admin-ui-user-permissions-group
+      display: flex
+      justify-content: space-between
+      align-items: center
+      border-top: 0.1rem solid $color-separator
+
+      &:last-child
+        border-bottom: 0.1rem solid $color-separator
+
+    .sd-admin-ui-user-permissions-group-label
+      display: block
+      padding: $padding-base-horizontal 0
+
+    .sd-admin-ui-user-permissions-group-actions > a
+      cursor: pointer
+      padding: $padding-base-horizontal $padding-base-vertical

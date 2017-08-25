@@ -53,7 +53,7 @@ type HTML = CC.InnerCardParentHTML Query CS.ChildQuery CS.ChildSlot
 
 component ∷ CC.CardOptions → CC.CardComponent
 component =
-  CC.makeCardComponent CT.StructureEditor $ H.lifecycleParentComponent
+  CC.makeCardComponent CT.structureEditor $ H.lifecycleParentComponent
     { render: render
     , eval: evalCard ⨁ evalStructureEditor
     , initialState: const S.initialState

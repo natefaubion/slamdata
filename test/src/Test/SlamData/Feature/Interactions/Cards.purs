@@ -24,6 +24,13 @@ addColumn str =
     Feature.click $ XPath.last $ XPath.anywhere $ XPath.anyWithExactText "Confirm"
     Expect.addColumnIsPresent
 
+checkField ∷ String → SlamFeature Unit
+checkField labelText =
+  annotate ("Checked field" <> labelText)
+    $ Feature.check
+      $ XPath.anywhere
+      $ "input" `XPath.withLabelWithExactText` labelText
+
 checkFieldInLastDeck ∷ String → SlamFeature Unit
 checkFieldInLastDeck labelText =
   annotate ("Checked field" <> labelText)

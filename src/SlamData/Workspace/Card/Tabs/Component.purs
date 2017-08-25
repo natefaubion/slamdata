@@ -53,7 +53,7 @@ type TabsHTML = CC.InnerCardParentHTML Query DCQ.Query DID.DeckId
 
 tabsComponent ∷ CardOptions → CC.CardComponent
 tabsComponent options =
-  CC.makeCardComponent CT.Tabs component options
+  CC.makeCardComponent CT.tabs component options
   where
   component = H.parentComponent
     { render: render options

@@ -41,7 +41,7 @@ type HTML = CC.InnerCardHTML Query
 
 component ∷ CC.CardOptions → CC.CardComponent
 component =
-  CC.makeCardComponent CT.DownloadOptions $ H.component
+  CC.makeCardComponent CT.downloadOptions $ H.component
     { render: render
     , eval: evalCard ⨁ evalComponent
     , initialState: const initialState

@@ -15,6 +15,10 @@ module SlamData.Workspace.Card.Port.VarMap
   ( Var(..)
   , VarMap
   , URLVarMap
+  , URLVarMapValue
+  , urlVarMapValue
+  , unURLVarMapValue
+  , unURLVarMapF
   , Resource(..)
   , VarMapValue(..)
   , VarMapPtr
@@ -40,7 +44,7 @@ module SlamData.Workspace.Card.Port.VarMap
   , downloadUrl
   ) where
 
-import SlamData.Prelude hiding (empty)
+import SlamData.Prelude hiding (empty, expand)
 import Data.Argonaut.Decode (class DecodeJson)
 import Data.Argonaut.Encode (class EncodeJson)
 import Data.Array as A
@@ -54,6 +58,7 @@ import SlamData.Workspace.Card.CardId as CID
 import SqlSquared (Sql)
 import SqlSquared as Sql
 import Test.StrongCheck.Arbitrary as SC
+import Unsafe.Coerce (unsafeCoerce)
 import Utils.Path as PU
 
 newtype Var = Var String
@@ -95,10 +100,24 @@ newtype VarMap = VarMap
 
 derive instance eqVarMap ∷ Eq VarMap
 
+newtype URLVarMapValue = URLVarMapValue String
+
+derive newtype instance decodeJsonURLVarMapValue ∷ DecodeJson URLVarMapValue
+derive newtype instance encodeJsonURLVarMapValue ∷ EncodeJson URLVarMapValue
+derive newtype instance eqURLVarMapValue ∷ Eq URLVarMapValue
+
+urlVarMapValue ∷ VarMapValue → Maybe URLVarMapValue
+urlVarMapValue = case _ of
+  Expr sql → Just $ URLVarMapValue $ Sql.print sql
+  _ → Nothing
+
+unURLVarMapValue ∷ URLVarMapValue → String
+unURLVarMapValue (URLVarMapValue s) = s
+
 -- | A VarMap passed through the URL - the VarMapValues are left unparsed until
 -- | they are unified with the Variables card for the deck so that values can
 -- | be parsed according to their defined type.
-type URLVarMap = SM.StrMap String
+type URLVarMap = SM.StrMap URLVarMapValue
 
 empty ∷ VarMap
 empty = VarMap { heap: Map.empty, scope: Map.empty }
@@ -154,9 +173,11 @@ lookupMark ptr (VarMap vm) = do
 toURLVarMap ∷ VarMap → URLVarMap
 toURLVarMap = SM.fromFoldable ∘ L.mapMaybe go ∘ expand
   where
-  go { name, mark, value: Expr sql } =
-    Just (uniqueVarName name mark × Sql.print sql)
-  go _ = Nothing
+  go { name, mark, value } =
+    Tuple (uniqueVarName name mark) <$> urlVarMapValue value
+
+unURLVarMapF ∷ ∀ f. Functor f => f URLVarMapValue → f String
+unURLVarMapF = unsafeCoerce
 
 uniqueVarName ∷ String → Int → String
 uniqueVarName vari 0 = vari
@@ -249,7 +270,7 @@ downloadUrl headers context r =
   query = case r of
     Process _ _ vm
       | not (isEmpty vm)
-      → Just (map Just <$> SM.toUnfoldable (toURLVarMap vm))
+      → Just (map (Just ∘ unURLVarMapValue) <$> SM.toUnfoldable (toURLVarMap vm))
     _ → Nothing
 
   query' =

@@ -46,11 +46,13 @@ module SlamData.Dialog.Component
 import SlamData.Prelude
 
 import Control.Monad.Eff.Class (class MonadEff)
+import DOM (DOM)
+import DOM.Event.Event (Event, preventDefault)
+import DOM.Event.Types (MouseEvent)
 import Data.Array as A
+import Data.List.NonEmpty as NEL
 import Data.List.Safe as SL
 import Data.Record as DR
-import DOM (DOM)
-import DOM.Event.Types (MouseEvent)
 import Halogen as H
 import Halogen.Component as HC
 import Halogen.Component.Proxy as Proxy
@@ -59,6 +61,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
+import Halogen.Query.HalogenM as HM
 import SlamData.Render.ClassName as CN
 import SlamData.Render.Common as RC
 import Type.Prelude (class RowLacks)
@@ -229,38 +232,68 @@ withFinalizer = DR.set (SProxy ∷ SProxy "finalizer") ∘ Just ∘ H.action
 
 -------------------------------------------------------------------------------
 
-buildDialog ∷ ∀ o m. DialogSpec o m → Proxy.ProxyComponent (Const Void) Unit (Message o) m
+data DialogFormQuery f a = HandleSubmit Event (Either (f a) a)
+
+buildDialog ∷ ∀ o m eff. MonadEff (dom ∷ DOM | eff) m ⇒ DialogSpec o m → Proxy.ProxyComponent (Const Void) Unit (Message o) m
 buildDialog = unDialogSpec buildDialog'
 
-buildDialog' ∷ ∀ s f g p o m. DialogSpecRec s f g p o m → Proxy.ProxyComponent (Const Void) Unit (Message o) m
+buildDialog' ∷ ∀ s f g p o m eff. MonadEff (dom ∷ DOM | eff) m ⇒ DialogSpecRec s f g p o m → Proxy.ProxyComponent (Const Void) Unit (Message o) m
 buildDialog' spec@{ render: Render (Tuple mkOrdBox renderInner), eval: Eval evalInner } =
   Proxy.proxy (HC.mkComponent
     { initialState: const spec.initialState
     , render: render'
-    , eval: evalInner
+    , eval: eval'
     , receiver: const Nothing
-    , initializer: spec.initializer
-    , finalizer: spec.finalizer
+    , initializer: map right spec.initializer
+    , finalizer: map right spec.finalizer
     , mkOrdBox
     })
   where
-    render' ∷ s → H.ParentHTML f g p m
+    buttonDefs ∷ Array (Button s f)
+    buttonDefs = SL.toUnfoldable spec.buttons
+
+    actionButtonDef ∷ Button s f
+    actionButtonDef = NEL.last (SL.toNEL spec.buttons)
+
+    eval' ∷ Coproduct (DialogFormQuery f) f ~> H.ParentDSL s (Coproduct (DialogFormQuery f) f) g p (Message o) m
+    eval' = coproduct evalDialogInner (HM.mapQuery right ∘ evalInner)
+
+    evalDialogInner ∷ (DialogFormQuery f) ~> H.ParentDSL s (Coproduct (DialogFormQuery f) f) g p (Message o) m
+    evalDialogInner = case _ of
+      HandleSubmit ev eqa → do
+        H.liftEff $ preventDefault ev
+        case eqa of
+          Left q → HM.mapQuery right $ evalInner q
+          Right a → pure a
+
+    render' ∷ s → H.ParentHTML (Coproduct (DialogFormQuery f) f) g p m
     render' state =
-      HH.div
-        [ HP.classes (H.ClassName "sd-dialog" `A.cons` spec.classes) ]
-        [ HH.div
-            [ HP.class_ (HH.ClassName "sd-dialog-header") ]
-            [ HH.div
-                [ HP.class_ (HH.ClassName "sd-dialog-title") ]
-                [ HH.h4_ [ HH.text spec.title ] ]
-            ]
-        , HH.div
-            [ HP.class_ (H.ClassName "sd-dialog-body") ]
-            [ renderInner state ]
-        , HH.div
-            [ HP.class_ (H.ClassName "sd-dialog-footer") ]
-            $ renderButtons state (spec.pending state) (SL.toUnfoldable spec.buttons)
-        ]
+      let
+        isPending = spec.pending state
+        submitAction =
+          maybe (Right unit) Left
+            if isPending
+              then Nothing
+              else H.action <$> (unwrap actionButtonDef).action state
+      in
+        HH.form
+          [ HP.classes (H.ClassName "sd-dialog" `A.cons` spec.classes)
+          , HE.onSubmit \ev → Just (left (HandleSubmit ev submitAction))
+          ]
+          $ bimap (rmap right) right <$>
+              [ HH.div
+                  [ HP.class_ (HH.ClassName "sd-dialog-header") ]
+                  [ HH.div
+                      [ HP.class_ (HH.ClassName "sd-dialog-title") ]
+                      [ HH.h4_ [ HH.text spec.title ] ]
+                  ]
+              , HH.div
+                  [ HP.class_ (H.ClassName "sd-dialog-body") ]
+                  [ renderInner state ]
+              , HH.div
+                  [ HP.class_ (H.ClassName "sd-dialog-footer") ]
+                  $ renderButtons state isPending buttonDefs
+              ]
 
 renderButtons ∷ ∀ s f g p m. s → Boolean → Array (Button s f) → Array (H.ParentHTML f g p m)
 renderButtons state disabled xs =
@@ -272,15 +305,15 @@ renderButtons state disabled xs =
       [ guard (not A.null lefts) $>
           HH.div
             [ HP.class_ (H.ClassName "sd-dialog-footer-left") ]
-            (renderButton state disabled <$> lefts)
+            (A.mapWithIndex (renderButton state disabled ∘ const Nothing) lefts)
       , pure $
           HH.div
             [ HP.class_ (H.ClassName "sd-dialog-footer-right") ]
-            (renderButton state disabled <$> rights)
+            (A.mapWithIndex (renderButton state disabled ∘ Just) rights)
       ]
 
-renderButton ∷ ∀ s f g p m. s → Boolean → Button s f → H.ParentHTML f g p m
-renderButton state disabled (Button { label, classes, action, pending }) =
+renderButton ∷ ∀ s f g p m. s → Boolean → Maybe Int → Button s f → H.ParentHTML f g p m
+renderButton state disabled ix (Button { label, classes, action, pending }) =
   let
     query = action state
     classes' = if A.null classes then [CN.btnDefault] else classes
@@ -288,7 +321,7 @@ renderButton state disabled (Button { label, classes, action, pending }) =
     HH.button
       (join
         [ pure $ HP.classes $ A.cons CN.btn classes'
-        , pure $ HP.type_ HP.ButtonButton
+        , pure $ HP.type_ (if ix == Just 0 then HP.ButtonSubmit else HP.ButtonButton)
         , pure $ HP.enabled (not disabled && isJust query)
         , foldMap (pure ∘ HE.onClick ∘ HE.input_) query
         , pure $ ARIA.label label
@@ -300,6 +333,8 @@ renderButton state disabled (Button { label, classes, action, pending }) =
 
 renderProgressSpinner ∷ ∀ f g p m. String → Array (H.ParentHTML f g p m)
 renderProgressSpinner label =
-  [ RC.spinner
+  [ HH.div
+    [ HP.class_ (H.ClassName "dialog-loader-btn") ]
+    [ RC.spinnerSmall ]
   , HH.span [ HP.class_ CN.srOnly ] [ HH.text label ]
   ]

@@ -1,7 +1,7 @@
 .sd-action-list
+  @extend .noselect
   $spacing: 0.5
   $size: $grid-size * 4
-  @extend .noselect
   display: flex
   flex-direction: column
   justify-content: space-around
@@ -116,7 +116,7 @@ form.sd-action-filter
     width: 1.8rem
     height: 2.6rem
     margin: 0.5rem 0
-    border: 0
+    border: none
     padding: 0
     background: transparent
     line-height: 0
@@ -147,7 +147,6 @@ form.sd-action-filter
   ul li button
     background-color: $action-list-active-bg
     color: $action-list-active-color
-    1
 
     &:not(.sd-button-warning):not(:disabled)
       background-color: darken($action-list-active-bg, 20%)

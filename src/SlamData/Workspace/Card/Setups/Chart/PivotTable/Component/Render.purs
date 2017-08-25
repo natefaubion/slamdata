@@ -28,12 +28,12 @@ import Halogen.HTML.CSS as HC
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
-import SlamData.Workspace.Card.Component as CC
+import SlamData.Monad (Slam)
 import SlamData.Workspace.Card.Setups.ActionSelect.Component as AS
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.ChildSlot as PCS
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.Query (Query(..), ForDimension(..))
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Component.State as PS
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
+import SlamData.Workspace.Card.Setups.PivotTable.Component.ChildSlot as CS
+import SlamData.Workspace.Card.Setups.PivotTable.Component.Query as Q
+import SlamData.Workspace.Card.Setups.PivotTable.Component.State as PS
+import SlamData.Workspace.Card.Setups.PivotTable.Model as PTM
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.DimensionPicker.Column (showColumn)
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
@@ -44,7 +44,7 @@ import SlamData.Workspace.Card.Setups.Transform.Numeric as N
 import SlamData.Workspace.Card.Setups.Transform.Place.Component as TPC
 import Utils (showPrettyJCursor, showJCursorTip)
 
-type HTML = CC.InnerCardParentHTML Query PCS.ChildQuery PCS.ChildSlot
+type HTML = H.ParentHTML Q.Query CS.ChildQuery CS.ChildSlot Slam
 
 render ∷ String → PS.State → HTML
 render uniqueCardId st =
@@ -70,7 +70,7 @@ render uniqueCardId st =
 renderSelect ∷ String → PS.Selecting → HTML
 renderSelect uniqueCardId = case _ of
   PS.SelectColumn values →
-    HH.slot' PCS.cpCol unit
+    HH.slot' CS.cpCol unit
       (DPC.picker
         { title: "Choose column"
         , label: DPC.labelNode (showColumn showJCursorTip)
@@ -79,9 +79,9 @@ renderSelect uniqueCardId = case _ of
         , isSelectable: DPC.isLeafPath
         })
       unit
-      (Just ∘ right ∘ H.action ∘ HandleColumnPicker)
+      (Just ∘ H.action ∘ Q.HandleColumnPicker)
   PS.SelectGroupBy values →
-    HH.slot' PCS.cpDim unit
+    HH.slot' CS.cpDim unit
       (DPC.picker
         { title: "Choose dimension"
         , label: DPC.labelNode showJCursorTip
@@ -90,9 +90,9 @@ renderSelect uniqueCardId = case _ of
         , isSelectable: DPC.isLeafPath
         })
       unit
-      (Just ∘ right ∘ H.action ∘ HandleGroupByPicker)
+      (Just ∘ H.action ∘ Q.HandleGroupByPicker)
   PS.SelectTransform slot selection options →
-    HH.slot' PCS.cpTransform unit AS.component
+    HH.slot' CS.cpTransform unit AS.component
       { options
       , selection: (\a → a × a) <$> selection
       , title: "Choose transformation"
@@ -104,19 +104,19 @@ renderSelect uniqueCardId = case _ of
           T.Numeric (N.Ceil _) → Just $ HCP.proxy TPC.transformCeil
           _ → Nothing
       }
-      (Just ∘ right ∘ H.action ∘ HandleTransformPicker slot)
+      (Just ∘ H.action ∘ Q.HandleTransformPicker slot)
   PS.SelectFormatting slot options →
     HH.slot'
-      PCS.cpFormatting
+      CS.cpFormatting
       unit
       (Display.component (uniqueCardId <> "-" <> mkDimensionId slot))
       options
-      (Just ∘ right ∘ H.action ∘ HandleFormatting slot)
+      (Just ∘ H.action ∘ Q.HandleFormatting slot)
 
-mkDimensionId ∷ ForDimension → String
+mkDimensionId ∷ Q.ForDimension → String
 mkDimensionId = case _ of
-  ForGroupBy i → "groupby-" <> show i
-  ForColumn i → "col-" <> show i
+  Q.ForGroupBy i → "groupby-" <> show i
+  Q.ForColumn i → "col-" <> show i
 
 renderedDimensions
   ∷ Maybe PS.OrderingOpts
@@ -136,7 +136,7 @@ renderedDimensions orderingDimension dimensions =
             [ HP.classes [ HH.ClassName "sd-pivot-options-dim-inner"] ]
             [ HH.button
                 [ HP.classes [ HH.ClassName "sd-pivot-options-plus" ]
-                , HE.onClick (HE.input_ (right ∘ AddGroupBy))
+                , HE.onClick (HE.input_ Q.AddGroupBy)
                 , ARIA.label "Add dimension"
                 , HP.title "Add dimension"
                 ]
@@ -166,15 +166,16 @@ renderDimension orderingDimension size (slot × dimension) =
             , showLabel: absurd
             , showDefaultLabel: showPrettyJCursor
             , showValue: showPrettyJCursor
-            , onLabelChange: HE.input (\l → right ∘ ChangeLabel (ForGroupBy slot) l)
-            , onDismiss: HE.input_ (right ∘ Remove (ForGroupBy slot))
-            , onConfigure: HE.input_ (right ∘ Configure (ForGroupBy slot))
+            , onLabelChange: HE.input (Q.ChangeLabel (Q.ForGroupBy slot))
+            , onDismiss: HE.input_ (Q.Remove (Q.ForGroupBy slot))
+            , onConfigure: HE.input_ (Q.Configure (Q.ForGroupBy slot))
             , onSetupFormatting: const Nothing
-            , onMouseDown: HE.input (\e → right ∘ OrderStart (ForGroupBy slot) e)
+            , onMouseDown: HE.input (Q.OrderStart (Q.ForGroupBy slot))
             , onClick: const Nothing
             , onLabelClick: const Nothing
             , disabled: false
             , dismissable: true
+            , labelless: false
             }
         ]
     ]
@@ -195,8 +196,8 @@ renderDimension orderingDimension size (slot × dimension) =
     dimensionEvents =
       if isJust orderingDimension
         then
-          [ HE.onMouseOver (HE.input_ (right ∘ OrderOver (ForGroupBy slot)))
-          , HE.onMouseOut (HE.input_ (right ∘ OrderOut (ForGroupBy slot)))
+          [ HE.onMouseOver (HE.input_ (Q.OrderOver (Q.ForGroupBy slot)))
+          , HE.onMouseOut (HE.input_ (Q.OrderOut (Q.ForGroupBy slot)))
           ]
         else
           []
@@ -221,7 +222,7 @@ renderedColumns orderingColumn columns =
                 [ HP.classes [ HH.ClassName "sd-pivot-options-col-value" ] ]
                 [ HH.button
                     [ HP.classes [ HH.ClassName "sd-pivot-options-plus" ]
-                    , HE.onClick (HE.input_ (right ∘ AddColumn))
+                    , HE.onClick (HE.input_ Q.AddColumn)
                     , ARIA.label "Add column"
                     , HP.title "Add column"
                     ]
@@ -252,15 +253,16 @@ renderColumn orderingColumn size (slot × formatOptions × dimension@(D.Dimensio
             , showLabel: absurd
             , showDefaultLabel: showColumn showPrettyJCursor
             , showValue: showColumn showPrettyJCursor
-            , onLabelChange: HE.input (\l → right ∘ ChangeLabel (ForColumn slot) l)
-            , onDismiss: HE.input_ (right ∘ Remove (ForColumn slot))
-            , onConfigure: HE.input_ (right ∘ Configure (ForColumn slot))
-            , onSetupFormatting: HE.input_ (right ∘ SetupFormatting (ForColumn slot))
-            , onMouseDown: HE.input (\e → right ∘ OrderStart (ForColumn slot) e)
+            , onLabelChange: HE.input (Q.ChangeLabel (Q.ForColumn slot))
+            , onDismiss: HE.input_ (Q.Remove (Q.ForColumn slot))
+            , onConfigure: HE.input_ (Q.Configure (Q.ForColumn slot))
+            , onSetupFormatting: HE.input_ (Q.SetupFormatting (Q.ForColumn slot))
+            , onMouseDown: HE.input (Q.OrderStart (Q.ForColumn slot))
             , onClick: const Nothing
             , onLabelClick: const Nothing
             , disabled: false
             , dismissable: true
+            , labelless: false
             }
         ]
     ]
@@ -281,8 +283,8 @@ renderColumn orderingColumn size (slot × formatOptions × dimension@(D.Dimensio
     columnEvents =
       if isJust orderingColumn
         then
-          [ HE.onMouseOver (HE.input_ (right ∘ OrderOver (ForColumn slot)))
-          , HE.onMouseOut (HE.input_ (right ∘ OrderOut (ForColumn slot)))
+          [ HE.onMouseOver (HE.input_ (Q.OrderOver (Q.ForColumn slot)))
+          , HE.onMouseOut (HE.input_ (Q.OrderOut (Q.ForColumn slot)))
           ]
         else
           []

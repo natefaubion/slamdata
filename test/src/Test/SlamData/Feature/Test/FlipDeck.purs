@@ -30,7 +30,6 @@ mkDeckWithLastTable = do
         "select measureOne, measureTwo from `/test-mount/testDb/flatViz`"
     Interact.runQuery
     Interact.accessNextCardInFirstDeck
-    Interact.selectBuildChart
     Interact.insertPivotCard
     Interact.addColumn "measureOne"
     Interact.addColumn "measureTwo"

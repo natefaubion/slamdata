@@ -79,7 +79,7 @@
   .deck-dialog-footer
     flex: 0 0 auto
     padding-top: $padding-base-horizontal
-    padding-right: 0rem
+    padding-right: 0
 
     &.share
       margin-top: 0
@@ -115,14 +115,12 @@
 
 
 .dialog-container .dialog.license-dialog
-  $sd-orange: #ff8600
-  $bg: #161616
   $col: #fff
   max-width: 38.6rem
   width: auto
   min-width: auto
   padding: $padding-base-horizontal * 2
-  background-color: $bg
+  background-color: $slamdata-bg
   color: $col
 
   p
@@ -137,10 +135,10 @@
 
   .deck-dialog-footer
     $m: $padding-base-horizontal
-    padding-bottom: $padding-base-horizontal
     display: flex
     flex-flow: row nowrap
-    margin: 0 ($m * -1)
+    margin: 1.6rem ($m * -1) 0
+    padding-bottom: 0
 
     .btn
       flex: 1 1 50%
@@ -154,25 +152,20 @@
       &:not(:last-child)
         margin-right: $m !important
 
-  .deck-dialog-footer
-    margin-top: 1.6rem
-    margin-bottom: 0
-    padding-bottom: 0
-
   .btn
     padding-top: 0.6em
     padding-bottom: 0.8em
-    background: $sd-orange
-    border: 0.1rem solid $sd-orange
+    background: $slamdata-orange
+    border: 0.1rem solid $slamdata-orange
     color: $col
-    text-shadow: 0 -0.1rem 0 darken($sd-orange, 7.5%)
+    text-shadow: 0 -0.1rem 0 darken($slamdata-orange, 7.5%)
     transition-property: background-color, border-color, color
     transition-duration: 200ms
     transition-timing-function: ease-out
 
     &:hover, &:active
-      background-color: $sd-orange
-      background-image: linear-gradient(to bottom, darken($sd-orange, 5%), darken($sd-orange, 2.5%))
+      background-color: $slamdata-orange
+      background-image: linear-gradient(to bottom, darken($slamdata-orange, 5%), darken($slamdata-orange, 2.5%))
       color: $col
 
     &:active

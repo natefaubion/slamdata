@@ -25,7 +25,7 @@
   cursor: pointer
   padding: 0
   margin: 0
-  border: 0
+  border: none
   top: 0
   left: 0
   right: 0
@@ -96,7 +96,7 @@
     cursor: n-resize
 
   .sd-draftboard-edge-top &::before
-    border-width: 0.4rem 0.3rem 0 0.3rem
+    border-width: 0.4rem 0.3rem 0
     border-top-color: $draftboard-edge-color
     margin-top: -0.2rem
     margin-left: -0.4rem
@@ -114,7 +114,7 @@
     margin-left: -0.2rem
 
   .sd-draftboard-edge-bottom &::before
-    border-width: 0 0.3rem 0.4rem 0.3rem
+    border-width: 0 0.3rem 0.4rem
     border-bottom-color: $draftboard-edge-color
     margin-top: -0.2rem
     margin-left: -0.4rem
@@ -161,7 +161,9 @@
   padding: 0
   line-height: 2em
   text-align: center
+  // sass-lint:disable no-transition-all
   transition: 0.1s ease-out all
+  // sass-lint:enable no-transition-all
   top: 0
   left: 0
 
@@ -223,7 +225,7 @@
     display: none
 
   &.invalid
-    border-color: #f00
+    border-color: $brand-danger
 
   &.horizontal
     width: 1rem
@@ -277,7 +279,7 @@
     top: 0
     left: -0.4rem
     width: 0.1rem
-    border-width: 0 0.3rem 0.7rem 0.3rem
+    border-width: 0 0.3rem 0.7rem
     border-bottom-color: $draftboard-guide-color
 
   .vertical.gt &
@@ -287,7 +289,7 @@
     bottom: 0.1rem
     left: -0.4rem
     width: 0.1rem
-    border-width: 0.7rem 0.3rem 0 0.3rem
+    border-width: 0.7rem 0.3rem 0
     border-top-color: $draftboard-guide-color
 
   .horizontal &

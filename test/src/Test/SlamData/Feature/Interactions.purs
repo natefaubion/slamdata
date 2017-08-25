@@ -4,12 +4,14 @@ module Test.SlamData.Feature.Interactions
        , module Decks
        , module FS
        , module HNG
+       , module IE
        , launchSlamData
        )
        where
 
 import Test.SlamData.Feature.Interactions.Cards
        ( addColumn
+       , checkField
        , checkFieldInLastDeck
        , doSaveInLastCacheCard
        , expandNewCardMenu
@@ -30,8 +32,7 @@ import Test.SlamData.Feature.Interactions.Cards
        ) as Cards
 
 import Test.SlamData.Feature.Interactions.Chart
-       ( selectBuildChart
-       , selectInChartBuilder
+       ( selectInChartBuilder
        , activateCategoryForChartBuilder
        , activateMeasureForChartBuilder
        , activateStackForChartBuilder
@@ -80,8 +81,6 @@ import Test.SlamData.Feature.Interactions.FileSystem
        , createWorkspaceInTestFolder
        , deleteFile
        , deleteFileInTestFolder
-       , downloadFileAsCSV
-       , downloadFileAsJSON
        , editWorkspace
        , hideHiddenFiles
        , mountTestDatabase
@@ -94,8 +93,18 @@ import Test.SlamData.Feature.Interactions.FileSystem
        , setupMarklogic
        , shareFile
        , showHiddenFiles
-       , uploadFile
        ) as FS
+
+import Test.SlamData.Feature.Interactions.ImportExport
+       ( deleteDownloadedFile
+       , downloadFileAsCSV
+       , downloadFileAsCSVZip
+       , downloadFileAsJSON
+       , downloadFileAsJSONZip
+       , fileLocation
+       , uploadFile
+       , uploadLocalFile
+       ) as IE
 
 import Test.SlamData.Feature.Interactions.HintsAndGuides
        ( dismissHint

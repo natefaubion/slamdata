@@ -61,8 +61,6 @@ env:
 cache:
   directories:
   - $CACHE_DIR
-  - bower_components
-  - node_modules
 
 before_deploy:
 - mkdir -p slamdata

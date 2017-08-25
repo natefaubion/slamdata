@@ -11,7 +11,6 @@ import Test.SlamData.Feature.Expectations as Expect
 import Test.SlamData.Feature.Interactions.Deck (nameDeck)
 import Test.SlamData.Feature.Monad (Connector(..), SlamFeature, getConfig, getConnector)
 import Test.SlamData.Feature.XPaths as XPaths
-import Test.Utils (appendToCwd)
 import XPath as XPath
 
 accessBreadcrumb ∷ String → SlamFeature Unit
@@ -75,20 +74,6 @@ deleteFile name =
 deleteFileInTestFolder ∷ String → SlamFeature Unit
 deleteFileInTestFolder name = browseTestFolder *> deleteFile name
 
-downloadFileAsCSV ∷ String → SlamFeature Unit
-downloadFileAsCSV fileName = do
-  selectFile fileName
-  Feature.click $ XPath.anywhere $ XPaths.downloadFile fileName
-  Feature.click $ XPath.anywhere $ XPaths.downloadButton
-  Feature.click $ XPath.anywhere $ XPaths.cancelButton
-
-downloadFileAsJSON ∷ String → SlamFeature Unit
-downloadFileAsJSON fileName = do
-  selectFile fileName
-  Feature.click $ XPath.anywhere $ XPaths.downloadFile fileName
-  Feature.click $ XPath.anywhere $ XPath.anyWithText "JSON"
-  Feature.click $ XPath.anywhere $ XPaths.downloadButton
-  Feature.click $ XPath.anywhere $ XPaths.cancelButton
 
 editWorkspace ∷ String → SlamFeature Unit
 editWorkspace name =
@@ -228,11 +213,3 @@ showHiddenFiles ∷ SlamFeature Unit
 showHiddenFiles =
   annotate "Showed hidden files"
     $ Feature.click $ XPath.anywhere $ XPaths.showHiddenFiles
-
-uploadFile ∷ String → SlamFeature Unit
-uploadFile name =
-  annotate ("Uploaded " <> name) do
-    (Feature.provideFileInputValue (XPath.anywhere $ XPaths.uploadFile)
-      <=< appendToCwd) name
-    -- the file can take a while to upload on Travis
-    later (Milliseconds 10000.0) $ pure unit

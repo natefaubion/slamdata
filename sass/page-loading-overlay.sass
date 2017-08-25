@@ -1,0 +1,37 @@
+// Some base styles for the page that work like base
+html
+  font-size: 62.5%
+  box-sizing: border-box
+
+
+*, *::before, *::after
+  box-sizing: inherit
+
+
+@import themes/light
+@import spinner
+
+
+#page-loading-overlay
+  left: 0
+  right: 0
+  background: $body-bg
+  color: $text-color
+  transition: opacity 275ms ease-out
+  pointer-events: all
+
+  &.fade-overlay, &.hide-overlay
+    pointer-events: none
+
+
+  &.fade-overlay
+    opacity: 0
+
+  &.hide-overlay
+    display: none
+
+    .sd-spinner-lg *
+      animation-play-state: paused
+
+  .sd-spinner-lg .indication-bar
+    border-top-color: $slamdata-orange

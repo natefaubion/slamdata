@@ -61,9 +61,9 @@ import Utils.Ace (getRangeRecs, readOnly)
 type DSL = CC.InnerCardParentDSL State Query AC.AceQuery Unit
 type HTML = CC.InnerCardParentHTML Query AC.AceQuery Unit
 
-aceComponent ∷ CT.AceMode → CC.CardOptions → CC.CardComponent
+aceComponent ∷ CT.Ace () → CC.CardOptions → CC.CardComponent
 aceComponent mode =
-  CC.makeCardComponent (CT.Ace mode) $ H.lifecycleParentComponent
+  CC.makeCardComponent (expand mode) $ H.lifecycleParentComponent
     { render: render mode
     , eval: evalCard mode ⨁ evalComponent
     , initialState: const initialState
@@ -90,7 +90,7 @@ evalComponent = case _ of
       H.modify _ { dirty = true }
     pure next
 
-evalCard ∷ CT.AceMode → CC.CardEvalQuery ~> DSL
+evalCard ∷ CT.Ace () → CC.CardEvalQuery ~> DSL
 evalCard mode = case _ of
   CC.Activate next → do
     mbEditor ← H.query unit $ H.request AC.GetEditor
@@ -148,18 +148,18 @@ evalCard mode = case _ of
     for_ (join mbEditor) $ H.liftEff ∘ Editor.resize Nothing
     pure $ reply if dims.width < 240.0 then Low else High
 
-aceSetup ∷ CT.AceMode → Editor → Slam Unit
+aceSetup ∷ CT.Ace () → Editor → Slam Unit
 aceSetup mode editor = do
   H.liftEff $ Editor.setTheme "ace/theme/chrome" editor
   H.liftEff $ Editor.setEnableLiveAutocompletion true editor
   H.liftEff $ Editor.setEnableBasicAutocompletion true editor
-  H.liftEff $ Session.setMode (CT.aceMode mode) =<< Editor.getSession editor
+  H.liftEff $ Session.setMode (CT.mode case_ mode) =<< Editor.getSession editor
   whenM (AccessType.isReadOnly ∘ _.accessType <$> Wiring.expose) do
     H.liftEff $ Editor.setReadOnly true editor
     H.liftEff $ Editor.setHighlightActiveLine false editor
     H.liftEff $ Editor.setStyle "sd-disabled" editor
 
-render ∷ CT.AceMode → State → HTML
+render ∷ CT.Ace () → State → HTML
 render mode state =
   HH.div
     [ HP.classes [ CN.cardInput, CN.aceContainer ] ]

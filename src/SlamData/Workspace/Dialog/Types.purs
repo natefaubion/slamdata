@@ -16,13 +16,16 @@ limitations under the License.
 
 module SlamData.Workspace.Dialog.Types where
 
+import SlamData.Prelude
 import Data.Map as Map
+import SlamData.Theme.Theme as Theme
 import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.CardType (CardType)
 import SlamData.Workspace.Card.InsertableCardType (InsertableCardType)
 import SlamData.Workspace.Card.Port.VarMap as Port
 import SlamData.Workspace.Deck.Options (DeckOptions)
 import SlamData.Workspace.Dialog.Share.Model (SharingInput)
+import SlamData.Workspace.Dialog.VizUnavailable.Component as VU
 import SlamData.License (LicenseProblem)
 
 data Dialog
@@ -33,5 +36,7 @@ data Dialog
   | Share DeckOptions SharingInput
   | Unshare DeckOptions SharingInput
   | Rename DeckOptions String
+  | Theme DeckOptions (Maybe Theme.Theme)
   | DeleteDeck DeckOptions
   | LicenseProblem LicenseProblem
+  | VizUnavailable VU.State

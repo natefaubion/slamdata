@@ -39,11 +39,11 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import SlamData.Render.CSS.New as RC
 import SlamData.Render.Icon as I
-import SlamData.Workspace.Card.Chart.PivotTableRenderer.Common (PTree, foldTree, sizeOfRow, topField)
+import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Common (PTree, foldTree, sizeOfRow, topField)
 import SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.Query as Q
 import SlamData.Workspace.Card.Chart.PivotTableRenderer.Component.State as S
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model (Column(..))
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model as PTM
+import SlamData.Workspace.Card.Setups.PivotTable.Model (Column(..))
+import SlamData.Workspace.Card.Setups.PivotTable.Model as PTM
 import SlamData.Workspace.Card.Setups.Dimension as D
 import SlamData.Workspace.Card.Setups.DisplayOptions.Model as Display
 import SlamData.Workspace.Card.Setups.Transform as T

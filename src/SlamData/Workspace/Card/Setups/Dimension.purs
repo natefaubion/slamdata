@@ -18,23 +18,25 @@ module SlamData.Workspace.Card.Setups.Dimension where
 
 import SlamData.Prelude
 
-import Data.Argonaut (JCursor(..), class EncodeJson, class DecodeJson, decodeJson, (~>), (:=), (.?), jsonEmptyObject, insideOut)
+import Data.Argonaut ((~>), (:=), (.?))
+import Data.Argonaut as J
 import Data.Array as Array
+import Data.Codec as C
+import Data.Codec.Argonaut as CA
 import Data.Lens (Lens', lens, Traversal', wander, _Just, (^?))
 import Data.Newtype (un)
 import Data.Set as Set
 import Data.String as String
 import Data.Traversable (sequenceDefault)
-
 import SlamData.Workspace.Card.Setups.Axis as Ax
 import SlamData.Workspace.Card.Setups.Transform (Transform(..))
 import SlamData.Workspace.Card.Setups.Transform.Aggregation as Ag
-
 import Test.StrongCheck.Arbitrary (class Arbitrary, arbitrary)
 import Test.StrongCheck.Gen as Gen
+import Test.StrongCheck.Data.Argonaut (ArbJCursor(..))
 
-type JCursorDimension = Dimension JCursor JCursor
-type LabeledJCursor = Dimension Void JCursor
+type JCursorDimension = Dimension J.JCursor J.JCursor
+type LabeledJCursor = Dimension Void J.JCursor
 
 data Dimension a b
   = Dimension (Maybe (Category a)) (Category b)
@@ -44,7 +46,7 @@ data Category p
   | Projection (Maybe Transform) p
 
 topDimension ∷ LabeledJCursor
-topDimension = Dimension Nothing $ Projection Nothing JCursorTop
+topDimension = Dimension Nothing $ Projection Nothing J.JCursorTop
 
 projection ∷ ∀ a b. b → Dimension a b
 projection = Dimension Nothing <<< Projection Nothing
@@ -152,26 +154,52 @@ instance traversableDimension ∷ Traversable (Dimension a) where
   traverse f (Dimension a pr) = Dimension a <$> traverse f pr
   sequence = sequenceDefault
 
-instance encodeJsonDimension ∷ (EncodeJson a, EncodeJson b) ⇒ EncodeJson (Dimension a b) where
-  encodeJson (Dimension category value) = "value" := value ~> "category" := category ~> jsonEmptyObject
+instance
+  encodeJsonDimension
+  ∷ ( J.EncodeJson a, J.EncodeJson b )
+  ⇒ J.EncodeJson (Dimension a b)
+  where
+    encodeJson (Dimension category value) =
+      "value" := value
+      ~> "category" := category
+      ~> J.jsonEmptyObject
 
-instance encodeJsonCategory ∷ EncodeJson p ⇒ EncodeJson (Category p) where
+instance encodeJsonCategory ∷ J.EncodeJson p ⇒ J.EncodeJson (Category p) where
   encodeJson = case _ of
-    Static value → "type" := "static" ~> "value" := value ~> jsonEmptyObject
-    Projection transform value → "type" := "projection" ~> "value" := value ~> "transform" := transform ~> jsonEmptyObject
+    Static value →
+      "type" := "static"
+      ~> "value" := value
+      ~> J.jsonEmptyObject
+    Projection transform value →
+      "type" := "projection"
+      ~> "value" := value
+      ~> "transform" := transform
+      ~> J.jsonEmptyObject
 
-instance decodeJsonDimension ∷ (DecodeJson a, DecodeJson b) ⇒ DecodeJson (Dimension a b) where
+instance
+  decodeJsonDimension
+  ∷ ( J.DecodeJson a, J.DecodeJson b )
+    ⇒ J.DecodeJson (Dimension a b) where
   decodeJson json = do
-    obj ← decodeJson json
-    Dimension <$> obj .? "category" <*> obj .? "value"
+    obj ← J.decodeJson json
+    Dimension
+      <$> obj .? "category"
+      <*> obj .? "value"
 
-instance decodeJsonCategory ∷ DecodeJson p ⇒ DecodeJson (Category p) where
+instance decodeJsonCategory ∷ J.DecodeJson p ⇒ J.DecodeJson (Category p) where
   decodeJson json = do
-    obj ← decodeJson json
+    obj ← J.decodeJson json
     obj .? "type" >>= case _ of
-      "static" → Static <$> obj .? "value"
-      "projection" → Projection <$> obj .? "transform" <*> obj .? "value"
-      ty → throwError $ "Invalid category type: " <> ty
+      "static" →
+        Static
+          <$> obj .? "value"
+      "projection" →
+        Projection
+          <$> obj .? "transform"
+          <*> obj .? "value"
+      ty →
+        throwError
+          $ "Invalid category type: " <> ty
 
 instance arbitraryDimension ∷ (Arbitrary a, Arbitrary b) ⇒ Arbitrary (Dimension a b) where
   arbitrary = Dimension <$> arbitrary <*> arbitrary
@@ -196,33 +224,42 @@ instance arbitraryDimensionWithStaticCategory ∷ Arbitrary a ⇒ Arbitrary (Dim
 instance arbitraryStaticCategory ∷ Arbitrary StaticCategory where
   arbitrary = StaticCategory ∘ Static <$> arbitrary
 
-prettyPrintJCursor ∷ JCursor → String
+genLabeledJCursor ∷ Gen.Gen LabeledJCursor
+genLabeledJCursor = map (map (un ArbJCursor) ∘ un DimensionWithStaticCategory) arbitrary
+
+codecLabeledJCursor ∷ CA.JsonCodec LabeledJCursor
+codecLabeledJCursor =
+  C.basicCodec
+    (lmap CA.TypeMismatch ∘ J.decodeJson)
+    J.encodeJson
+
+prettyPrintJCursor ∷ J.JCursor → String
 prettyPrintJCursor = go ""
   where
-  go "" (JField f n) = go f n
-  go "" (JIndex i n) = go (show i) n
-  go "" JCursorTop = "value"
-  go s (JField f n) = go (s <> "." <> f) n
-  go s (JIndex i n) = go (s <> "[" <> show i <> "]") n
-  go s JCursorTop = s
+  go "" (J.JField f n) = go f n
+  go "" (J.JIndex i n) = go (show i) n
+  go "" J.JCursorTop = "value"
+  go s (J.JField f n) = go (s <> "." <> f) n
+  go s (J.JIndex i n) = go (s <> "[" <> show i <> "]") n
+  go s J.JCursorTop = s
 
-defaultJCursorCategory ∷ ∀ a. JCursor → Category a
+defaultJCursorCategory ∷ ∀ a. J.JCursor → Category a
 defaultJCursorCategory =
-  Static ∘ String.joinWith "_" ∘ go [] ∘ insideOut
+  Static ∘ String.joinWith "_" ∘ go [] ∘ J.insideOut
   where
-  go label (JField field _) = Array.cons field label
-  go label (JIndex ix next) = go (Array.cons (show ix) label) next
+  go label (J.JField field _) = Array.cons field label
+  go label (J.JIndex ix next) = go (Array.cons (show ix) label) next
   go label _ = Array.cons "value" label
 
-defaultJCursorDimension ∷ JCursor → LabeledJCursor
+defaultJCursorDimension ∷ J.JCursor → LabeledJCursor
 defaultJCursorDimension jc =
   projectionWithCategory (defaultJCursorCategory jc) jc
 
-pairToDimension ∷ JCursor → Ag.Aggregation → LabeledJCursor
+pairToDimension ∷ J.JCursor → Ag.Aggregation → LabeledJCursor
 pairToDimension v a =
   pairWithMaybeAggregation v $ Just a
 
-pairWithMaybeAggregation ∷ JCursor → Maybe Ag.Aggregation → LabeledJCursor
+pairWithMaybeAggregation ∷ J.JCursor → Maybe Ag.Aggregation → LabeledJCursor
 pairWithMaybeAggregation v a =
   Dimension (Just $ defaultJCursorCategory v) (Projection (map Aggregation a) v)
 
@@ -236,7 +273,9 @@ axisType d axes = fromMaybe Ax.Category do
     -- If axis is transformed then we should use category
     -- i.e. date_part("year", datetime) isn't continuous
     -- and round(measure, 2) isn't continous too
-    | Just _ ← t = Ax.Category
+    -- But we know, that applying transformation to measure axis
+    -- produce measure axis.
+    | isJust t && not (Set.member c axes.value) = Ax.Category
     | Set.member c axes.value = Ax.Measure
     | Set.member c axes.time = Ax.Time
     | Set.member c axes.date = Ax.Date

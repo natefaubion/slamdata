@@ -17,10 +17,13 @@ limitations under the License.
 module SlamData.Workspace.Card.InsertableCardType where
 
 import SlamData.Prelude
+
 import Data.Array as Array
 import Data.Foldable as Foldable
 import Data.String as String
-import SlamData.Workspace.Card.CardType as CardType
+import Data.Variant (on)
+
+import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.Port as Port
 import SlamData.Workspace.Card.Port.VarMap as VM
 import SlamData.Workspace.Card.CardType (CardType)
@@ -31,26 +34,20 @@ data InsertableCardType
   | OpenCard
   | QueryCard
   | SearchCard
-  | SetupChartCard
-  | SetupFormCard
   | SetupDownloadCard
   | SetupMarkdownCard
   | SetupVariablesCard
-  | ShowChartCard
-  | ShowFormCard
-  | ShowGeoChartCard
   | ShowDownloadCard
   | ShowMarkdownCard
   | TableCard
   | TroubleshootCard
   | TabsCard
   | StructureEditorCard
-  | SetupGeoChartCard
+  | ShowVizCard
+  | SetupVizCard
 
 data InsertableCardIOType
-  = Chart
-  | GeoChart
-  | Form
+  = Viz
   | Data
   | Process
   | Download
@@ -70,21 +67,20 @@ inputs =
   , OpenCard × [ None, Variables ]
   , QueryCard × [ None, Data, Process, Variables ]
   , SearchCard × [ Data, Process ]
-  , SetupChartCard × [ Data, Process ]
-  , SetupGeoChartCard × [ Data, Process ]
   , SetupDownloadCard × [ Data, Process ]
-  , SetupFormCard × [ Data, Process ]
   , SetupMarkdownCard × [ None, Data, Process, Variables ]
-  , SetupVariablesCard × [ None ]
-  , ShowGeoChartCard × [ GeoChart ]
-  , ShowChartCard × [ Chart ]
-  , ShowFormCard × [ Form ]
-  , ShowDownloadCard × [ Download ]
   , ShowMarkdownCard × [ Markdown ]
+  , QueryCard × [ None, Data, Variables ]
+  , SearchCard × [ Data ]
+  , SetupDownloadCard × [ Data ]
+  , SetupMarkdownCard × [ None, Variables ]
   , TableCard × [ Data, Process ]
-  , TroubleshootCard × [ Chart, Form, Data, Process, Download, Markdown, Variables ]
+  , TroubleshootCard × [ Viz, Data, Process, Download, Markdown, Variables ]
   , TabsCard × [ None ]
   , StructureEditorCard × [ Data, Process ]
+  , ShowVizCard × [ Viz ]
+  , SetupVizCard × [ Data, Process ]
+  , SetupVariablesCard × [ None ]
   ]
 
 outputs ∷ Array (InsertableCardType × Array InsertableCardIOType)
@@ -94,18 +90,16 @@ outputs =
   , OpenCard × [ Data, Process ]
   , QueryCard × [ Data, Process ]
   , SearchCard × [ Data, Process ]
-  , SetupChartCard × [ Chart ]
-  , SetupFormCard × [ Form ]
   , SetupDownloadCard × [ Download ]
   , SetupMarkdownCard × [ Markdown ]
   , SetupVariablesCard × [ Variables ]
-  , ShowChartCard × [ Data, Process ]
-  , ShowFormCard × [ Data, Process ]
   , ShowDownloadCard × [ Download ]
   , ShowMarkdownCard × [ Variables ]
   , TableCard × [ Data, Process ]
   , TroubleshootCard × [ Variables ]
   , StructureEditorCard × [ Data, Process ]
+  , SetupVizCard × [ Viz ]
+  , ShowVizCard × [ Data, Process ]
   ]
 
 cardsToExcludeFromPaths ∷ Array InsertableCardType
@@ -218,9 +212,7 @@ fromMaybeOut input = maybe None fromOut input
 
 printIOType ∷ InsertableCardIOType → String
 printIOType = case _ of
-  Form → "a form"
-  Chart → "a chart"
-  GeoChart → "geo chart"
+  Viz → "a visualization"
   Data → "data"
   Process → "process"
   Download → "a download"
@@ -232,9 +224,8 @@ printIOType = case _ of
 
 printIOType' ∷ InsertableCardIOType → Maybe String
 printIOType' = case _ of
-  Form → Just "the form"
-  Chart → Just "the chart"
   Data → Just "the data"
+  Viz → Just "the visualization"
   Download → Just "the download"
   Markdown → Just "the markdown"
   Variables → Just "the variables"
@@ -257,45 +248,38 @@ fromOut = uncurry case _, _ of
     | otherwise → Data
   Port.DownloadOptions _, _ → Download
   Port.SlamDown _, _ → Markdown
-  Port.ChartInstructions _, _ → Chart
-  Port.PivotTable _, _ → Chart
-  Port.SetupLabeledFormInput _, _ → Form
-  Port.SetupTextLikeFormInput _, _ → Form
+  Port.ChartInstructions _, _ → Viz
+  Port.PivotTable _, _ → Viz
+  Port.SetupSelect _, _ → Viz
+  Port.SetupInput _, _ → Viz
   Port.Variables, _ → Variables
-  Port.ValueMetric _, _ → Chart
-  Port.CategoricalMetric _, _ → Form
-  Port.GeoChart _, _ → GeoChart
+  Port.ValueMetric _, _ → Viz
+  Port.CategoricalMetric _, _ → Viz
+  Port.GeoChart _, _ → Viz
   Port.Terminal, _ → Terminal
   _, _ → None
 
 toCardType ∷ InsertableCardType → Maybe CardType
 toCardType = case _ of
-  CacheCard → Just CardType.Cache
-  DraftboardCard → Just CardType.Draftboard
-  OpenCard → Just CardType.Open
-  QueryCard → Just $ CardType.Ace CardType.SQLMode
-  SearchCard → Just CardType.Search
-  SetupChartCard → Nothing
-  SetupGeoChartCard → Nothing
-  SetupFormCard → Nothing
-  SetupDownloadCard → Just CardType.DownloadOptions
-  SetupMarkdownCard → Just $ CardType.Ace CardType.MarkdownMode
-  SetupVariablesCard → Just $ CardType.Variables
-  ShowChartCard → Just CardType.Chart
-  ShowGeoChartCard → Just CardType.GeoChart
-  ShowFormCard → Just CardType.FormInput
-  ShowDownloadCard → Just CardType.Download
-  ShowMarkdownCard → Just CardType.Markdown
-  TableCard → Just CardType.Table
-  TroubleshootCard → Just CardType.Troubleshoot
-  TabsCard → Just CardType.Tabs
-  StructureEditorCard → Just CardType.StructureEditor
+  CacheCard → Just CT.cache
+  DraftboardCard → Just CT.draftboard
+  OpenCard → Just CT.open
+  QueryCard → Just CT.aceSql
+  SearchCard → Just CT.search
+  SetupVizCard → Just CT.setupViz
+  SetupDownloadCard → Just CT.downloadOptions
+  SetupMarkdownCard → Just CT.aceMarkdown
+  SetupVariablesCard → Just CT.variables
+  ShowDownloadCard → Just CT.download
+  ShowVizCard → Just CT.viz
+  ShowMarkdownCard → Just CT.markdown
+  TableCard → Just CT.table
+  TroubleshootCard → Just CT.troubleshoot
+  TabsCard → Just CT.tabs
+  StructureEditorCard → Just CT.structureEditor
 
 print ∷ InsertableCardType → String
-print = case _ of
-  SetupChartCard → "Setup Chart"
-  SetupFormCard → "Setup Form"
-  a → foldMap CardType.cardName $ toCardType a
+print = foldMap CT.name ∘ toCardType
 
 aAn ∷ String → String
 aAn s =
@@ -307,9 +291,9 @@ aAn s =
 
 reason ∷ InsertableCardIOType → CardType → String
 reason io card = fold
-  [ aAn $ CardType.cardName card
+  [ aAn $ CT.name card
   , " "
-  , show $ CardType.cardName card
+  , show $ CT.name card
   , " card can't "
   , actual
   , " because it needs "
@@ -335,15 +319,11 @@ printAction = case _ of
   OpenCard → Nothing
   QueryCard → Nothing
   SearchCard → Just "search"
-  SetupChartCard → Just "set up a chart for"
-  SetupGeoChartCard → Just "set up geo chart for"
-  SetupFormCard → Just "set up a form for"
+  SetupVizCard → Just "set up a visualization for"
   SetupDownloadCard → Just "setup a download for"
   SetupMarkdownCard → Nothing
   SetupVariablesCard → Nothing
-  ShowChartCard → Just "show"
-  ShowGeoChartCard → Just "show"
-  ShowFormCard → Just "show"
+  ShowVizCard → Just "show"
   ShowDownloadCard → Just "show"
   ShowMarkdownCard → Just "show"
   TableCard → Just "tabulate"
@@ -352,28 +332,31 @@ printAction = case _ of
   StructureEditorCard → Nothing
 
 fromCardType ∷ CardType → InsertableCardType
-fromCardType = case _ of
-  CardType.Cache → CacheCard
-  CardType.Draftboard → DraftboardCard
-  CardType.Open → OpenCard
-  CardType.Ace CardType.SQLMode → QueryCard
-  CardType.Search → SearchCard
-  CardType.ChartOptions _ → SetupChartCard
-  CardType.SetupGeoChart _ → SetupGeoChartCard
-  CardType.GeoChart → ShowGeoChartCard
-  CardType.DownloadOptions → SetupDownloadCard
-  CardType.Ace CardType.MarkdownMode → SetupMarkdownCard
-  CardType.Variables → SetupVariablesCard
-  CardType.Chart → ShowChartCard
-  CardType.Download → ShowDownloadCard
-  CardType.Markdown → ShowMarkdownCard
-  CardType.Table → TableCard
-  CardType.Troubleshoot → TroubleshootCard
-  CardType.SetupFormInput _ → SetupFormCard
-  CardType.FormInput → ShowFormCard
-  CardType.Tabs → TabsCard
-  CardType.StructureEditor → StructureEditorCard
+fromCardType = case_
+  # fromSimple
+  # fromAce
+  where
+  fromSimple ∷ ∀ r. (Variant r → InsertableCardType) → CT.Simple r → InsertableCardType
+  fromSimple cb = cb
+    # on CT._cache (const CacheCard)
+    # on CT._draftboard (const DraftboardCard)
+    # on CT._open (const OpenCard)
+    # on CT._search (const SearchCard)
+    # on CT._downloadOptions (const SetupDownloadCard)
+    # on CT._variables (const SetupVariablesCard)
+    # on CT._download (const ShowDownloadCard)
+    # on CT._markdown (const ShowMarkdownCard)
+    # on CT._table (const TableCard)
+    # on CT._troubleshoot (const TroubleshootCard)
+    # on CT._tabs (const TabsCard)
+    # on CT._structureEditor (const StructureEditorCard)
+    # on CT._viz (const ShowVizCard)
+    # on CT._setupViz (const SetupVizCard)
 
+  fromAce ∷ ∀ r. (Variant r → InsertableCardType) → CT.Ace r → InsertableCardType
+  fromAce cb = cb
+    # on CT._aceSql (const QueryCard)
+    # on CT._aceMarkdown (const SetupMarkdownCard)
 
 all ∷ Array InsertableCardType
 all =
@@ -381,12 +364,8 @@ all =
   , QueryCard
   , SearchCard
   , TableCard
-  , SetupChartCard
-  , ShowChartCard
-  , SetupFormCard
-  , ShowFormCard
-  , SetupGeoChartCard
-  , ShowGeoChartCard
+  , ShowVizCard
+  , SetupVizCard
   , SetupMarkdownCard
   , ShowMarkdownCard
   , DraftboardCard

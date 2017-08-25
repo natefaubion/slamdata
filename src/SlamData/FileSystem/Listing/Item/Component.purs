@@ -94,7 +94,7 @@ render state = case state.item of
           [ HP.classes [ CSS.itemContent ] ]
           [ HH.span
               [ HP.class_ CSS.phantomSpinner ]
-              [ RC.spinner ]
+              [ RC.spinnerSmall ]
           , HH.span
               [ HP.class_ CSS.phantomLabel ]
               [ HH.text $ itemName state ]
@@ -229,4 +229,3 @@ itemActions presentActions item | otherwise =
           ]
           [ icon ]
       ]
-

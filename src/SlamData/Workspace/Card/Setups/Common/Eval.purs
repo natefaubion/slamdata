@@ -15,8 +15,7 @@ limitations under the License.
 -}
 
 module SlamData.Workspace.Card.Setups.Common.Eval
-  ( analysisEval
-  , ChartSetupEval
+  ( ChartSetupEval
   , chartSetupEval
   , analyze
   , type (>>)
@@ -55,24 +54,6 @@ import SqlSquared as Sql
 import Utils (hush')
 
 infixr 3 type M.Map as >>
-
-analysisEval
-  ∷ ∀ m v p
-  . MonadState CEM.CardState m
-  ⇒ MonadThrow (Variant (stringly ∷ String, qerror ∷ CE.QError | v)) m
-  ⇒ MonadAsk CEM.CardEnv m
-  ⇒ QuasarDSL m
-  ⇒ (Axes → p → Array J.Json → Port.Port)
-  → Maybe p
-  → (Axes → Maybe p)
-  → Port.Resource
-  → m Port.Port
-analysisEval build model defaultModel resource = do
-  records × axes ← analyze resource =<< get
-  put (Just (CEM.Analysis { resource, records, axes }))
-  case model <|> defaultModel axes of
-    Just ch → pure $ build axes ch records
-    Nothing → CE.throw "Please select an axis."
 
 type ChartSetupEval p m v =
   MonadState CEM.CardState m
@@ -125,7 +106,8 @@ analyze resource = case _ of
     pure (st.records × st.axes)
   _ → do
     CEM.CardEnv { path } ← ask
-    records ← either (const []) id <$> CEC.sampleResource path resource (Just { offset: 0, limit: 300 })
+    records ←
+      either (const []) id <$> CEC.sampleResource path resource (Just { offset: 0, limit: 300 })
     let axes = buildAxes (unwrapValue <$> records)
     pure (records × axes)
   where

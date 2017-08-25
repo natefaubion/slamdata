@@ -6,10 +6,12 @@
   border: 0.1rem solid $miller-column-border-color
   transition: border-color 200ms ease-out 100ms
 
+
 .sd-miller-column-container
   display: flex
   height: 100%
   flex-direction: column
+
 
 .sd-miller-column-selection
   display: flex
@@ -31,6 +33,7 @@
       flex: 0 1 auto
       opacity: 1
 
+
 .sd-miller-column-selection-label
   opacity: 0.5
   width: 100%
@@ -39,9 +42,11 @@
   white-space: nowrap
   text-overflow: ellipsis
 
+
 .sd-miller-column-items
   flex: 1 1 100%
   overflow: auto
+
 
 .sd-miller-column-items-list
   list-style: none
@@ -49,7 +54,8 @@
   margin: 0
   width: 100%
   min-height: 100%
-  overflow: auto
+  overflow: none
+
 
 .sd-miller-column-resizer
   display: inline-block
@@ -67,5 +73,5 @@
   cursor: ew-resize
   speak: none
 
-  ::-moz-focus-inner
-    border: 0
+  &::-moz-focus-inner
+    border: none

@@ -52,7 +52,6 @@ test =
       "/test-mount/testDb/временный файл"
     Interact.doSaveInLastCacheCard
     Interact.accessNextCardInLastDeck
-    Interact.selectBuildChart
     Interact.insertPivotCard
     Interact.addColumn "measureOne"
     Interact.addColumn "measureTwo"

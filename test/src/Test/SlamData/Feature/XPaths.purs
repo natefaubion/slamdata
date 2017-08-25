@@ -89,15 +89,11 @@ insertTroubleshootCard =
 
 insertChartCard ∷ String
 insertChartCard =
-  XPath.anyWithExactAriaLabel "Insert a Show Chart card"
+  XPath.anyWithExactAriaLabel "Insert a Show Visualization card"
 
 insertDisplayMarkdownCard ∷ String
 insertDisplayMarkdownCard =
   XPath.anyWithExactAriaLabel "Insert a Show Markdown card"
-
-selectBuildChart ∷ String
-selectBuildChart =
-  XPath.anyWithExactAriaLabel "Select Setup Chart card category"
 
 insertPivotCard ∷ String
 insertPivotCard =

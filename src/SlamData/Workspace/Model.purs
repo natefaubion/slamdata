@@ -24,12 +24,13 @@ module SlamData.Workspace.Model
 import SlamData.Prelude
 
 import Data.Argonaut (Json, (:=), (~>), (.?), decodeJson, jsonEmptyObject)
-import Data.Codec.Argonaut as CA
+import Data.Codec.Argonaut.Compat as CA
 import Data.Foldable as F
 import Data.List as List
 import Data.Map (Map)
 import Data.Map as Map
 import Data.StrMap as StrMap
+import SlamData.Theme.Theme as Theme
 import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Card.Model (AnyCardModel)
@@ -43,6 +44,7 @@ type Workspace =
   { rootId ∷ DeckId
   , cards ∷ Map CardId AnyCardModel
   , decks ∷ Map DeckId Deck
+  , theme ∷ Maybe Theme.Theme
   }
 
 decode ∷ Json → Either String Workspace
@@ -52,7 +54,12 @@ decode = decodeJson >=> \obj → do
   rootId ← lmap CA.printJsonDecodeError <<< CA.decode DID.codec =<< obj .? "rootId"
   cards ← decodeCards =<< obj .? "cards"
   decks ← decodeDecks =<< obj .? "decks"
-  pure { rootId, cards, decks }
+  let
+    theme ∷ Maybe Theme.Theme
+    theme =
+      StrMap.lookup "theme" obj
+        >>= CA.decode (CA.maybe Theme.codec) >>> either (const Nothing) id
+  pure { rootId, cards, decks, theme }
 
   where
     decodeCards =
@@ -79,6 +86,7 @@ encode ws =
   ~> "rootId" := DID.toString ws.rootId
   ~> "cards" := cards
   ~> "decks" := decks
+  ~> "theme" := CA.encode (CA.maybe Theme.codec) ws.theme
   ~> jsonEmptyObject
 
   where

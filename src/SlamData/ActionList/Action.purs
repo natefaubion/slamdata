@@ -264,7 +264,7 @@ decimalCrop i n =
   where
   multiplier = Math.pow 10.0 $ Int.toNumber i
 
-defaultConf ∷ ∀ a. Eq a ⇒ Dimensions → Array (Action a) → ActionListConf a
+defaultConf ∷ ∀ a. Dimensions → Array (Action a) → ActionListConf a
 defaultConf boundingDimensions as =
   let
     len = A.length as

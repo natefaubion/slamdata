@@ -5,7 +5,7 @@
     "type": "git",
     "url": "https://github.com/slamdata/slamdata"
   },
-  "version": "v4.2.5",
+  "version": "v4.2.6",
   "contributors": [
     "Maxim Zimaliev <zimaliev@yandex.ru>",
     "Gary Burgess <gary@slamdata.com>",
@@ -42,9 +42,10 @@
     "check:quasar": "node ./script/check-quasar-version.js",
     "update:quasar": "node ./script/update-quasar-version.js",
     "ide": "purs ide server",
+    "lint:crlf": "gulp replace-crlf",
     "lint:headers": "gulp add-headers",
     "lint:whitespace": "gulp trim-whitespace",
-    "lint:crlf": "gulp replace-crlf",
+    "lint:sass": "sass-lint sass/**/*.sass -q -v",
     "test": "gulp bundle-test && node test",
     "test:docker:isrunning": "if docker inspect -f {{.State.Running}} $CONNECTOR_HOST; then npm run docker:stop:remove && npm run test:setup ; else npm run test:setup ; fi",
     "test:setup": "npm run build:icons && npm run docker:$CONNECTOR_HOST && npm run build:psa && webpack --progress --config webpack.config.dev.js && npm test",
@@ -62,7 +63,8 @@
     "update:quasar",
     "lint:headers",
     "lint:whitespace",
-    "lint:crlf"
+    "lint:crlf",
+    "lint:sass"
   ],
   "license": "Apache-2.0",
   "bugs": {
@@ -73,7 +75,7 @@
   "devDependencies": {
     "chalk": "^1.1.1",
     "change-case": "^3.0.1",
-    "chromedriver": "^2.28.0",
+    "chromedriver": "^2.31.0",
     "del": "^2.2.2",
     "expose-loader": "^0.7.1",
     "glob": "^7.1.1",
@@ -100,8 +102,8 @@
     "purescript-psa": "^0.5.1",
     "purs-loader": "^2.4.2",
     "rimraf": "^2.4.3",
-    "selenium-webdriver": "2.53.2",
-    "stylelint": "^7.10.1",
+    "sass-lint": "^1.10.2",
+    "selenium-webdriver": "3.5.0",
     "vinyl-paths": "^2.1.0",
     "webpack": "^2.3.2",
     "webpack-stream": "^2.1.0"

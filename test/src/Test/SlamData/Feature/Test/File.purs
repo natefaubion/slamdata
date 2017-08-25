@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -}
+
 module Test.SlamData.Feature.Test.File where
 
 import SlamData.Prelude
@@ -104,16 +105,6 @@ test = do
     Interact.accessBreadcrumb "Home"
     Expect.file "test-mount"
     successMsg "** Successfully navigated back using breadcrumbs **"
-
-  fileScenario afterUpload "Upload a file"
-    (noIssues
-      { couchbase = Just "CB: need to make issue for file not uploading" })
-    do
-    Interact.browseTestFolder
-    Interact.uploadFile "test/array-wrapped.json"
-    Interact.browseTestFolder
-    Expect.file "array-wrapped.json"
-    successMsg "** Successfully uploaded file **"
 
   fileScenario defaultAfterFile "Search for a file"
     (noIssues { couchbase = Just "CB: https://github.com/quasar-analytics/quasar/issues/2396" })

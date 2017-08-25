@@ -68,23 +68,27 @@ component = H.parentComponent
 
 render ∷ State → HTML
 render { open, attributions } =
-  HH.nav
-    [ HP.classes
-        [ HH.ClassName "sd-nav"
-        , HH.ClassName if open then "open" else "closed" ]
-        ]
-    [ if attributions
-        then Attribution.render BackdropDismiss (HandleGlobalMenu GlobalMenu.PresentAttributionsDialog)
-        else HH.text ""
-    , HH.div_
+  HH.div_
+    [ HH.nav
+        [ HP.classes
+            [ HH.ClassName "sd-nav"
+            , HH.ClassName if open then "open" else "closed" ]
+            ]
         [ HH.div_
             [ HH.div [ HP.classes [ CN.header ] ]
                 [ logo CV.shortVersion
-                , HH.slot' CP.cp2 unit GlobalMenu.component unit (HE.input HandleGlobalMenu)
-                , HH.slot' CP.cp1 unit (Gripper.component "nav") unit $ HE.input HandleGripper
+                , HH.slot' CP.cp2 unit GlobalMenu.component unit
+                    $ HE.input HandleGlobalMenu
+                , HH.slot' CP.cp1 unit (Gripper.component "nav") unit
+                    $ HE.input HandleGripper
                 ]
             ]
         ]
+    , if attributions then
+        Attribution.render BackdropDismiss
+          $ HandleGlobalMenu GlobalMenu.PresentAttributionsDialog
+      else
+        HH.text ""
     ]
 
 logo ∷ Maybe String → HTML

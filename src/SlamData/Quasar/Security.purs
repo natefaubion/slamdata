@@ -62,6 +62,28 @@ deleteGroup groupPath =
   liftQuasar $ lmap lowerQError
     <$> QF.deleteGroup groupPath
 
+addUsersToGroup
+  ∷ ∀ m f
+  . QuasarDSL m
+  ⇒ Foldable f
+  ⇒ QF.GroupPath
+  → f QF.UserId
+  → m (Exn.Error ⊹ Unit)
+addUsersToGroup groupPath userIds =
+  liftQuasar $ lmap lowerQError
+    <$> QF.addUsersToGroup groupPath userIds
+
+removeUsersFromGroup
+  ∷ ∀ m f
+  . QuasarDSL m
+  ⇒ Foldable f
+  ⇒ QF.GroupPath
+  → f QF.UserId
+  → m (Exn.Error ⊹ Unit)
+removeUsersFromGroup groupPath userIds =
+  liftQuasar $ lmap lowerQError
+    <$> QF.removeUsersFromGroup groupPath userIds
+
 createToken
   ∷ ∀ m
   . QuasarDSL m

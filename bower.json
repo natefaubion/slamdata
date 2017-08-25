@@ -43,7 +43,7 @@
     "purescript-halogen-datepicker": "^0.1.0",
     "purescript-halogen-echarts": "^7.0.0",
     "purescript-halogen-vdom-string-renderer": "^0.2.0",
-    "purescript-halogen": "^2.0.1",
+    "purescript-halogen": "^2.2.0",
     "purescript-js-timers": "^3.0.0",
     "purescript-jtable": "^6.0.0",
     "purescript-leafletjs-halogen": "^0.1.0",
@@ -68,7 +68,7 @@
     "purescript-tuples": "^4.0.0",
     "purescript-type-equality": "^2.1.0",
     "purescript-uri": "^3.0.1",
-    "purescript-variant": "^1.1.0"
+    "purescript-variant": "^3.0.0"
   },
   "devDependencies": {
     "purescript-chalky": "^2.0.0",
@@ -81,5 +81,8 @@
     "purescript-quasar-test-starter": "quasar-test-starter#^0.4.0",
     "purescript-strongcheck": "^3.1.0",
     "purescript-webdriver": "^4.0.0"
+  },
+  "resolutions": {
+    "purescript-variant": "^3.0.0"
   }
 }

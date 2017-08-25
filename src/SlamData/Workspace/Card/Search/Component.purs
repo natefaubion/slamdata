@@ -41,7 +41,7 @@ type HTML = CC.InnerCardHTML Query
 
 searchComponent ∷ CC.CardOptions → CC.CardComponent
 searchComponent =
-  CC.makeCardComponent CT.Search $ H.component
+  CC.makeCardComponent CT.search $ H.component
     { render
     , eval: coproduct cardEval searchEval
     , initialState: const initialState

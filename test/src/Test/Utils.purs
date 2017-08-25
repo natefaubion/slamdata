@@ -73,4 +73,4 @@ appendToCwd
   . MonadEff (process ∷ PROCESS | eff) m
   ⇒ String
   → m String
-appendToCwd s = liftEff $ normalize <<< (flip append s <<< flip append "/") <$> cwd
+appendToCwd s = liftEff $ normalize <<< (\i -> i <> "/" <> s) <$> cwd

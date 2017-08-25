@@ -59,9 +59,22 @@ flipDeck =
     $ Feature.click $ XPath.anywhere $ XPath.anyWithExactAriaLabel "Flip deck"
 
 insertBuildBarChartCard ∷ SlamFeature Unit
-insertBuildBarChartCard =
-  annotate "Inserted Build Barchart card"
-    $ Feature.click $ XPaths.followingLastPreviousCardGripper XPaths.insertBuildBarChartCard
+insertBuildBarChartCard = do
+  annotate "Insert setup visualization"
+    $ Feature.click
+    $ XPath.anywhere
+    $ XPath.anyWithExactAriaLabel
+        "Insert a Setup Visualization card"
+  annotate "Drill down to visualization select"
+    $ Feature.click
+    $ XPath.anywhere
+    $ XPath.anyWithExactAriaLabel
+        "Select visualization type"
+  annotate "Choose bar chart visualization"
+    $ Feature.click
+    $ XPath.anywhere
+    $ XPath.anyWithExactAriaLabel
+        "Set visualization type to Bar"
 
 insertCacheCardInLastDeck ∷ SlamFeature Unit
 insertCacheCardInLastDeck =
@@ -97,9 +110,22 @@ insertOpenCardInLastDeck =
     $ Feature.click $ XPath.anywhere $ XPaths.insertOpenCard
 
 insertPivotCard ∷ SlamFeature Unit
-insertPivotCard =
-  annotate "Inserted pivot card"
-    $ Feature.click $ XPaths.followingLastPreviousCardGripper XPaths.insertPivotCard
+insertPivotCard = do
+  annotate "Insert setup visualization"
+    $ Feature.click
+    $ XPath.anywhere
+    $ XPath.anyWithExactAriaLabel
+        "Insert a Setup Visualization card"
+  annotate "Drill down to visualization select"
+    $ Feature.click
+    $ XPath.anywhere
+    $ XPath.anyWithExactAriaLabel
+        "Select visualization type"
+  annotate "Choose Pivot Table visualization"
+    $ Feature.click
+    $ XPath.anywhere
+    $ XPath.anyWithExactAriaLabel
+        "Set visualization type to Pivot Table"
 
 insertQueryCardInLastDeck ∷ SlamFeature Unit
 insertQueryCardInLastDeck =

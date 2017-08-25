@@ -1,5 +1,5 @@
 {-
-Copyright 2016 SlamData, Inc.
+Copyright 2017 SlamData, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ limitations under the License.
 module SlamData.Workspace.Deck.Model where
 
 import SlamData.Prelude
+
 import Data.Codec.Argonaut as CA
 import SlamData.Workspace.Card.CardId as CID
 
@@ -32,9 +33,10 @@ emptyDeck =
   }
 
 codec ∷ CA.JsonCodec Deck
-codec = CA.object "Deck" $ CA.record
-  # CA.recordProp (SProxy :: SProxy "name") CA.string
-  # CA.recordProp (SProxy :: SProxy "cards") (CA.array CID.codec)
+codec =
+  CA.object "Deck" $ CA.record
+    # CA.recordProp (SProxy ∷ SProxy "name") CA.string
+    # CA.recordProp (SProxy ∷ SProxy "cards") (CA.array CID.codec)
 
 eqDeck ∷ Deck → Deck → Boolean
 eqDeck d1 d2 = d1.name ≡ d2.name && d1.cards ≡ d2.cards

@@ -16,6 +16,7 @@ limitations under the License.
 
 module SlamData.ActionList.Component
   ( actionListComp
+  , actionListComp'
   , component
   , MkConf
   , module A
@@ -27,22 +28,28 @@ module SlamData.ActionList.Component
 import SlamData.Prelude
 
 import CSS as CSS
-import Data.Array as Array
-import Data.Foldable as Foldable
-import Data.String as String
+
+import Data.Array as Arr
+import Data.Equivalence (Equivalence(..))
+import Data.Foldable as F
+import Data.String as Str
+
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.CSS as HCSS
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
+
 import RectanglePacking (Dimensions, maybeNotZero, domRectToDimensions)
+
 import SlamData.ActionList.Action as A
 import SlamData.ActionList.Component.Message as M
 import SlamData.ActionList.Component.Query as Q
 import SlamData.ActionList.Component.State as ST
 import SlamData.Monad (Slam)
 import SlamData.Render.Icon as I
+
 import Utils.CSS as CSSUtils
 import Utils.DOM (DOMRect)
 import Utils.DOM as DOMUtils
@@ -53,26 +60,35 @@ type DSL a = H.ComponentDSL (ST.State a) (Q.Query a) (M.Message a) Slam
 type MkConf a =
   Dimensions → Array (A.Action a) → A.ActionListConf a
 
-actionListComp
-  ∷ ∀ a. Eq a
-  ⇒ MkConf a
-  → Array (A.Action a)
-  → H.Component HH.HTML (Q.Query a) Unit (M.Message a) Slam
-actionListComp mkConf actions =
+actionListComp'
+  ∷ ∀ a
+  . Equivalence a
+  → MkConf a
+  → Array ( A.Action a )
+  → H.Component HH.HTML ( Q.Query a ) Unit ( M.Message a ) Slam
+actionListComp' equiv mkConf actions =
   H.lifecycleComponent
-    { initialState: const (ST.initialState actions)
+    { initialState: const $ ST.initialState actions
     , render: render mkConf
     , initializer: Just $ H.action Q.CalculateBoundingRect
     , finalizer: Nothing
-    , eval
+    , eval: eval equiv
     , receiver: const Nothing
     }
+
+actionListComp
+  ∷ ∀ a
+  . Eq a
+  ⇒ MkConf a
+  → Array (A.Action a)
+  → H.Component HH.HTML (Q.Query a) Unit (M.Message a) Slam
+actionListComp = actionListComp' $ Equivalence eq
 
 elementRef ∷ H.RefLabel
 elementRef = H.RefLabel "bounding-element"
 
 component ∷ ∀ a. Eq a ⇒ H.Component HH.HTML (Q.Query a) Unit (M.Message a) Slam
-component = actionListComp A.defaultConf []
+component = actionListComp' (Equivalence eq) A.defaultConf []
 
 render ∷ ∀ a. MkConf a → ST.State a → HTML a
 render mkConf state =
@@ -83,7 +99,7 @@ render mkConf state =
     ]
     [ HH.ul
         [ HP.ref elementRef ]
-        $ renderButtons (String.toLower state.filterString) conf
+        $ renderButtons (Str.toLower state.filterString) conf
     ]
   where
   conf =
@@ -100,7 +116,7 @@ renderButtons filterString conf =
   metrics ∷ Maybe A.ButtonMetrics
   metrics = do
     guard conf.leavesASpace
-    map _.metrics $ Array.head conf.buttons
+    map _.metrics $ Arr.head conf.buttons
 
   realButtons ∷ Array (HTML a)
   realButtons =
@@ -109,9 +125,9 @@ renderButtons filterString conf =
 renderSpaceFillerButton ∷ ∀ a. A.ButtonMetrics → HTML a
 renderSpaceFillerButton metrics =
   HH.li
-    [ HCSS.style
-        $ CSS.width (CSS.px $ A.firefoxify metrics.dimensions.width)
-        *> CSS.height (CSS.px $ A.firefoxify metrics.dimensions.height)
+    [ HCSS.style do
+        CSS.width (CSS.px $ A.firefoxify metrics.dimensions.width)
+        CSS.height (CSS.px $ A.firefoxify metrics.dimensions.height)
     ]
     [ HH.button
         [ HP.classes
@@ -131,9 +147,9 @@ renderButton
   → HTML a
 renderButton filterString { presentation, metrics, action, lines } =
   HH.li
-    [ HCSS.style
-        $ CSS.width (CSS.px $ A.firefoxify metrics.dimensions.width)
-        *> CSS.height (CSS.px $ A.firefoxify metrics.dimensions.height)
+    [ HCSS.style do
+        CSS.width $ CSS.px $ A.firefoxify metrics.dimensions.width
+        CSS.height $ CSS.px $ A.firefoxify metrics.dimensions.height
     ]
     [ HH.button
         attrs
@@ -149,45 +165,43 @@ renderButton filterString { presentation, metrics, action, lines } =
   renderIcon ∷ HTML a
   renderIcon =
     HH.span
-      [ HCSS.style
-          $ CSS.display CSS.block
-          *> CSS.width (CSS.px metrics.iconDimensions.width)
-          *> CSS.height (CSS.px metrics.iconDimensions.height)
-          *> CSS.marginBottom (CSS.px metrics.iconMarginPx)
-          *> CSS.marginLeft (CSS.fromString "auto")
-          *> CSS.marginRight (CSS.fromString "auto")
-          -- Stops icon only presentations from being cut off in short wide
-          -- buttons.
-          *> (if (A.isIconOnly presentation)
-                then
-                  CSS.position CSS.absolute
-                    *> CSS.left (CSS.px metrics.iconOnlyLeftPx)
-                    *> CSS.top (CSS.px metrics.iconOnlyTopPx)
-                else
-                  CSS.position CSS.relative)
+      [ HCSS.style do
+           CSS.display CSS.block
+           CSS.width $ CSS.px metrics.iconDimensions.width
+           CSS.height $ CSS.px metrics.iconDimensions.height
+           CSS.marginBottom $ CSS.px metrics.iconMarginPx
+           CSS.marginLeft $ CSS.fromString "auto"
+           CSS.marginRight $ CSS.fromString "auto"
+           -- Stops icon only presentations from being cut off in short wide
+           -- buttons.
+           if A.isIconOnly presentation
+             then do
+               CSS.position CSS.absolute
+               CSS.left $ CSS.px metrics.iconOnlyLeftPx
+               CSS.top $ CSS.px metrics.iconOnlyTopPx
+             else
+               CSS.position CSS.relative
       ]
-      (A.pluckActionIcon action # maybe [ ] (I.unIconHTML >>> pure))
+      $ foldMap (pure ∘ I.unIconHTML) $ A.pluckActionIcon action
 
   renderName ∷ HTML a
   renderName =
     HH.p
-      [ HCSS.style
-          $ CSS.fontSize (CSS.px $ A.fontSizePx)
-          *> CSSUtils.lineHeight (show A.lineHeightPx <> "px")
+      [ HCSS.style do
+          CSS.fontSize $ CSS.px $ A.fontSizePx
+          CSSUtils.lineHeight $ show A.lineHeightPx <> "px"
       ]
-      $ Array.intercalate
+      $ Arr.intercalate
           [ HH.br_ ]
-          $ Array.singleton ∘ HH.text <$> lines
+          $ Arr.singleton ∘ HH.text <$> lines
 
   enabled ∷ Boolean
-  enabled =
-    case action of
-      A.GoBack →
-        true
-      _ →
-        Foldable.any
-          (String.contains (String.Pattern filterString) ∘ String.toLower)
-          (A.searchFilters action)
+  enabled = case action of
+    A.GoBack → true
+    _ →
+      F.any
+        (Str.contains (Str.Pattern filterString) ∘ Str.toLower)
+        (A.searchFilters action)
 
   attrs =
     [ HP.title $ A.pluckActionDescription action
@@ -200,17 +214,16 @@ renderButton filterString { presentation, metrics, action, lines } =
     ]
 
   classes ∷ Array HH.ClassName
-  classes =
-    if A.isHighlighted action && enabled
-      then
+  classes
+    | A.isHighlighted action && enabled =
         [ HH.ClassName "sd-button" ]
-      else
+    | otherwise =
         [ HH.ClassName "sd-button"
         , HH.ClassName "sd-button-warning"
         ]
 
-updateActions ∷ ∀ a. Eq a ⇒ Array (A.Action a) → ST.State a → ST.State a
-updateActions newActions state =
+updateActions ∷ ∀ a. Equivalence a → Array (A.Action a) → ST.State a → ST.State a
+updateActions (Equivalence eq_) newActions state =
   case state.activeDrill of
     Nothing →
       state
@@ -221,20 +234,28 @@ updateActions newActions state =
         , actions = newActiveDrill >>= A.pluckDrillActions # fromMaybe []
         }
   where
+  eqAction ∷ A.Action a → A.Action a → Boolean
+  eqAction act1 act2 =
+    let
+      mba1 = A.pluckAction act1
+      mba2 = A.pluckAction act2
+    in case mba1, mba2 of
+      Just a1, Just a2 → eq_ a1 a2
+      _, _ → false
+
   newActiveDrill ∷ Maybe (A.Action a)
-  newActiveDrill =
-    state.activeDrill >>= A.pluckAction >>= \activeAction →
-      Foldable.find
-        (A.pluckAction >>> eq (Just activeAction))
-        state.previousActions
+  newActiveDrill = do
+    drill ← state.activeDrill
+    activeAction ← A.pluckAction drill
+    F.find (eqAction drill) state.previousActions
 
 getBoundingDOMRect ∷ ∀ a. DSL a (Maybe DOMRect)
 getBoundingDOMRect =
   traverse (H.liftEff ∘ DOMUtils.getOffsetClientRect)
     =<< H.getHTMLElementRef elementRef
 
-eval ∷ ∀ a. Eq a ⇒ Q.Query a ~> DSL a
-eval =
+eval ∷ ∀ a. Equivalence a → Q.Query a ~> DSL a
+eval equiv =
   case _ of
     Q.UpdateFilter str next → do
       H.modify _{ filterString = str }
@@ -246,7 +267,7 @@ eval =
           H.raise (M.Selected a.action)
         A.Drill {children} →
           H.modify _
-            { actions = A.GoBack `Array.cons` children
+            { actions = A.GoBack `Arr.cons` children
             , activeDrill = Just action
             , previousActions = st.actions
             }
@@ -258,7 +279,7 @@ eval =
             }
       pure next
     Q.UpdateActions actions next →
-      H.modify (updateActions actions)
+      H.modify (updateActions equiv actions)
         $> next
     Q.CalculateBoundingRect next → do
       H.modify
@@ -267,7 +288,8 @@ eval =
         ∘ map domRectToDimensions
         =<< getBoundingDOMRect
       pure next
-    Q.SetBoundingRect dimensions next →
-      H.modify _{ boundingDimensions = maybeNotZero dimensions } $> next
+    Q.SetBoundingRect dimensions next → do
+      H.modify _{ boundingDimensions = maybeNotZero dimensions }
+      pure next
     Q.GetBoundingRect continue →
-      continue <$> H.gets _.boundingDimensions
+      map continue $ H.gets _.boundingDimensions

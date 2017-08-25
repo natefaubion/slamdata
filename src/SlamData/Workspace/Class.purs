@@ -1,5 +1,5 @@
 {-
-Copyright 2016 SlamData, Inc.
+Copyright 2017 SlamData, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ limitations under the License.
 
 module SlamData.Workspace.Class
   ( class WorkspaceDSL
+  , changeTheme
   , navigate
   , navigateToDeck
   , navigateToIndex
@@ -24,22 +25,36 @@ module SlamData.Workspace.Class
 
 import SlamData.Prelude
 
+import Control.Monad.Aff (delay)
+import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
+import Control.Monad.Eff.Now (now)
 import Control.Monad.Eff.Ref (REF, readRef)
+import Control.Monad.Eff.Timer (setTimeout)
 import Control.UI.Browser as Browser
-
-import Data.List as L
-
+import Data.Int (ceil)
 import DOM (DOM)
-
+import DOM.HTML (window)
+import DOM.HTML.Types as Ht
+import DOM.HTML.Window as Win
+import DOM.Node.Element (setAttribute)
+import DOM.Node.NonElementParentNode (getElementById)
+import DOM.Node.Types as Nt
+import Data.DateTime.Instant (unInstant)
+import Data.List as L
+import Data.URI (printURIRef)
+import Data.Time.Duration (Milliseconds(..))
 import Halogen.Query (HalogenM)
-
+import Math as Math
+import SlamData.Effects (SlamDataEffects)
 import SlamData.FileSystem.Routing (parentURL)
+import SlamData.Theme.Theme as Theme
 import SlamData.Wiring (Wiring)
 import SlamData.Wiring as Wiring
 import SlamData.Workspace.Action as WA
 import SlamData.Workspace.Deck.DeckId (DeckId)
 import SlamData.Workspace.Routing (Routes(..))
+import Utils.DOM (hideLoadingOverlay, loadStyleSheet, showLoadingOverlay)
 
 class WorkspaceDSL (m ∷ Type → Type) where
   navigate ∷ Routes → m Unit
@@ -52,6 +67,37 @@ instance workspaceDSLExceptT ∷ (Monad m, WorkspaceDSL m) ⇒ WorkspaceDSL (Exc
 
 instance workspaceDSLHalogenM ∷ (Monad m, WorkspaceDSL m) ⇒ WorkspaceDSL (HalogenM s f g p o m) where
   navigate = lift ∘ navigate
+
+changeTheme
+  ∷ ∀ m
+  . MonadAsk Wiring m
+  ⇒ MonadAff SlamDataEffects m
+  ⇒ Maybe Theme.Theme
+  → m Unit
+changeTheme theme = do
+  let uri = Theme.getURI $ fromMaybe Theme.Light theme
+  liftEff showLoadingOverlay
+  start <- liftEff now
+  liftAff $ loadStyleSheet uri
+  liftEff do
+    doc ← Win.document =<< window
+    mbStyle ← getElementById (Nt.ElementId "theme-css") (Ht.htmlDocumentToNonElementParentNode doc)
+    for_ mbStyle $ setAttribute "href" (printURIRef uri)
+    end <- liftEff now
+    -- Delay to allow the screen to repaint. It's not sync and
+    -- `requestAnimationFrame` did not work.  So this `d` guarantees that
+    -- the overlay is up for some unjarring amount of time. If the overlay
+    -- is up for a 100ms flash, it feels bad. 350 seemed to me like a
+    -- reasonable number (with 200ms being easily humanly perceptible).
+    let d = 350.0 - ((unwrap $ unInstant end) - (unwrap $ unInstant start))
+    _ ← setTimeout (ceil $ Math.max 0.0 d) hideLoadingOverlay
+    pure unit
+  -- We need to defer rendering the app by a non-zero tick (so as not to
+  -- invoke setImmediate) to give FF a chance to recalc styles. 13ms seems
+  -- to work OK when changing echart themes. When using `one` it wasn't able
+  -- to grab the updated computed style for the root font color.`
+  liftAff $ delay (Milliseconds 13.0)
+  Wiring.setTheme theme
 
 navigateToDeck
   ∷ ∀ m eff

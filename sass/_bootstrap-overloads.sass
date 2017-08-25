@@ -5,23 +5,28 @@
   padding-top: 1.4rem
   padding-bottom: 1.4rem
 
+
 .navbar
   border: none
 
-.navbar.navbar-inverse
-  background-color: #262626
-  min-height: 7rem
+  .navbar-inverse
+    background-color: #262626
+    min-height: 7rem
+
 
 .nav-cont
   height: 7rem
   box-sizing: content-box
 
+
 .navbar-nav > li > a
   padding: 1rem 1.5rem
+
 
 // make modal content scrollable if the modal is taller than the window
 .modal
   overflow: auto
+
 
 .modal.fade
   display: block
@@ -31,19 +36,23 @@
   &.in
     z-index: 1051
 
-button.list-group-item
-  width: 100%
-  text-align: left
-  color: #555
 
-button.list-group-item:first-child
-  border-top: 0
+button
+  &.list-group-item
+    width: 100%
+    text-align: left
+    color: #555
 
-button.list-group-item:last-child
-  border-bottom: 0
+  &.list-group-item:first-child
+    border-top: none
 
-button.list-group-item:hover
-  background: #f5f5f5
+  &.list-group-item:last-child
+    border-bottom: none
+
+
+  &.list-group-item:hover
+    background: #f5f5f5
+
 
 .dropdown.open
   .dropdown-menu
@@ -57,6 +66,7 @@ button.list-group-item:hover
         font-size: 80%
         position: relative
         top: 0.4rem
+
 
 select.input-sm
   line-height: 100%

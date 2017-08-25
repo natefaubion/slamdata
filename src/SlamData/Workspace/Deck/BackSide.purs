@@ -32,6 +32,7 @@ data BackAction
   | Embed
   | Publish
   | DeleteDeck
+  | Theme
   | Mirror
   | Wrap
   | WrapChoice CT.CardType
@@ -59,6 +60,7 @@ allBackActions isAdvanced =
   ⊕ [ Embed
     , Publish
     , DeleteDeck
+    , Theme
     , Mirror
     , Wrap
     , Unwrap
@@ -77,8 +79,8 @@ toActionListAction unwrappable activeCard cardDefs action =
       , icon
       , description
       , children: toActionListAction unwrappable activeCard cardDefs <$>
-          [ WrapChoice CT.Draftboard
-          , WrapChoice CT.Tabs
+          [ WrapChoice CT.draftboard
+          , WrapChoice CT.tabs
           ]
       }
     _ → Action.mkDo
@@ -104,6 +106,8 @@ toActionListAction unwrappable activeCard cardDefs action =
       I.IconHTML I.cardAndDeckActionsEmbedDeck
     Publish →
       I.IconHTML I.cardAndDeckActionsPublishDeck
+    Theme →
+      I.IconHTML I.theme
     Mirror →
       I.IconHTML I.cardAndDeckActionsMirrorDeck
     Wrap →
@@ -113,7 +117,7 @@ toActionListAction unwrappable activeCard cardDefs action =
     DeleteDeck →
       I.IconHTML I.cardAndDeckActionsDeleteDeck
     WrapChoice cty →
-      CT.cardIcon cty
+      CT.icon cty
 
   name ∷ String
   name = case action of
@@ -127,7 +131,8 @@ toActionListAction unwrappable activeCard cardDefs action =
     Wrap → "Wrap"
     Unwrap → "Collapse"
     Unshare → "Unshare deck"
-    WrapChoice cty → CT.cardName cty
+    WrapChoice cty → CT.name cty
+    Theme → "Theme workspace"
 
   description = name
 

@@ -6,6 +6,7 @@
 // compiler will yell if you don't).
 
 @import contrast-luma
+@import variables
 
 
 // Most obvious variables that people will want to change
@@ -93,6 +94,15 @@ $action-list-active-color: if(luma($brand-primary) < 210, #fff, #111) !default
 $action-list-disabled-bg: brighten($body-bg, 20%, 5%) !default
 $action-list-disabled-color: mix($action-list-disabled-bg, $text-color, 40%) !default
 
+// Attributions
+$attribution-icon-bg: brighten($body-bg, 3.75%, 5%) !default
+
+// Autocomplete
+$autocomplete-border-color: $color-separator !default
+$autocomplete-item-hover-bg: brighten($body-bg, 3.75%, 5%) !default
+$autocomplete-item-selected-bg: $action-list-active-bg
+$autocomplete-item-selected-color: $action-list-active-color
+
 // Frame Controls
 $frame-controls-bg: $action-list-active-bg
 $frame-controls-color: $action-list-active-color
@@ -106,7 +116,7 @@ $draftboard-insert-cell-color: $brand-primary !default
 $draftboard-moving-bg: transparentize($brand-primary, 0.6) !default
 
 // Global menu
-$global-menu-bg: #262626 !default
+$global-menu-bg: $slamdata-bg !default
 $global-menu-color: if(luma($global-menu-bg) > 127.5, #000, #fff) !default
 
 // Grippers
@@ -124,6 +134,11 @@ $indicator-error-color: $brand-danger !default
 // Toolbar with icons on the filesystem
 $filesystem-toolbar-color: $brand-primary !default
 $filesystem-toolbar-hover-color: $brand-primary !default
+
+// Tooltips in the filesystem
+$tooltip-focus-color: brighten($body-bg, 10%, 10%) !default
+$tooltip-hover-color: $brand-primary !default
+$tooltip-hover-text-color: $body-bg !default
 
 // Download Card
 $download-card-sidebar-bg: brighten($body-bg, 3.75%, 5%) !default

@@ -9,11 +9,6 @@ import Test.SlamData.Feature.Monad (SlamFeature)
 import Test.SlamData.Feature.XPaths as XPaths
 import XPath as XPath
 
-selectBuildChart ∷ SlamFeature Unit
-selectBuildChart =
-  annotate "Select build chart card"
-    $ Feature.click $ XPaths.followingLastPreviousCardGripper XPaths.selectBuildChart
-
 selectInChartBuilder ∷ Array String → SlamFeature Unit
 selectInChartBuilder ps =
   annotate "Selected in Chart Builder" do

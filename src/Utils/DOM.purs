@@ -25,33 +25,33 @@ module Utils.DOM
 
 import SlamData.Prelude
 
-import Data.Nullable as Nullable
-
 import Control.Monad.Aff (Aff)
 import Control.Monad.Aff as Aff
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-
-import Data.Array (uncons, sort, reverse)
-import Data.Time.Duration (Milliseconds(..))
-
 import DOM (DOM)
 import DOM.Classy.Event (toEvent, fromEvent, target, currentTarget, stopPropagation, preventDefault)
-import DOM.Classy.Node (toNode, fromNode)
 import DOM.Classy.HTMLElement (toHTMLElement, fromHTMLElement)
+import DOM.Classy.Node (toNode, fromNode)
 import DOM.Event.EventTarget as EventTarget
 import DOM.Event.Types (EventTarget, EventType, Event, MouseEvent, KeyboardEvent, FocusEvent)
 import DOM.HTML (window)
 import DOM.HTML.Event.EventTypes as EventTypes
-import DOM.Node.Element (scrollWidth, scrollHeight)
-import DOM.HTML.HTMLElement (offsetWidth, offsetHeight)
-import DOM.HTML.Types (Window, HTMLElement, htmlElementToElement, htmlDocumentToDocument, windowToEventTarget)
+import DOM.HTML.HTMLElement (classList, offsetHeight, offsetWidth)
+import DOM.HTML.Types (HTMLElement, Window, htmlDocumentToDocument, htmlElementToElement, htmlDocumentToNonElementParentNode, windowToEventTarget)
 import DOM.HTML.Window (document)
+import DOM.Node.ClassList as ClassList
+import DOM.Node.Document (createElement)
+import DOM.Node.Element (setAttribute, scrollWidth, scrollHeight)
+import DOM.Node.NonElementParentNode (getElementById)
 import DOM.Node.ParentNode as P
-import DOM.Node.Types (Node, elementToParentNode, Element, documentToEventTarget)
-
-import Utils.Aff as AffUtils
+import DOM.Node.Types (DOMTokenList, Element, ElementId(..), Node, documentToEventTarget, elementToEventTarget, elementToParentNode)
+import Data.Array (uncons, sort, reverse)
+import Data.Nullable as Nullable
+import Data.Time.Duration (Milliseconds(..))
+import Data.URI (URIRef, printURIRef)
 import Unsafe.Coerce (unsafeCoerce)
+import Utils.Aff as AffUtils
 
 newtype Font = Font String
 
@@ -74,12 +74,16 @@ foreign import open
   → Window
   → Eff (dom ∷ DOM | eff) (Nullable.Nullable Window)
 
-
 -- | Same as `getTextWidth` but w/o Eff wrapper. This function definitely has effects
 -- | of allocating canvas and should have `Eff (ref ∷ REF|e)` or `Eff (dom ∷ DOM|e)`
 -- | but since we don't use intermediate `canvas` anywhere it's safe to think about
 -- | this as pure function from font style and string to width.
 foreign import getTextWidthPure ∷ String → Font → Number
+
+-- | Gets the HTML color via `getComputedStyle` which isn't in the PS DOM lib
+-- | It's passed to the ECharts which wants a string. I'd make it a `Color` but
+-- | there's also no generic `toColor` that handles `hsl`, `rgb`, etc.
+foreign import getHTMLTextColorString ∷ ∀ eff. Window → Eff (dom ∷ DOM | eff) (Nullable.Nullable String)
 
 fits ∷ ∀ eff. HTMLElement → Eff (dom ∷ DOM | eff) Boolean
 fits el = (&&) <$> fitsHorizontally <*> fitsVertically
@@ -138,3 +142,51 @@ waitUntilWindowClosed ∷ ∀ eff. Window → Aff (dom ∷ DOM | eff) Unit
 waitUntilWindowClosed win = AffUtils.untilA do
   Aff.delay (Milliseconds 250.0)
   liftEff $ closed win
+
+-- Load via `<img>`, but capture the error. Hacky, but that's browsers.
+-- https://stackoverflow.com/a/5371426/7110837
+-- `onError` skipped because, welp, this hack use erroring.
+loadStyleSheet ∷ ∀ eff. URIRef → Aff (dom ∷ DOM | eff) Unit
+loadStyleSheet uri = Aff.makeAff \_ onSuccess → do
+  liftEff do
+    doc ← document =<< window
+    img ← createElement "img" (htmlDocumentToDocument doc)
+    let
+      imgTarget ∷ EventTarget
+      imgTarget = elementToEventTarget img
+
+      listener = EventTarget.eventListener \_ → do
+        EventTarget.removeEventListener EventTypes.error listener false imgTarget
+        onSuccess unit
+
+    EventTarget.addEventListener EventTypes.error listener false imgTarget
+    setAttribute "src" (printURIRef uri) img
+
+toggleLoadingOverlay ∷ ∀ eff. Boolean → Eff (dom ∷ DOM | eff) Unit
+toggleLoadingOverlay shouldShow = liftEff do
+  doc ← document =<< window
+  let overlayId = ElementId "page-loading-overlay"
+  mbOverlay ← getElementById overlayId (htmlDocumentToNonElementParentNode doc)
+  for_ mbOverlay \overlay → do
+    overlayClassList ← liftEff $ classList $ elementToHTMLElement overlay
+    -- showing? well then let's remove these classes
+    when shouldShow do
+      ClassList.remove overlayClassList "fade-overlay"
+      ClassList.remove overlayClassList "hide-overlay"
+    -- else when hiding the overlay, fade it and hide after the transition
+    when (not shouldShow) do
+      let
+        overlayTarget ∷ EventTarget
+        overlayTarget = elementToEventTarget overlay
+
+        listener = EventTarget.eventListener \_ → do
+          EventTarget.removeEventListener EventTypes.transitionend listener false overlayTarget
+          ClassList.add overlayClassList "hide-overlay"
+      EventTarget.addEventListener EventTypes.transitionend listener false overlayTarget
+      ClassList.add overlayClassList "fade-overlay"
+
+hideLoadingOverlay ∷ ∀ eff. Eff (dom ∷ DOM | eff) Unit
+hideLoadingOverlay = toggleLoadingOverlay false
+
+showLoadingOverlay ∷ ∀ eff. Eff (dom ∷ DOM | eff) Unit
+showLoadingOverlay = toggleLoadingOverlay true

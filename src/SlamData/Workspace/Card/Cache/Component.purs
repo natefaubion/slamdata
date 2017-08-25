@@ -46,7 +46,7 @@ type CacheHTML = CC.InnerCardHTML Query
 
 cacheCardComponent ∷ CC.CardOptions → CC.CardComponent
 cacheCardComponent =
-  CC.makeCardComponent CT.Cache $ H.component
+  CC.makeCardComponent CT.cache $ H.component
     { render
     , eval: coproduct cardEval saveEval
     , initialState: const initialState

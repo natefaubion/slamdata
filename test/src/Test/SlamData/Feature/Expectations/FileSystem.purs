@@ -12,6 +12,9 @@ import XPath as XPath
 downloadedTextFileToMatchFile ∷ String → String → String → SlamFeature Unit
 downloadedTextFileToMatchFile = expectDownloadedTextFileToMatchFile
 
+downloadedFileName ∷ String → SlamFeature Unit
+downloadedFileName s = expectPresented $ XPath.anywhere $ XPath.withTextContaining s
+
 file ∷ String → SlamFeature Unit
 file name =
   annotate ("Found expexcted file " <> name)

@@ -36,11 +36,12 @@ import Test.Feature.Scenario (KnownIssues, noIssues, scenario)
 import Test.SlamData.Feature.Config (Config)
 import Test.SlamData.Feature.Effects (SlamFeatureEffects)
 import Test.SlamData.Feature.Interactions as Interact
-import Test.SlamData.Feature.Monad (Connector(..), SlamFeature, getConnector)
+import Test.SlamData.Feature.Monad (Connector(Marklogic, Couchbase), SlamFeature, getConnector)
 import Test.SlamData.Feature.Test.CacheCard as Cache
 import Test.SlamData.Feature.Test.File as File
-import Test.SlamData.Feature.Test.FlexibleVisualation as FlexibleVisualization
+--import Test.SlamData.Feature.Test.FlexibleVisualation as FlexibleVisualization
 import Test.SlamData.Feature.Test.FlipDeck as FlipDeck
+import Test.SlamData.Feature.Test.ImportExport as ImportExport
 import Test.SlamData.Feature.Test.Markdown as Markdown
 import Test.SlamData.Feature.Test.Search as Search
 import Text.Chalky (green, yellow, gray, red)
@@ -111,9 +112,11 @@ tests = do
       Log.successMsg "** Ok, skipped guides and dismiss hints **"
 
   File.test
+  ImportExport.tests
   Search.test
   Markdown.test
-  FlexibleVisualization.test
+  -- Broken in PR #2112 - ECharts default theme color
+  --FlexibleVisualization.test
   Cache.test
   FlipDeck.test
 

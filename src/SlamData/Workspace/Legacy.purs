@@ -17,19 +17,21 @@ limitations under the License.
 module SlamData.Workspace.Legacy where
 
 import SlamData.Prelude
-
 import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.Aff.Future (defer, wait)
 import Control.Monad.Eff.Exception as Exn
 import Control.Monad.Fork (class MonadFork)
+
 import Data.Argonaut (Json, decodeJson, (.?))
 import Data.Array as Array
 import Data.Codec.Argonaut.Compat as CA
 import Data.Map as Map
 import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as Pathy
+
 import Quasar.Advanced.QuasarAF as QF
 import Quasar.FS as QFS
+
 import SlamData.Effects (SlamDataEffects)
 import SlamData.Quasar.Class (class QuasarDSL, liftQuasar)
 import SlamData.Quasar.Data as Quasar
@@ -37,17 +39,14 @@ import SlamData.Quasar.Error as QE
 import SlamData.Wiring.Cache as Cache
 import SlamData.Workspace.Card.CardId (CardId)
 import SlamData.Workspace.Card.CardId as CID
-import SlamData.Workspace.Card.Model (AnyCardModel(..))
+import SlamData.Workspace.Card.CardType as CT
+import SlamData.Workspace.Card.Model (AnyCardModel)
 import SlamData.Workspace.Card.Model as Card
-import SlamData.Workspace.Card.Setups.Chart.Gauge.Model as BuildGauge
-import SlamData.Workspace.Card.Setups.Chart.Graph.Model as BuildGraph
-import SlamData.Workspace.Card.Setups.Chart.Legacy as ChartLegacy
-import SlamData.Workspace.Card.Setups.Chart.Metric.Model as BuildMetric
-import SlamData.Workspace.Card.Setups.Chart.Sankey.Model as BuildSankey
 import SlamData.Workspace.Deck.DeckId (DeckId)
 import SlamData.Workspace.Deck.DeckId as DID
 import SlamData.Workspace.Deck.Model (Deck, emptyDeck) as Current
 import SlamData.Workspace.Model (Workspace, decode) as Current
+
 import Utils (decodec)
 import Utils.Path (DirPath)
 
@@ -87,36 +86,18 @@ decodeDeck = decodeJson >=> \obj → do
   name ← obj .? "name" <|> pure ""
   pure { parent, mirror, cards, name }
 
+
+-- Note: card model legacy decoders live in card model modules.
+-- e.g. Setups.Viz.Model, Viz.Model
 decodeCard ∷ Json → Either String Card
 decodeCard js = do
   obj ← decodeJson js
   cardId ← decodec CID.codec =<< obj .? "cardId"
+  cardType ← CT.decode =<< (obj .? "cardType")
   cardTypeStr ← obj .? "cardType"
   modelJS ← obj .? "model"
-  model ←
-    if cardTypeStr ≡ "chart-options"
-      then
-        BuildMetric <$> BuildMetric.decode modelJS
-        <|> BuildSankey <$> BuildSankey.decode modelJS
-        <|> BuildGauge <$> BuildGauge.decode modelJS
-        <|> BuildGraph <$> BuildGraph.decode modelJS
-        <|> ChartLegacy.decode legacyConf modelJS
-      else do
-        cardType ← obj .? "cardType"
-        Card.decodeCardModel cardType modelJS
+  model ← Card.decodeCardModel cardTypeStr modelJS cardType
   pure { cardId, model }
-  where
-  legacyConf =
-    { pie: BuildPie
-    , line: BuildLine
-    , bar: BuildBar
-    , area: BuildArea
-    , scatter: BuildScatter
-    , radar: BuildRadar
-    , funnel: BuildFunnel
-    , heatmap: BuildHeatmap
-    , boxplot: BuildBoxplot
-    }
 
 loadGraph
   ∷ ∀ f m
@@ -179,6 +160,7 @@ loadGraph path { root } = runExceptT do
         { rootId
         , decks: Map.singleton rootId Current.emptyDeck
         , cards: Map.empty ∷ Map.Map CardId AnyCardModel
+        , theme: Nothing
         }
     Just rootId → do
       _ ← loadDeck rootId
@@ -188,6 +170,7 @@ loadGraph path { root } = runExceptT do
         { rootId
         , decks: decks'
         , cards: cards'
+        , theme: Nothing
         }
 
 loadCompatWorkspace

@@ -58,6 +58,7 @@ import SlamData.Workspace.Card.Draftboard.Layout as Layout
 import SlamData.Workspace.Card.Draftboard.Orientation as Orn
 import SlamData.Workspace.Card.Draftboard.Pane as Pane
 import SlamData.Workspace.Card.Model as CM
+import SlamData.Workspace.Class (changeTheme)
 import SlamData.Workspace.Deck.DeckId as DID
 import SlamData.Workspace.Deck.Model as DM
 import SlamData.Workspace.Eval as Eval
@@ -115,6 +116,7 @@ loadWorkspace = runExceptT do
   when (isLegacy stat && AccessType.isEditable accessType) do
     ExceptT saveWorkspace
     void $ lift $ pruneLegacyData path -- Not imperative that this succeeds
+  changeTheme ws.theme
   pure ws.rootId
 
 saveWorkspace ∷ ∀ f m. Persist f m (m (Either QE.QError Unit))
@@ -123,8 +125,9 @@ saveWorkspace = runExceptT do
   decks ← map _.model <$> Cache.snapshot eval.decks
   cards ← map _.model <$> Cache.snapshot eval.cards
   rootId ← lift $ getRootDeckId
+  theme ← Wiring.getTheme
   let
-    json = WM.encode { rootId, decks, cards }
+    json = WM.encode { rootId, decks, cards, theme }
     file = path </> Pathy.file "index"
   result ← Quasar.save file json
   liftEff $ Ref.writeRef auth.retrySave (isLeft result)

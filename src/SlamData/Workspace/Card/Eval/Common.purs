@@ -28,10 +28,10 @@ import Data.List as L
 import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as Path
 import Data.StrMap as SM
-import Quasar.QuasarF as Q
 import Quasar.Advanced.QuasarAF as QF
 import Quasar.Data.Json as QJ
 import Quasar.Data.Json.Extended (resultsAsEJson)
+import Quasar.QuasarF as Q
 import Quasar.Types (FilePath, Pagination)
 import SlamData.Quasar.Class (class QuasarDSL, class ParQuasarDSL, sequenceQuasar, liftQuasar)
 import SlamData.Quasar.Error as QE
@@ -76,7 +76,7 @@ localEvalResource sql varMap = runExceptT do
       filePath × relFilePath ← lift $ CEM.temporaryOutputResource
       unless readOnly do
         let
-          varMap' = VM.toURLVarMap varMap
+          varMap' = VM.unURLVarMapF $ VM.toURLVarMap varMap
           compilePath = fromMaybe Path.rootDir (Path.parentDir filePath)
         { inputs } ← ExceptT $ QQ.compile compilePath sqlQuery varMap'
         ExceptT $ validateResources inputs
@@ -103,7 +103,7 @@ sampleResource' mode path res pagination =
   liftQuasar $ case res of
     VM.Path filePath → QF.readFile mode filePath pagination
     VM.View filePath _ _ → QF.readFile mode (path </> tmpDir </> filePath) pagination
-    VM.Process filePath _ varMap → left $ Q.invokeFile mode (path </> tmpDir </> filePath) (VM.toURLVarMap varMap) pagination
+    VM.Process filePath _ varMap → left $ Q.invokeFile mode (path </> tmpDir </> filePath) (VM.unURLVarMapF $ VM.toURLVarMap varMap) pagination
 
 sampleResource
   ∷ ∀ m
@@ -135,7 +135,7 @@ runElaboratedQuery'
   → m (Either QE.QError J.JArray)
 runElaboratedQuery' mode path query varMap =
   let query' = Process.elaborateQuery (Path.unsandbox (Path.currentDir </> tmpDir)) varMap query
-  in liftQuasar $ QF.readQuery QJ.Readable path (Sql.printQuery query') (VM.toURLVarMap varMap) Nothing
+  in liftQuasar $ QF.readQuery QJ.Readable path (Sql.printQuery query') (VM.unURLVarMapF $ VM.toURLVarMap varMap) Nothing
 
 runElaboratedQuery
   ∷ ∀ m

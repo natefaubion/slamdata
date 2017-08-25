@@ -49,7 +49,7 @@ type DSL = CC.InnerCardDSL State Query
 
 downloadComponent ∷ CC.CardOptions → CC.CardComponent
 downloadComponent =
-  CC.makeCardComponent CT.Download $ H.component
+  CC.makeCardComponent CT.download $ H.component
     { render: render
     , eval: evalCard ⨁ (absurd ∘ unwrap)
     , initialState: const initialState

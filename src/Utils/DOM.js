@@ -99,8 +99,14 @@ exports.close = function(windowObjectReference) {
   };
 };
 
-
-
+exports.getHTMLTextColorString = function(windowObjectReference) {
+  return function() {
+    var computedStyle = windowObjectReference.getComputedStyle(document.documentElement);
+    return computedStyle && "getPropertyValue" in computedStyle
+      ? computedStyle.getPropertyValue("color")
+      : null;
+  };
+};
 
 exports.centerPopupWindowFeatures = function(w) {
   return function(h) {

@@ -146,6 +146,14 @@ axisTransforms axis prev = Array.cons Count case axis of
   Ax.Time → timeTransforms
   Ax.DateTime → dateTimeTransforms
 
+categoricalTransforms ∷ Maybe Transform → Array Transform
+categoricalTransforms mbTr =
+  dateTransforms
+  ⊕ timeTransforms
+  ⊕ dateTimeTransforms
+  ⊕ numericTransforms mbTr
+  ⊕ stringTransforms
+
 derive instance eqTransform ∷ Eq Transform
 derive instance ordTransform ∷ Ord Transform
 

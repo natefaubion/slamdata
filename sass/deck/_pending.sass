@@ -6,7 +6,7 @@
   text-align: center
   top: 50%
   width: 100%
-  margin-top: -3.2rem
+  margin-top: 6rem
 
   .sd-icon
     display: block
@@ -15,13 +15,20 @@
 
 .sd-pending-overlay
   position: absolute
-  z-index: 1000
-  overflow: hidden
   top: 0
   left: 0
   right: 0
   bottom: 0
-  background-color: $body-bg
+  z-index: 1000
+  overflow: hidden
 
-  > div
-    display: block
+  > .sd-pending-overlay-backdrop
+    position: absolute
+    top: 0
+    left: 0
+    right: 0
+    bottom: 0
+    opacity: 0.6
+    background-color: $body-bg
+    width: auto;
+    margin: auto;

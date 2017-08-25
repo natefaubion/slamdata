@@ -52,3 +52,4 @@ data Query a
   | HandleWorkspace Wiring.WorkspaceMessage a
   | HandleLicenseProblem (Maybe LicenseProblem) a
   | HandleDeck Wiring.DeckMessage a
+  | ResetTheme a

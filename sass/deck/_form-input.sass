@@ -1,4 +1,4 @@
-.sd-card-form-input
+.sd-card-form-input, .sd-chart-configure-form
   $p: $padding-base-vertical
   padding-left: $p
   padding-right: $p
@@ -24,7 +24,7 @@
   input
     width: 100%
     height: 100%
-    border: 0
+    border: none
     margin: 0
     padding: 0 1rem
     text-align: center
@@ -44,6 +44,7 @@
     position: absolute
     top: 0
     right: 0
+    z-index: 2
 
   .sd-formatting-options-button
     position: absolute
@@ -64,11 +65,11 @@
       top: -0.1rem
 
 
-.sd-dimension-button-display
+.sd-dimension-button-display, .sd-dimension-button-display-wo-label
   flex: 1 1 auto
   width: 100%
   z-index: 1
-  border: 0
+  border: none
   background: transparent
 
 

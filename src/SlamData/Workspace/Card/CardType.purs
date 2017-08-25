@@ -15,310 +15,153 @@ limitations under the License.
 -}
 
 module SlamData.Workspace.Card.CardType
-  ( CardType(..)
-  , AceMode(..)
-  , cardIcon
-  , cardName
+  ( CardType
+  , name
   , cardClasses
-  , aceCardName
-  , aceCardClasses
-  , aceMode
+  , icon
+  , encode
+  , decode
   , consumerInteractable
+  , all
+  , contractToPivot
+  , contractToMetric
+  , contractToMetricRenderer
+  , module SlamData.Workspace.Card.CardType.Ace
+  , module SlamData.Workspace.Card.CardType.Chart
+  , module SlamData.Workspace.Card.CardType.Geo
+  , module SlamData.Workspace.Card.CardType.Input
+  , module SlamData.Workspace.Card.CardType.Select
+  , module SlamData.Workspace.Card.CardType.Simple
+  , module SlamData.Workspace.Card.CardType.Static
   ) where
 
 import SlamData.Prelude
 
-import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson)
+import Data.Argonaut as J
 import Data.String as Str
-
 import Halogen.HTML as H
-
 import SlamData.Render.Icon as I
-import SlamData.Workspace.Card.CardType.ChartType as ChT
-import SlamData.Workspace.Card.CardType.FormInputType as FiT
-import SlamData.Workspace.Card.CardType.GeoChartType as GcT
+import SlamData.Workspace.Card.CardType.Ace ( _aceMarkdown, aceMarkdown, _aceSql, aceSql, mode, AceR, Ace, contractToAce)
+import SlamData.Workspace.Card.CardType.Ace as Ace
+import SlamData.Workspace.Card.CardType.Chart ( _pie, pie, _line, line, _bar, bar, _area, area, _scatter, scatter, _radar, radar, _funnel, funnel, _graph, graph, _heatmap, heatmap, _sankey, sankey, _gauge, gauge, _boxplot, boxplot, _metric, metric, _pivot, pivot, _punchCard, punchCard, _candlestick, candlestick, _parallel, parallel, ChartR, Chart, contractToChart)
+import SlamData.Workspace.Card.CardType.Chart as Cht
+import SlamData.Workspace.Card.CardType.Geo ( _geoMarker, geoMarker, _geoHeatmap, geoHeatmap, GeoR, Geo, contractToGeo)
+import SlamData.Workspace.Card.CardType.Geo as Geo
+import SlamData.Workspace.Card.CardType.Input ( _text, text, _numeric, numeric, _date, date, _time, time, _datetime, datetime, InputR, Input, contractToInput)
+import SlamData.Workspace.Card.CardType.Input as Inp
+import SlamData.Workspace.Card.CardType.Select ( _dropdown, dropdown, _radio, radio, _checkbox, checkbox, SelectR, Select, contractToSelect)
+import SlamData.Workspace.Card.CardType.Select as Sel
+import SlamData.Workspace.Card.CardType.Simple ( _search, search, _markdown, markdown, _table, table, _download, download, _variables, variables, _troubleshoot, troubleshoot, _open, open, _downloadOptions, downloadOptions, _tabs, tabs, _structureEditor, structureEditor, _cache, cache, _draftboard, draftboard, _viz, viz, SimpleR, Simple, contractToSimple, setupViz, _setupViz)
+import SlamData.Workspace.Card.CardType.Simple as Sim
+import SlamData.Workspace.Card.CardType.Static ( _static, static, StaticR, Static, contractToStatic)
+import SlamData.Workspace.Card.CardType.Static as Sta
 
-import Test.StrongCheck.Arbitrary as SC
+type CardType =
+  Variant ( SimpleR ( AceR () ) )
 
-data CardType
-  = Ace AceMode
-  | Search
-  | ChartOptions ChT.ChartType
-  | SetupFormInput FiT.FormInputType
-  | Chart
-  | FormInput
-  | Markdown
-  | Table
-  | Download
-  | Variables
-  | Troubleshoot
-  | Cache
-  | Open
-  | DownloadOptions
-  | Draftboard
-  | Tabs
-  | StructureEditor
-  | SetupGeoChart GcT.GeoChartType
-  | GeoChart
+all ∷ Array CardType
+all = Sim.all ⊕ Ace.all
 
-derive instance eqCardType ∷ Eq CardType
-derive instance ordCardType ∷ Ord CardType
+print ∷ CardType → String
+print = case_
+  # Ace.print
+  # Sim.print
 
-data AceMode
-  = MarkdownMode
-  | SQLMode
+encode ∷ CardType → J.Json
+encode r =
+  J.encodeJson
+  $ ( case_
+      # Sim.print
+      # Ace.print
+      $ r )
 
-derive instance eqAceMode ∷ Eq AceMode
-derive instance ordAceMode ∷ Ord AceMode
+parse ∷ String → String ⊹ CardType
+parse s =
+  Sim.parse s
+  <|> parseChart s
+  <|> parseSelect s
+  <|> parseInput s
+  <|> parseStatic s
+  <|> parseGeo s
+  <|> Ace.parse s
+  <|> (Left $  "unknow card type '" ⊕ s ⊕ "'")
+  where
+  parseChart n =
+    bimap
+      (const $ "unknown card type '" ⊕ n ⊕ "'")
+      (const setupViz)
+      $ Cht.parse
+      $ fromMaybe ""
+      $ Str.stripSuffix (Str.Pattern "-options") n
 
-instance showAceMode ∷ Show AceMode where
-  show MarkdownMode = "MarkdownMode"
-  show SQLMode = "SQLMode"
+  parseSelect n =
+    bimap
+      (const $ "unknown card type '" ⊕ n ⊕ "'")
+      (const setupViz)
+      $ Sel.parse
+      $ fromMaybe ""
+      $ Str.stripSuffix (Str.Pattern "-setup") n
 
-instance arbitraryAceMode ∷ SC.Arbitrary AceMode where
-  arbitrary = do
-    b ← SC.arbitrary
-    pure $ if b then MarkdownMode else SQLMode
+  parseInput n =
+    bimap
+      (const $ "unknown card type '" ⊕ n ⊕ "'")
+      (const setupViz)
+      $ Inp.parse
+      $ fromMaybe ""
+      $ Str.stripSuffix (Str.Pattern "-setup") n
 
-instance encodeJsonCardType ∷ EncodeJson CardType where
-  encodeJson = encodeJson ∘ case _ of
-    Ace MarkdownMode → "ace-markdown"
-    Ace SQLMode → "ace-sql"
-    Search → "search"
-    ChartOptions chty → ChT.print chty ⊕ "-options"
-    SetupFormInput fity → FiT.print fity ⊕ "-setup"
-    SetupGeoChart gcty → GcT.print gcty ⊕ "-geo-setup"
-    Chart → "chart"
-    FormInput → "form-input"
-    Markdown → "markdown"
-    Table → "table"
-    Download → "download"
-    Variables → "variables"
-    Troubleshoot → "troubleshoot"
-    Cache → "cache"
-    Open → "open"
-    DownloadOptions → "download-options"
-    Draftboard → "draftboard"
-    Tabs → "tabs"
-    StructureEditor → "structure-editor"
-    GeoChart → "geo-chart"
+  parseStatic n =
+    bimap
+      (const $ "unknown card type '" ⊕ n ⊕ "'")
+      (const setupViz)
+      $ Sta.parse
+      $ fromMaybe ""
+      $ Str.stripSuffix (Str.Pattern "-setup") n
 
+  parseGeo n =
+    bimap
+      (const $ "unknown card type '" ⊕ n ⊕ "'")
+      (const setupViz)
+      $ Geo.parse
+      $ fromMaybe ""
+      $ Str.stripSuffix (Str.Pattern "-setup") n
 
-instance decodeJsonCardType ∷ DecodeJson CardType where
-  decodeJson json = do
-    (decodeJson json >>= parseBasic)
-    <|> (decodeJson json >>= parseChartOptions)
-    <|> (decodeJson json >>= parseFormInputSetup)
-    <|> (decodeJson json >>= parseGeoChartSetup)
-    where
-    parseGeoChartSetup name = do
-      let gcName = fromMaybe "" $ Str.stripSuffix (Str.Pattern "-geo-setup") name
-      gcty ← lmap (const $ "unknown card type '" ⊕ name ⊕ "'") $ GcT.parse gcName
-      pure $ SetupGeoChart gcty
-    parseFormInputSetup name = do
-      let fiName = fromMaybe "" $ Str.stripSuffix (Str.Pattern "-setup") name
-      fity ← lmap (const $ "unknown card type '" ⊕ name ⊕ "'") $ FiT.parse fiName
-      pure $ SetupFormInput fity
+decode ∷ J.Json → String ⊹ CardType
+decode = J.decodeJson >=> parse
 
-    parseChartOptions name = do
-      let chartName = fromMaybe "" $ Str.stripSuffix (Str.Pattern "-options") name
-      chty ← lmap (const $ "unknown card type '" ⊕ name ⊕ "'") $ ChT.parse chartName
-      pure $ ChartOptions chty
+name ∷ CardType → String
+name = case_ # Sim.name # Ace.name
 
-    parseBasic = case _ of
-      "ace-markdown" → pure $ Ace MarkdownMode
-      "ace-sql" → pure $ Ace SQLMode
-      "search" → pure Search
-      "chart" → pure Chart
-      "form-input" → pure FormInput
-      "markdown" → pure Markdown
-      "table" → pure Table
-      "download" → pure Download
-      "variables" → pure Variables
-      "troubleshoot" → pure Troubleshoot
-      "cache" → pure Cache
-      "open" → pure Open
-      "download-options" → pure DownloadOptions
-      "draftboard" → pure Draftboard
-      "tabs" → pure Tabs
-      "structure-editor" → pure StructureEditor
-      "geo-chart" → pure GeoChart
-      _ → Left "This is not basic card type"
+icon ∷ CardType → I.IconHTML
+icon = case_ # Sim.icon # Ace.icon
 
-cardName ∷ CardType → String
-cardName = case _ of
-  Ace at → aceCardName at
-  Search → "Search"
-  ChartOptions chty → ChT.name chty
-  SetupFormInput fity → FiT.name fity
-  SetupGeoChart gcty → GcT.name gcty
-  Chart → "Show Chart"
-  GeoChart → "Show Geo Chart"
-  FormInput → "Show Form"
-  Markdown → "Show Markdown"
-  Table → "Preview Table"
-  Download → "Show Download"
-  Variables → "Setup Variables"
-  Troubleshoot → "Troubleshoot"
-  Cache → "Cache"
-  Open → "Open"
-  DownloadOptions → "Setup Download"
-  Draftboard → "Setup Dashboard"
-  Tabs → "Setup Tabs"
-  StructureEditor → "Structure Viewer"
-
-cardIcon ∷ CardType → I.IconHTML
-cardIcon = I.IconHTML ∘ case _ of
-  Ace MarkdownMode →
-    I.cardsSetupMarkdown
-  Ace SQLMode →
-    I.cardsQuery
-  Search →
-    I.cardsSearch
-  ChartOptions chty →
-    case chty of
-      ChT.Pie →
-        I.buildChartPie
-      ChT.Line →
-        I.buildChartLine
-      ChT.Bar →
-        I.buildChartBar
-      ChT.Area →
-        I.buildChartArea
-      ChT.Scatter →
-        I.buildChartScatter
-      ChT.Radar →
-        I.buildChartRadar
-      ChT.Funnel →
-        I.buildChartFunnel
-      ChT.Graph →
-        I.buildChartGraph
-      ChT.Heatmap →
-        I.buildChartHeatmap
-      ChT.Sankey →
-        I.buildChartSankey
-      ChT.Gauge →
-        I.buildChartGauge
-      ChT.Boxplot →
-        I.buildChartBoxplot
-      ChT.Metric →
-        I.buildChartMetric
-      ChT.PivotTable →
-        I.buildChartPivotTable
-      ChT.PunchCard →
-        I.buildChartPunchCard
-      ChT.Candlestick →
-        I.buildChartCandlestick
-      ChT.Parallel →
-        I.buildChartParallel
-  SetupFormInput fity → case fity of
-    FiT.Dropdown →
-      I.cardsSetupFormInputDropdown
-    FiT.Static →
-      I.cardsSetupFormInputStatic
-    FiT.Text →
-      I.cardsSetupFormInputText
-    FiT.Numeric →
-      I.cardsSetupFormInputNumeric
-    FiT.Checkbox →
-      I.cardsSetupFormInputCheckbox
-    FiT.Radio →
-      I.cardsSetupFormInputRadio
-    FiT.Date →
-      I.cardsSetupFormInputDate
-    FiT.Time →
-      I.cardsSetupFormInputTime
-    FiT.Datetime →
-      I.cardsSetupFormInputDatetime
-  SetupGeoChart gcty → case gcty of
-    GcT.Marker →
-      I.cardsSetupGeoChartMarker
-    GcT.Heatmap →
-      I.cardsSetupGeoChartHeatmap
-  Download →
-    I.cardsShowDownload
-  Variables →
-    I.cardsSetupVariables
-  Troubleshoot →
-    I.cardsTroubleshoot
-  Chart →
-    I.cardsShowChart
-  FormInput →
-    I.cardsShowFormInput
-  Markdown →
-    I.cardsShowMarkdown
-  Table →
-    I.cardsTable
-  Cache →
-    I.cardsCache
-  Open →
-    I.cardsOpen
-  DownloadOptions →
-    I.cardsSetupDownload
-  Draftboard →
-    I.cardsDashboard
-  Tabs →
-    I.cardsTabs
-  StructureEditor →
-    I.cardsStructureEditor
-  GeoChart →
-    I.cardsGeoChart
-
--- Used to disable inputs, buttons and selects as well as a whitelist for
--- localstorage card persistence. Interactability available to consumers may be
--- disabled or limited elsewhere.
 consumerInteractable ∷ CardType → Boolean
-consumerInteractable = case _ of
-  Ace _ → false
-  Search → true
-  ChartOptions _ → false
-  SetupFormInput _ → false
-  SetupGeoChart _ → false
-  GeoChart → true
-  Chart → true
-  FormInput → true
-  Markdown → true
-  Table → true
-  Download → true
-  DownloadOptions → false
-  Variables → false
-  Troubleshoot → false
-  Cache → false
-  Open → false
-  Draftboard → true
-  Tabs → true
-  StructureEditor → false
+consumerInteractable = case_
+  # Sim.consumerInteractable
+  # Ace.consumerInteractable
 
 cardClasses ∷ CardType → Array H.ClassName
-cardClasses = case _ of
-  Ace at → [ H.ClassName "sd-card-ace" ] <> aceCardClasses at
-  Search → [ H.ClassName "sd-card-search" ]
-  ChartOptions _ → [ H.ClassName "sd-card-chart-options" ]
-  SetupFormInput _ → [ H.ClassName "sd-form-input-setup" ]
-  SetupGeoChart _ → [ H.ClassName "sd-setup-geo-chart" ]
-  Chart → [ H.ClassName "sd-card-chart" ]
-  GeoChart → [ H.ClassName "sd-card-geo-chart" ]
-  FormInput → [ H.ClassName "sd-card-form-input" ]
-  Markdown → [ H.ClassName "sd-card-markdown" ]
-  Table → [ H.ClassName "sd-card-table" ]
-  Download → [ H.ClassName "sd-card-download" ]
-  DownloadOptions → [ H.ClassName "sd-card-download-options" ]
-  Variables → [ H.ClassName "sd-card-variables" ]
-  Troubleshoot → [ H.ClassName "sd-card-troubleshoot" ]
-  Cache → [ H.ClassName "sd-card-cache" ]
-  Open → [ H.ClassName "sd-card-open" ]
-  Draftboard → [ H.ClassName "sd-card-draftboard" ]
-  Tabs → [ H.ClassName "sd-card-tabs" ]
-  StructureEditor → [ H.ClassName "sd-structure-editor" ]
+cardClasses = case_
+  # Sim.cardClasses
+  # Ace.cardClasses
 
-aceCardName ∷ AceMode → String
-aceCardName MarkdownMode = "Setup Markdown"
-aceCardName SQLMode = "Query"
+contractToPivot
+  ∷ ∀ r a
+  . Contractable r (pivot ∷ a)
+  ⇒ Variant r
+  → Maybe (Variant (pivot ∷ a))
+contractToPivot = contract
 
-aceCardClasses ∷ AceMode → Array H.ClassName
-aceCardClasses MarkdownMode = [ H.ClassName "sd-card-markdown" ]
-aceCardClasses SQLMode = [ H.ClassName "sd-card-sql" ]
+contractToMetric
+  ∷ ∀ r a
+  . Contractable r (metric ∷ a)
+  ⇒ Variant r
+  → Maybe (Variant (metric ∷ a))
+contractToMetric = contract
 
-aceMode ∷ AceMode → String
-aceMode MarkdownMode = "ace/mode/markdown"
-aceMode SQLMode = "ace/mode/sql"
+contractToMetricRenderer
+  ∷ ∀ r a b
+  . Contractable r (metric ∷ a, static ∷ b)
+  ⇒ Variant r
+  → Maybe (Variant (metric ∷ a, static ∷ b))
+contractToMetricRenderer = contract

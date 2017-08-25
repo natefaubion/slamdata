@@ -61,8 +61,8 @@ $nav-gripper-height: $grid-size
         padding-left: $padding-base-vertical
         vertical-align: middle
 
-    // legacy stuff??
     .workspace-name, .search
+      // legacy stuff??
       display: inline-block
       margin-left: 2.4rem
       vertical-align: middle
@@ -88,8 +88,8 @@ $nav-gripper-height: $grid-size
         border: none
         line-height: 100%
 
-  // legacy stuff??
   .header-menu
+    // legacy stuff??
     display: block
     border-top: 0.1rem solid $global-menu-color
     line-height: 4rem
@@ -149,17 +149,14 @@ $nav-gripper-height: $grid-size
       color: $gripper-hover-color
 
 
-.sd-header-gripper-opening,
-.sd-header-gripper-opened,
-.sd-header-gripper-dragging-down,
-.sd-header-gripper-dragging-up,
-.sd-header-gripper-closing
-  color: $global-menu-color !important
-  background-color: $global-menu-bg !important
-  box-shadow: 0 0.2rem $padding-base-vertical rgba(0, 0, 0, 0.35)
+.sd-header-gripper
+  &-opening, &-opened, &-dragging-down, &-dragging-up, &-closing
+    color: $global-menu-color !important
+    background-color: $global-menu-bg !important
+    box-shadow: 0 0.2rem $padding-base-vertical rgba(0, 0, 0, 0.35)
 
-  &:hover
-    color: $global-menu-color
+    &:hover
+      color: $global-menu-color
 
 
 // Smaller screens

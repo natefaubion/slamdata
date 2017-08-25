@@ -33,4 +33,5 @@ type Config =
       { filePaths ∷ Array String }
   , download ∷
       { folder ∷ String }
+  , whoami ∷ String
   }

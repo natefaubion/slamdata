@@ -41,6 +41,7 @@ import Test.SlamData.Feature.Expectations.Charts
 
 import Test.SlamData.Feature.Expectations.FileSystem
        ( downloadedTextFileToMatchFile
+       , downloadedFileName
        , file
        , fileNotRepeatedly
        , fileSearchString

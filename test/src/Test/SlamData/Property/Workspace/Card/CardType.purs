@@ -18,40 +18,22 @@ module Test.SlamData.Property.Workspace.Card.CardType where
 
 import SlamData.Prelude
 
-import Data.Argonaut (encodeJson, decodeJson)
-
-import SlamData.Workspace.Card.CardType (CardType(..), AceMode(..))
-import SlamData.Workspace.Card.CardType.ChartType as ChT
-import SlamData.Workspace.Card.CardType.FormInputType as FiT
-import SlamData.Workspace.Card.CardType.GeoChartType as GcT
+import SlamData.Workspace.Card.CardType as CT
 
 import Test.StrongCheck (SC, Result(..), quickCheck, (<?>))
 import Test.StrongCheck.Arbitrary (class Arbitrary)
 import Test.StrongCheck.Gen (allInArray)
 
-newtype ArbCardType = ArbCardType CardType
+newtype ArbCardType = ArbCardType CT.CardType
 
-runArbCardType ∷ ArbCardType → CardType
+runArbCardType ∷ ArbCardType → CT.CardType
 runArbCardType (ArbCardType m) = m
 
 instance arbitraryArbCardType ∷ Arbitrary ArbCardType where
-  arbitrary =
-    allInArray
-      $ map ArbCardType
-      $ [ Ace MarkdownMode
-        , Ace SQLMode
-        , Search
-        , Chart
-        , Markdown
-        , Table
-        ]
-      ⊕ map ChartOptions ChT.all
-      ⊕ map SetupFormInput FiT.all
-      ⊕ map SetupGeoChart GcT.all
-
+  arbitrary = allInArray $ map ArbCardType CT.all
 
 check ∷ forall eff. SC eff Unit
 check = quickCheck $ runArbCardType ⋙ \ct →
-  case decodeJson (encodeJson ct) of
+  case CT.decode (CT.encode ct) of
     Left err → Failed $ "Decode failed: " <> err
-    Right ct' → ct == ct' <?> "CardType failed to decode as encoded value"
+    Right ct' → ct ≡ ct' <?> "CardType failed to decode as encoded value"

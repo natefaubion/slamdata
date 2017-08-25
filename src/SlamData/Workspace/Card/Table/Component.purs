@@ -43,7 +43,7 @@ type DSL = CC.InnerCardDSL JTS.State Query
 
 tableComponent ∷ CC.CardOptions → CC.CardComponent
 tableComponent =
-  CC.makeCardComponent CT.Table $ H.component
+  CC.makeCardComponent CT.table $ H.component
     { render
     , eval: evalCard ⨁ evalTable
     , initialState: const JTS.initialState

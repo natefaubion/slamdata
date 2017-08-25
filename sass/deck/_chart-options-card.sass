@@ -1,6 +1,22 @@
-.sd-card-chart-options, .sd-form-input-setup
+.sd-card-chart-options, .sd-form-input-setup, .sd-setup-geo-chart
   .sd-axes-selector
     padding: 0
+
+    .sd-axes-gap
+      display: inline-block
+      width: 16rem
+      height: 16rem
+
+  .sd-viztype-button
+    height: 16.4rem;
+    width: 16.4rem;
+    background: #fff;
+    color: #333;
+    border: #ccc 0.2rem solid;
+    float: left;
+    margin-top: 0.6rem;
+    position: absolute;
+    z-index: 8;
 
   > div
     height: 100%
@@ -52,9 +68,9 @@
     position: relative
     vertical-align: top
     border: 0.2rem solid $color-separator
-    left: 0.5rem
     height: 16.4rem
-    margin: $padding-base-vertical -0.1rem 0 -0.1rem
+    width: 16.4rem
+    margin: $padding-base-vertical -0.1rem 0
 
     .sd-picker-input
       height: 100%
@@ -72,30 +88,13 @@
         border-color: $color-separator
         color: transparentize($text-color, 0.4)
 
-    .sd-size-xsmall &
-      width: 100%
-
-    .sd-size-small &
-      width: 100%
-
-    .sd-size-medium &
-      width: 50%
-
-    .sd-size-large &
-      width: 33.33333%
-
-    .sd-size-xlarge &
-      width: 25%
-
-    .sd-size-xxlarge &
-      width: 20%
-
     button.sd-dismiss-button
       position: absolute
       top: 0
       right: 0.4rem
       color: $color-separator
       background: transparent
+      z-index: 2
 
   form.chart-configure-input
     width: 100%
@@ -142,8 +141,8 @@
 
 
 table.sd-chart-geo-layers-control
-    display: inline
-    line-height: 0.5rem
+  display: inline
+  line-height: 0.5rem
 
-    td
-      padding-right: 0.33rem
+  td
+    padding-right: 0.33rem

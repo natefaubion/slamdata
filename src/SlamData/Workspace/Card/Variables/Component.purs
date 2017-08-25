@@ -40,7 +40,7 @@ type HTML = CC.InnerCardParentHTML Query FB.Query Unit
 
 variablesComponent ∷ CC.CardOptions → CC.CardComponent
 variablesComponent =
-  CC.makeCardComponent CT.Variables $ H.parentComponent
+  CC.makeCardComponent CT.variables $ H.parentComponent
     { render: render
     , eval: evalCard ⨁ evalComponent
     , initialState: const unit

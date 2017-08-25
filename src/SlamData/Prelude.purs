@@ -21,6 +21,7 @@ module SlamData.Prelude
   , type (⨁), type (⊹), type (×)
   , As, As1
   , asList, asArray
+  , case2_
   , module Prelude
   , module Control.Alt
   , module Control.Apply
@@ -44,11 +45,13 @@ module SlamData.Prelude
   , module Data.Foldable
   , module Data.Functor
   , module Data.Functor.Coproduct
+  , module Data.HeytingAlgebra
   , module Data.Generic.Rep
   , module Data.Generic.Rep.Show
   , module Data.Lens.Iso.Newtype
   , module Data.Maybe
   , module Data.Monoid
+  , module Data.Symbol
   , module Data.Newtype
   , module Data.Profunctor
   , module Data.Traversable
@@ -84,6 +87,7 @@ import Data.Either (Either(..), either, isLeft, isRight, fromRight, note, hush)
 import Data.Foldable (class Foldable, traverse_, for_, foldMap, foldl, foldr, fold)
 import Data.Functor (($>), (<$))
 import Data.Functor.Coproduct (Coproduct, coproduct, left, right)
+import Data.HeytingAlgebra (tt, ff)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Lens.Iso.Newtype (_Newtype)
@@ -94,9 +98,11 @@ import Data.Newtype (class Newtype, unwrap, ala, alaF)
 import Data.Profunctor (class Profunctor, dimap)
 import Data.Traversable (class Traversable, traverse, sequence, for)
 import Data.Tuple (Tuple(..), fst, snd, uncurry)
-import Data.Variant (SProxy(..), Variant)
+import Data.Variant (SProxy(..), Variant, case_, class Contractable, contract, expand)
+import Data.Symbol (class IsSymbol)
 import Data.Void (Void, absurd)
 import Debug.Trace (spy, trace, traceA, traceAny, traceAnyA, traceAnyM, traceShow, traceShowA, traceShowM)
+
 import Partial.Unsafe (unsafePartial)
 
 flipCompose ∷ ∀ a b c d. Semigroupoid a ⇒ a b c → a c d → a b d
@@ -134,3 +140,6 @@ type As1 f = f ~> f
 
 asList = id ∷ As1 List
 asArray = id ∷ As1 Array
+
+case2_ ∷ ∀ a. Variant () → Variant () → a
+case2_ _ = case_

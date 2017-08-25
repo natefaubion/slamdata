@@ -25,20 +25,23 @@ import Data.Lens.Record (prop)
 import Data.Newtype (over)
 import Data.Path.Pathy ((</>))
 import Data.Path.Pathy as Pathy
+import Data.Variant as V
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Quasar.Advanced.Types as QA
-import SlamData.AdminUI.Dialog.Component as Dialog
+import SlamData.AdminUI.Database.Component as DB
+import SlamData.AdminUI.Dialog as Dialog
 import SlamData.AdminUI.Group as Group
 import SlamData.AdminUI.Types as AT
+import SlamData.AdminUI.Users as Users
+import SlamData.AdminUI.Users.Component as UC
 import SlamData.LocalStorage.Class as LS
 import SlamData.LocalStorage.Keys as LK
 import SlamData.Monad (Slam)
 import SlamData.Notification as Notification
 import SlamData.Quasar.Security (createGroup, deleteGroup)
-import SlamData.Render.Common as R
 import SlamData.Workspace.MillerColumns.Component as Miller
 import Utils.DOM as DOM
 
@@ -47,12 +50,10 @@ component =
   H.lifecycleParentComponent
     { initialState: \_ →
        { open: false
-       , active: AT.Groups
+       , active: AT.Users
        , formState:
           { mySettings: AT.defaultMySettingsState
-          , database: AT.defaultDatabaseState
           , server: AT.defaultServerState
-          , users: AT.defaultUsersState
           , groups: AT.defaultGroupsState
           }
       , dialog: Nothing
@@ -72,19 +73,15 @@ render state =
         , guard (not state.open) $> H.ClassName "hidden"
         ]
     ]
-    $ join
-      [ maybe [] dialog state.dialog
-      , pure $ tabHeader state.active
-      , pure $ tabBody state
-      ]
-  where
-  dialog dlg =
-    [ HH.slot' AT.cpDialog dlg (Dialog.component dlg) unit (HE.input AT.HandleDialog) ]
+    [ HH.slot' AT.cpDialog unit Dialog.component state.dialog (HE.input AT.HandleDialog)
+    , tabHeader state.active
+    , tabBody state
+    ]
 
 tabHeader ∷ AT.TabIndex → AT.HTML
 tabHeader active =
   HH.ul
-    [ HP.class_ $ H.ClassName "tabs"]
+    [ HP.class_ $ H.ClassName "sd-admin-ui-tabs"]
     $ Array.fromFoldable
     $ AT.allTabs <#> \t →
       HH.li
@@ -97,8 +94,8 @@ tabHeader active =
 tabBody ∷ AT.State → AT.HTML
 tabBody state =
   HH.div
-    [HP.class_ $ HH.ClassName "tab-body"]
-    (activeTab <> [closeButton])
+    [HP.class_ $ HH.ClassName "sd-admin-ui-tab-body"]
+    (if state.open then activeTab <> [closeButton] else [])
   where
     closeButton =
       HH.div
@@ -112,23 +109,19 @@ tabBody state =
     activeTab = case state.active of
       AT.MySettings →
         pure $ HH.div
-          [ HP.class_ (HH.ClassName "my-settings") ]
+          [ HP.class_ (HH.ClassName "sd-admin-ui-my-settings") ]
           (renderMySettingsForm state.formState.mySettings)
       AT.Database →
-        pure $ HH.div
-          [ HP.class_ (HH.ClassName "database") ]
-          (renderDatabaseForm state.formState.database)
+        [ HH.slot' AT.cpDatabase unit DB.component unit absurd ]
       AT.Server →
         pure $ HH.div
-          [ HP.class_ (HH.ClassName "server") ]
+          [ HP.class_ (HH.ClassName "sd-admin-ui-server") ]
           (renderServerForm state.formState.server)
       AT.Users →
-        pure $ HH.div
-          [ HP.class_ (HH.ClassName "users") ]
-          (renderUsersForm state.formState.users)
+        [ HH.slot' AT.cpUsers unit UC.component unit (HE.input AT.HandleUsers) ]
       AT.Groups →
         pure $ HH.div
-          [ HP.class_ (HH.ClassName "groups") ]
+          [ HP.class_ (HH.ClassName "sd-admin-ui-groups") ]
           (Group.renderGroupsForm state.formState.groups)
       _ →
         [HH.text "Not implemented"]
@@ -190,108 +183,6 @@ renderMySettingsForm (AT.MySettingsState state) =
         ]
     ]
 
-renderDatabaseForm ∷ AT.DatabaseState → Array AT.HTML
-renderDatabaseForm (AT.DatabaseState state) =
-  [ HH.fieldset
-    [ HP.class_ (HH.ClassName "database-form-wrapper")]
-    [ HH.legend
-        [ HP.class_ (HH.ClassName "checkbox") ]
-        [ HH.label_
-            [ HH.input
-                [ HP.checked (not state.isExternal)
-                , HE.onChecked (HE.input_ (AT.SetDatabase (AT.DatabaseState (state {isExternal = false}))))
-                , HP.type_ HP.InputCheckbox
-                ]
-            , HH.text "Store SlamData metadata inside internal database in the local file system of the server"
-            ]
-        ]
-    , HH.fieldset
-        [ HP.class_ (HH.ClassName "internal-storage")
-        , HP.disabled state.isExternal
-        ]
-        [ HH.input
-            [ HP.classes [ HH.ClassName "form-control" ]
-            , HP.value state.databaseFile
-            ]
-        ]
-      , HH.legend
-          [ HP.class_ (HH.ClassName "checkbox") ]
-          [ HH.label_
-              [ HH.input
-                [ HP.checked state.isExternal
-                , HE.onChecked (HE.input_ (AT.SetDatabase (AT.DatabaseState (state {isExternal = true}))))
-                , HP.type_ HP.InputCheckbox
-                ]
-              , HH.text "Store SlamData metadata inside external PostgreSQL"
-              ]
-          ]
-      , HH.fieldset
-          [ HP.class_ (HH.ClassName "external-storage")
-          , HP.disabled (not state.isExternal)
-          ]
-          [ HH.div
-              [ HP.class_ (HH.ClassName "form-group") ]
-              [ HH.label [ HP.for "Server" ] [ HH.text "Server" ]
-              , HH.input
-                  [ HP.classes [ HH.ClassName "form-control" ]
-                  , HP.id_ "Server"
-                  , HP.value state.postgresCon.server
-                  ]
-              ]
-          , HH.div
-              [ HP.class_ (HH.ClassName "form-group") ]
-              [ HH.label [ HP.for "Port" ] [ HH.text "Port" ]
-              , HH.input
-                  [ HP.classes [ HH.ClassName "form-control" ]
-                  , HP.id_ "Port"
-                  , HP.value (show state.postgresCon.port)
-                  ]
-              ]
-          , HH.div
-              [ HP.class_ (HH.ClassName "form-group") ]
-              [ HH.label
-                  [ HP.for "Username" ]
-                  [ HH.text "Username"
-                  , HH.input
-                      [ HP.classes [ HH.ClassName "form-control" ]
-                      , HP.id_ "Username"
-                      , HP.value state.postgresCon.username
-                      ]
-                  ]
-              , HH.label
-                  [ HP.for "Password" ]
-                  [ HH.text "Password"
-                  , HH.input
-                      [ HP.classes [ HH.ClassName "form-control" ]
-                      , HP.id_ "Password"
-                      , HP.value state.postgresCon.password
-                      ]
-                  ]
-              ]
-          , HH.div
-              [ HP.class_ (HH.ClassName "form-group") ]
-              [ HH.label [ HP.for "Database" ] [HH.text "Database"] , HH.input
-                  [ HP.classes [ HH.ClassName "form-control" ]
-                  , HP.id_ "Database"
-                  , HP.value state.postgresCon.database
-                  ]
-              ]
-          , HH.div
-              [ HP.class_ (HH.ClassName "form-group") ]
-              [ HH.label [ HP.for "Custom" ] [HH.text "Custom"]
-              , HH.input
-                  [ HP.classes [ HH.ClassName "form-control" ]
-                  , HP.value (fst state.postgresCon.custom)
-                  ]
-              , HH.input
-                  [ HP.classes [ HH.ClassName "form-control" ]
-                  , HP.value (snd state.postgresCon.custom)
-                  ]
-              ]
-          ]
-      ]
-  ]
-
 renderServerForm ∷ AT.ServerState → Array AT.HTML
 renderServerForm (AT.ServerState state) =
   [ HH.fieldset_
@@ -319,26 +210,6 @@ renderServerForm (AT.ServerState state) =
                 ]
             ]
       , HH.textarea [HP.class_ (HH.ClassName "form-control"), HP.disabled (not state.enableCustomSSL)]
-      ]
-  ]
-
-renderUsersForm ∷ AT.UsersState → Array AT.HTML
-renderUsersForm (AT.UsersState state) =
-  [ HH.fieldset_
-      [ HH.label_
-          [ HH.text "Search"
-          , HH.input
-              [ HP.class_ (HH.ClassName "form-control")
-              , HP.type_ HP.InputText
-              , HP.placeholder "Search string"
-              , HE.onValueInput $ HE.input \str → AT.SetUsers (AT.UsersState (state {search = str}))
-              , HP.value state.search
-              ]
-          , HH.button
-              [ HE.onClick $ HE.input_ (AT.SetUsers (AT.UsersState (state {search = ""})))
-              ]
-              [ R.clearFieldIcon "Clear search string" ]
-          ]
       ]
   ]
 
@@ -373,14 +244,8 @@ eval = case _ of
     LS.persist J.encodeJson LK.adminUIDefaultTheme newTheme
     setDefaultTheme newTheme
     pure next
-  AT.SetDatabase new next → do
-    H.modify (_ { formState { database = new } })
-    pure next
   AT.SetServer new next → do
     H.modify (_ { formState { server = new } })
-    pure next
-  AT.SetUsers new next → do
-    H.modify (_ { formState { users = new } })
     pure next
   AT.SetGroups new next → do
     H.modify (_ { formState { groups = new } })
@@ -405,25 +270,35 @@ eval = case _ of
             (Just (Notification.Details (Exception.message err)))
             Nothing
             Nothing
-          pure unit
-          pure unit
       pure next
     AT.DeleteGroup { path } → do
-      H.modify (_ { dialog = Just (Dialog.ConfirmDeletion path) })
+      H.modify (_ { dialog = Just (Dialog.DeleteGroup path) })
+      pure next
+    AT.DisplayUsers { path } → do
+      H.modify (_ { active = AT.Users })
+      _ ← H.query' AT.cpUsers unit (H.action (UC.SetGroupFilter path))
       pure next
   AT.HandleDialog msg next → do
+    let dismissDialog = H.modify (_ { dialog = Nothing })
     case msg of
-      Dialog.Confirm (Dialog.ConfirmDeletion path) → do
-        deleteGroup path >>= case _ of
-          Right _ →
-            H.query' AT.cpGroups unit (H.action Miller.Reload) $> unit
-          Left err → do
-            Notification.error
-              ("Failed to delete the group at " <> QA.printGroupPath path)
-              (Just (Notification.Details (Exception.message err)))
-              Nothing
-              Nothing
-            pure unit
-      Dialog.Dismiss → pure unit
-    H.modify (_ { dialog = Nothing })
+      Dialog.Bubble v → do
+        v # (V.case_
+          # V.on Dialog._deleteUser (\userId → do
+            Users.deleteUser userId
+            _ ← H.query' AT.cpUsers unit (H.action UC.FetchUsers)
+            dismissDialog
+            pure unit)
+          # V.on Dialog._refreshUsers (\_ → do
+            _ ← H.query' AT.cpUsers unit (H.action UC.Refresh)
+            pure unit)
+          # V.on Dialog._deleteGroup (\group → do
+            _ ← deleteGroup group
+            _ ← H.query' AT.cpGroups unit (H.action Miller.Reload)
+            dismissDialog
+            pure unit))
+      Dialog.Dismiss →
+        dismissDialog
+    pure next
+  AT.HandleUsers (UC.RaiseDialog dlg) next → do
+    H.modify (_ { dialog = Just dlg })
     pure next

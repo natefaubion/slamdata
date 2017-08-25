@@ -1,5 +1,6 @@
 $margin: 4.5%
 
+
 @keyframes pointDown
   0%, 20%, 53%, 80%, 100%
     animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1)
@@ -15,6 +16,7 @@ $margin: 4.5%
 
   90%
     transform: translate3d(0, -4%, 0)
+
 
 @keyframes pointUp
   0%, 20%, 53%, 80%, 100%
@@ -32,6 +34,7 @@ $margin: 4.5%
   90%
     transform: translate3d(0, 4%, 0)
 
+
 @keyframes pointRight
   0%, 20%, 53%, 80%, 100%
     animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1)
@@ -47,6 +50,7 @@ $margin: 4.5%
 
   90%
     transform: translate3d(-0.4rem, 0, 0)
+
 
 @keyframes pointLeft
   0%, 20%, 53%, 80%, 100%
@@ -64,6 +68,7 @@ $margin: 4.5%
   90%
     transform: translate3d(0.4rem, 0, 0)
 
+
 @keyframes fadeIn
   from
     opacity: 0
@@ -71,127 +76,123 @@ $margin: 4.5%
   to
     opacity: 1
 
+
 .sd-hint
   max-width: 100%
 
-.sd-hint .sd-notification
-  border-top: 0.3rem solid $brand-primary
-  box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.125)
-  display: block
-  margin: 0
-  padding: 0
-  position: relative
-  right: 0
+  .sd-notification
+    border-top: 0.3rem solid $brand-primary
+    box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.125)
+    display: block
+    margin: 0
+    padding: 0
+    position: relative
+    right: 0
 
-.sd-hint .sd-notification-text
-  width: 100%
+  .sd-notification-text
+    width: 100%
 
-.sd-hint .sd-notification-dismiss
-  padding: 0 0.2rem
+  .sd-notification-dismiss
+    padding: 0 0.2rem
+
+
+.sd-hint-down-arrow, .sd-hint-up-arrow,
+.sd-hit-right-arrow, .sd-hint-left-arrow
+  animation-duration: 1s, 0.5s
+  animation-fill-mode: both
+
+  &::before, &::after
+    border: solid transparent
+    content: " "
+    height: 0
+    width: 0
+    position: absolute
+    pointer-events: none
+
+  &::before
+    border-color: rgba(204, 204, 204, 0)
+
+  &::after
+    border-color: rgba(255, 255, 255, 0)
+
 
 .sd-hint-down-arrow
   animation-name: pointDown, fadeIn
-  animation-duration: 1s, 0.5s
-  animation-fill-mode: both
+
+  &::before, &::after
+    left: 50%
+    top: 100%
+
+  &::before
+    border-top-color: #ccc
+    border-width: 0.9rem
+    margin-left: -0.9rem
+
+  &::after
+    border-top-color: #fff
+    border-width: 0.8rem
+    margin-left: -0.8rem
+
 
 .sd-hint-up-arrow
   animation-name: pointUp, fadeIn
-  animation-duration: 1s, 0.5s
-  animation-fill-mode: both
 
-.sd-hint-right-arrow
+  &::before, &::after
+    left: 50%
+    bottom: calc(100% + 0.3rem)
+
+  &::after
+    border-bottom-color: $brand-primary
+    border-width: 0.8rem
+    margin-left: -0.8rem
+
+  &::before
+    border-bottom-color: $brand-primary
+    border-width: 0.9rem
+    margin-left: -0.9rem
+
+
+.sd-hint--right-arrow
   animation-name: pointRight, fadeIn
-  animation-duration: 1s, 0.5s
-  animation-fill-mode: both
+
+  &::after,
+  &::before
+    left: 100%
+    top: 50%
+
+  &::after
+    border-right-color: #fff
+    border-width: 0.8rem
+    margin-top: -0.8rem
+
+  &::before
+    border-right-color: #ccc
+    border-width: 0.9rem
+    margin-top: -0.9rem
+
 
 .sd-hint-left-arrow
   animation-name: pointLeft, fadeIn
-  animation-duration: 1s, 0.5s
-  animation-fill-mode: both
 
-.sd-hint-down-arrow::after,
-.sd-hint-down-arrow::before,
-.sd-hint-up-arrow::after,
-.sd-hint-up-arrow::before,
-.sd-hint-left-arrow::after,
-.sd-hint-left-arrow::before,
-.sd-hint-right-arrow::after,
-.sd-hint-right-arrow::before
-  border: solid transparent
-  content: " "
-  height: 0
-  width: 0
-  position: absolute
-  pointer-events: none
+  &::after,
+  &::before
+    right: 100%
+    top: 50%
 
-.sd-hint-down-arrow::after,
-.sd-hint-up-arrow::after,
-.sd-hint-left-arrow::after,
-.sd-hint-right-arrow::after
-  border-color: rgba(255, 255, 255, 0)
+  &::after
+    border-left-color: #fff
+    border-width: 0.8rem
+    margin-top: -0.8rem
 
-.sd-hint-down-arrow::before,
-.sd-hint-up-arrow::before,
-.sd-hint-left-arrow::before,
-.sd-hint-right-arrow::before
-  border-color: rgba(204, 204, 204, 0)
+  &::before
+    border-left-color: #ccc
+    border-width: 0.9rem
+    margin-top: -0.9rem
 
-.sd-hint-down-arrow::after,
-.sd-hint-down-arrow::before
-  left: 50%
-  top: 100%
 
-.sd-hint-up-arrow::after,
-.sd-hint-up-arrow::before
-  left: 50%
-  bottom: calc(100% + 0.3rem)
 
-.sd-hint-down-arrow::after
-  border-top-color: #fff
-  border-width: 0.8rem
-  margin-left: -0.8rem
 
-.sd-hint-down-arrow::before
-  border-top-color: #ccc
-  border-width: 0.9rem
-  margin-left: -0.9rem
 
-.sd-hint-up-arrow::after
-  border-bottom-color: $brand-primary
-  border-width: 0.8rem
-  margin-left: -0.8rem
 
-.sd-hint-up-arrow::before
-  border-bottom-color: $brand-primary
-  border-width: 0.9rem
-  margin-left: -0.9rem
 
-.sd-hint-right-arrow::after,
-.sd-hint-right-arrow::before
-  left: 100%
-  top: 50%
 
-.sd-hint-left-arrow::after,
-.sd-hint-left-arrow::before
-  right: 100%
-  top: 50%
-
-.sd-hint-left-arrow::after
-  border-right-color: #fff
-  border-width: 0.8rem
-  margin-top: -0.8rem
-
-.sd-hint-left-arrow::before
-  border-right-color: #ccc
-  border-width: 0.9rem
-  margin-top: -0.9rem
-
-.sd-hint-right-arrow::after
-  border-left-color: #fff
-  border-width: 0.8rem
-  margin-top: -0.8rem
-
-.sd-hint-right-arrow::before
-  border-left-color: #ccc
-  border-width: 0.9rem
-  margin-top: -0.9rem

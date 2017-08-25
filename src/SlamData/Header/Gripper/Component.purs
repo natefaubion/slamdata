@@ -46,6 +46,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
 import Halogen.Query.EventSource as ES
+import Math as Math
 import SlamData.Monad (Slam)
 import SlamData.Render.Icon as I
 import SlamData.Wiring as Wiring
@@ -142,10 +143,10 @@ renderStyles sel = case _ of
   Opening navHeight startPos → do
     mkAnimation sel ((startPos - navHeight) / navHeight * 100.0) zero
   Closing navHeight startPos → do
-    mkAnimation sel ((startPos - navHeight) / navHeight * 100.0) $ -100.0
+    mkAnimation sel (Math.min 0.0 ((startPos - navHeight) / navHeight * 100.0)) $ -100.0
   Dragging _ navHeight start current → do
     (fromString sel) ? do
-      translateY $ pct ((-navHeight + current - start) / navHeight * 100.0)
+      translateY $ pct (Math.min 0.0 ((-navHeight + current - start) / navHeight * 100.0))
 
 mkAnimation ∷ String → Number → Number → CSS
 mkAnimation sel translateFrom translateTo = do
@@ -244,7 +245,7 @@ eval sel = case _ of
       toSet s = s + offset
         where
           diff = num - s
-          offset = if diff < 0.0 then 0.0 else if diff > navHeight then navHeight else diff
+          offset = Math.max 0.0 $ Math.min diff navHeight
       direction oldPos oldDir =
         if num == oldPos then oldDir else if num > oldPos then Down else Up
     case astate of

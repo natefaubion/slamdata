@@ -62,7 +62,6 @@ test = do
     Interact.insertSearchCardInLastDeck
     Interact.provideSearchStringInLastSearchCard "springfield"
     Interact.accessNextCardInFirstDeck
-    Interact.selectBuildChart
     Interact.insertPivotCard
     Interact.addColumn "city"
     Interact.addColumn "pop"
@@ -85,7 +84,6 @@ test = do
     Interact.insertSearchCardInLastDeck
     Interact.provideSearchStringInLastSearchCard "OR"
     Interact.accessNextCardInLastDeck
-    Interact.selectBuildChart
     Interact.insertPivotCard
     Interact.addColumn "city"
     Interact.addColumn "state"
@@ -97,7 +95,8 @@ test = do
 
   searchScenario "Search with field names"
     (noIssues
-      { marklogic = Just "ML: https://github.com/quasar-analytics/quasar/issues/2341"
+      { mongo = Just "MD: https://github.com/slamdata/slamdata/issues/2096"
+      , marklogic = Just "ML: https://github.com/quasar-analytics/quasar/issues/2341"
       , couchbase = Just "CB: https://github.com/quasar-analytics/quasar/issues/2341"
       })
     do
@@ -108,7 +107,6 @@ test = do
     Interact.provideSearchStringInLastSearchCard
           "city:springfield state:or pop:>20000"
     Interact.accessNextCardInLastDeck
-    Interact.selectBuildChart
     Interact.insertPivotCard
     Interact.addColumn "city"
     Interact.addColumn "state"
@@ -126,7 +124,8 @@ test = do
 
   searchScenario "Suppress search results"
     (noIssues
-      { marklogic = Just "ML: https://github.com/quasar-analytics/quasar/issues/2341"
+      { mongo = Just "MD: https://github.com/slamdata/slamdata/issues/2096"
+      , marklogic = Just "ML: https://github.com/quasar-analytics/quasar/issues/2341"
       , couchbase = Just "CB: results fluxuate need to look if same issue as marklogic"
       })
     do
@@ -136,7 +135,6 @@ test = do
     Interact.insertSearchCardInLastDeck
     Interact.provideSearchStringInLastSearchCard "city:portland -state:OR"
     Interact.accessNextCardInLastDeck
-    Interact.selectBuildChart
     Interact.insertPivotCard
     Interact.addColumn "city"
     Interact.addColumn "state"

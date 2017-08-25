@@ -32,6 +32,7 @@ import Data.Array (filter, mapMaybe, take, drop)
 import Data.Lens (Lens', lens, (%~), (<>~))
 import Data.Map as M
 import Data.Path.Pathy ((</>), rootDir, parseAbsDir, sandbox, currentDir)
+import Data.StrMap as SM
 import Data.Time.Duration (Milliseconds(..))
 import DOM (DOM)
 import Halogen as H
@@ -71,7 +72,7 @@ main = do
   HA.runHalogenAff do
     _ ← fork Analytics.enableAnalytics
     permissionTokenHashes ← liftEff $ Permission.retrieveTokenHashes
-    wiring ← Wiring.make rootDir Editable mempty permissionTokenHashes
+    wiring ← Wiring.make rootDir Editable SM.empty permissionTokenHashes
     let ui = H.hoist (runSlam wiring) component
     driver ← runUI ui unit =<< HA.awaitBody
 

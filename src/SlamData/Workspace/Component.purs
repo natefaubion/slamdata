@@ -27,16 +27,18 @@ import Control.Monad.Aff.Bus as Bus
 import Control.Monad.Eff.Ref (readRef)
 import Control.Monad.Fork (fork)
 import Control.UI.Browser as Browser
+import CSS as CSS
+import DOM.Classy.Event (currentTarget, target) as DOM
+import DOM.Classy.Node (toNode) as DOM
 import Data.Argonaut as J
 import Data.Coyoneda (liftCoyoneda)
 import Data.List as List
 import Data.Time.Duration (Milliseconds(..))
-import DOM.Classy.Event (currentTarget, target) as DOM
-import DOM.Classy.Node (toNode) as DOM
 import Halogen as H
 import Halogen.Component.Utils (busEventSource)
 import Halogen.Component.Utils.Throttled (throttledEventSource_)
 import Halogen.HTML as HH
+import Halogen.HTML.CSS as HCSS
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.Query.EventSource as ES
@@ -59,7 +61,9 @@ import SlamData.Notification.Component as NC
 import SlamData.Quasar as Quasar
 import SlamData.Quasar.Auth.Authentication as Authentication
 import SlamData.Quasar.Error as QE
+import SlamData.Render.ClassName as CN
 import SlamData.Render.Common as RC
+import SlamData.Theme.Theme as Theme
 import SlamData.Wiring as Wiring
 import SlamData.Wiring.Cache as Cache
 import SlamData.Workspace.AccessType as AT
@@ -67,7 +71,7 @@ import SlamData.Workspace.Action as WA
 import SlamData.Workspace.Card.Model as CM
 import SlamData.Workspace.Card.Open.Model as Open
 import SlamData.Workspace.Card.Table.Model as JT
-import SlamData.Workspace.Class (navigate, Routes(..))
+import SlamData.Workspace.Class (Routes(..), changeTheme, navigate)
 import SlamData.Workspace.Component.ChildSlot (ChildQuery, ChildSlot, cpAdminUI, cpDeck, cpDialog, cpLicenseDialog, cpGuide, cpHeader, cpNotify)
 import SlamData.Workspace.Component.Query (Query(..))
 import SlamData.Workspace.Component.State (State, initialState)
@@ -107,7 +111,8 @@ render accessType state =
         <> (guard state.rootDeckFocused $> HH.ClassName "root-deck-focused")
     , HE.onClick (HE.input DismissAll)
     ]
-    [ header
+    [ resetTheme
+    , header
     , deck
     , notifications
     , cardGuide
@@ -158,6 +163,18 @@ render accessType state =
   notifications =
     HH.slot' cpNotify unit (NC.component (NC.renderModeFromAccessType accessType)) unit (HE.input HandleNotification)
 
+  -- Shown when the styles goof (e.g. bad custom URL)
+  resetTheme =
+    HH.button
+      [ HP.class_ CN.hidden
+      , HP.type_ HP.ButtonButton
+      , HE.onClick (HE.input_ ResetTheme)
+      , HCSS.style do
+          CSS.position CSS.absolute
+          (CSS.prefixed $ CSS.fromString "z-index") "11000"
+      ]
+      [ HH.text "Reset Theme" ]
+
   header =
     if AT.isEditable accessType
       then HH.slot' cpHeader unit Header.component unit (HE.input HandleHeader)
@@ -204,12 +221,14 @@ eval = case _ of
     pure $ reply H.Listening
   New next → do
     st ← H.get
+    changeTheme (Just Theme.default)
     when (List.null st.cursor) do
       _ ← fork $ runFreshWorkspace mempty
       initializeGuides
     pure next
   ExploreFile res next → do
     st ← H.get
+    changeTheme (Just Theme.default)
     when (List.null st.cursor) do
       _ ← fork $ runFreshWorkspace
         [ CM.Open (Just (Open.Resource (R.File res)))
@@ -279,6 +298,10 @@ eval = case _ of
       pure next
   HandleDialog msg next →
     handleDialog msg $> next
+  ResetTheme next → do
+    changeTheme (Just Theme.default)
+    _ ← H.lift P.saveWorkspace
+    pure next
 
   where
   loadCursor cursor = do
@@ -370,6 +393,10 @@ handleDialog = case _ of
     Dialog.DeleteDeck opts' | b → do
       Wiring.switchDeckToFlip opts'
       H.lift $ DeckCommon.deleteDeck opts'
+    Dialog.Theme opts' newTheme → do
+      changeTheme newTheme
+      _ ← H.lift P.saveWorkspace
+      pure unit
     _ →
       Wiring.switchDeckToFlip opts
   Dialog.Dismissed →

@@ -21,6 +21,8 @@ import SlamData.Prelude
 import Data.Argonaut (JCursor(..), JObject, JArray, Json, insideOut, (:=), (.?), (~>), jsonEmptyObject)
 import Data.Array as A
 import Data.Foldable as F
+import Data.Lens (Lens')
+import Data.Lens.Record (prop)
 import Data.List (List(..))
 import Data.List as L
 import Data.Map as M
@@ -89,15 +91,42 @@ compareWithAxisType atype a b =
     DateTime →
       compare (mbASem >>= Sem.semanticsToDateTime) (mbBSem >>= Sem.semanticsToDateTime)
 
-type AxisTypeAnnotated a =
+type AxisTypeAnnotated a r =
   { value ∷ a
   , time ∷ a
   , category ∷ a
   , date ∷ a
   , datetime ∷ a
+  |r }
+
+type Axes = AxisTypeAnnotated (Set.Set JCursor) ()
+
+_value ∷ ∀ a r. Lens' {value ∷ a|r} a
+_value = prop (SProxy ∷ SProxy "value")
+
+_time ∷ ∀ a r. Lens' {time ∷ a|r} a
+_time = prop (SProxy ∷ SProxy "time")
+
+_date ∷ ∀ a r. Lens' {date ∷ a|r} a
+_date = prop (SProxy ∷ SProxy "date")
+
+_category ∷ ∀ a r. Lens' {category ∷ a|r} a
+_category = prop (SProxy ∷ SProxy "category")
+
+_datetime ∷ ∀ a r. Lens' {datetime ∷ a|r} a
+_datetime = prop (SProxy ∷ SProxy "datetime")
+
+mapAxisTypeAnnotated ∷ ∀ a b. (a → b) →  AxisTypeAnnotated a () → AxisTypeAnnotated b ()
+mapAxisTypeAnnotated f ax =
+  { value: f ax.value
+  , time: f ax.time
+  , category: f ax.category
+  , date: f ax.date
+  , datetime: f ax.datetime
   }
 
-type Axes = AxisTypeAnnotated (Set.Set JCursor)
+axesSizes ∷ Axes → AxisTypeAnnotated Int ()
+axesSizes = mapAxisTypeAnnotated Set.size
 
 axisType ∷ JCursor → Axes → AxisType
 axisType c axes
@@ -185,10 +214,10 @@ checkSemantics lst =
   semiLen ∷ Int
   semiLen = L.length lst / 2
 
-  counts ∷ AxisTypeAnnotated Int
+  counts ∷ AxisTypeAnnotated Int ()
   counts = foldl foldFn init lst
 
-  init ∷ AxisTypeAnnotated Int
+  init ∷ AxisTypeAnnotated Int ()
   init =
     { category: 0
     , time: 0
@@ -197,7 +226,7 @@ checkSemantics lst =
     , datetime: 0
     }
 
-  foldFn ∷ AxisTypeAnnotated Int → Maybe Sem.Semantics → AxisTypeAnnotated Int
+  foldFn ∷ AxisTypeAnnotated Int () → Maybe Sem.Semantics → AxisTypeAnnotated Int ()
   foldFn acc Nothing = acc
   foldFn acc (Just a)
     | compatible Measure a =

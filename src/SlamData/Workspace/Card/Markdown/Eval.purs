@@ -30,8 +30,8 @@ import Data.List.NonEmpty as NEL
 import Data.Newtype (wrap)
 import Data.NonEmpty ((:|))
 import Data.Path.Pathy ((</>), unsandbox, currentDir)
-import Data.String as S
 import Data.StrMap as SM
+import Data.String as S
 import Matryoshka (project, transAna)
 import SlamData.Effects (SlamDataEffects)
 import SlamData.Quasar.Class (class QuasarDSL)
@@ -237,6 +237,7 @@ evalEmbeddedQueries varMap dir =
         Left error →
           throwMarkdownError (MarkdownSqlParseError { field, sql: code, error: error })
         Right sql → do
-          { inputs } ← CE.liftQ $ Quasar.compile dir sql urlVarMap
+          let varMap' = VM.unURLVarMapF $ urlVarMap
+          { inputs } ← CE.liftQ $ Quasar.compile dir sql varMap'
           CEM.addSources inputs
-          CE.liftQ $ Quasar.queryEJsonVM dir sql urlVarMap
+          CE.liftQ $ Quasar.queryEJsonVM dir sql varMap'

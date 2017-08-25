@@ -23,16 +23,14 @@ module SlamData.Render.Common
   , busyFieldIcon
   , svgElem
   , spinner
+  , spinnerSmall
   ) where
 
 import SlamData.Prelude
 
-import Data.Array as Array
-import Data.Int (toNumber)
-import Data.String as String
 import Halogen as H
-import Halogen.HTML.Core (HTML, ClassName)
 import Halogen.HTML as HH
+import Halogen.HTML.Core (HTML, ClassName)
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
 import SlamData.Render.ClassName as CN
@@ -70,7 +68,7 @@ busyFieldIcon label =
     , HP.title label
     , ARIA.label label
     ]
-    [ spinner
+    [ spinnerSmall
     , HH.span
         [ HP.class_ CN.srOnly ]
         [ HH.text label ]
@@ -80,45 +78,36 @@ svgElem ∷ ∀ r p i. HH.ElemName → Array (HP.IProp r i) → Array (HTML p i)
 svgElem =
   HH.elementNS (HH.Namespace "http://www.w3.org/2000/svg")
 
-spinner ∷  ∀ p i. H.HTML p i
+spinner ∷ ∀ f p. HTML p (f Unit)
 spinner =
-  let
-    circles = Array.range 0 7
-    lcircles = toNumber $ Array.length circles
-    animDur = 1.0  -- second
-    deg x = show $ toNumber x * (360.0 / lcircles)
-
-    anStyle i =
-      String.joinWith ";"
-        [ "-webkit-animation-duration:" <> d <> "s"
-        , "animation-duration:" <> d <> "s"
-        , "-webkit-animation-delay:" <> t <> "s"
-        , "animation-delay:" <> t <> "s"
-        ]
-      where
-      t = show $ (toNumber i - (lcircles - 1.0)) / lcircles * animDur
-      d = show animDur
-
-    circle i =
-      svgElem (HH.ElemName "g")
-        [ HP.attr (HH.AttrName "transform") $ "rotate(" <> deg i <> ") translate(34 0)" ]
-        [ svgElem (HH.ElemName "circle")
-            [ HP.attr (HH.AttrName "cx") "0"
-            , HP.attr (HH.AttrName "cy") "0"
-            , HP.attr (HH.AttrName "r") "6"
-            , HP.attr (HH.AttrName "style") $ anStyle i
-            ]
-            [ ]
-        ]
-  in
-    HH.div
-      [ HP.class_ $ HH.ClassName "sd-spinner" ]
-      [ svgElem (HH.ElemName "svg")
-          [ HP.attr (HH.AttrName "viewBox") "0 0 100 100"
-          , HP.attr (HH.AttrName "preserveAspectRatio") "xMidYMid"
+  HH.div
+    [ HP.class_ $ HH.ClassName "sd-spinner-container" ]
+    [ HH.div
+        [ HP.class_ $ HH.ClassName "sd-spinner-lg" ]
+        [ HH.div
+          [ HP.class_ $ HH.ClassName "indication" ]
+          [ HH.div
+            [ HP.class_ $ HH.ClassName "indication-bg" ]
+            []
+          , HH.div
+            [ HP.class_ $ HH.ClassName "indication-bar" ]
+            []
           ]
-          [ svgElem (HH.ElemName "g")
-              [ HP.attr (HH.AttrName "transform") "translate(50 50)" ]
-              $ map circle circles
-          ]
+        , I.sdLogoIcon
+        ]
+    ]
+
+spinnerSmall ∷ ∀ f p. HTML p (f Unit)
+spinnerSmall =
+  HH.div
+    [ HP.class_ $ HH.ClassName "sd-spinner-sm" ]
+    [ HH.div
+      [ HP.class_ $ HH.ClassName "indication" ]
+      [ HH.div
+        [ HP.class_ $ HH.ClassName "indication-bg" ]
+        []
+      , HH.div
+        [ HP.class_ $ HH.ClassName "indication-bar" ]
+        []
       ]
+    ]

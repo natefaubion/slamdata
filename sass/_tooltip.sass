@@ -3,15 +3,15 @@
 
   // Toolip label
   &::before
-    background-color: rgba(225, 225, 225, 0.8)
-    color: #fff
+    background-color: $tooltip-focus-color
+    color: $text-color
     content: attr(aria-label)
-    padding: 0.25em 0.5em
+    padding: 0.4rem 0.6rem
     line-height: 1
     text-transform: none
     font-weight: 400
     white-space: nowrap
-    font-size: 1.2rem
+    font-size: 1.1rem
     margin-bottom: 0.5rem
 
   // Tooltip arrow
@@ -21,7 +21,7 @@
     margin-top: -0.1rem
     border-left: 0.5rem solid transparent
     border-right: 0.5rem solid transparent
-    border-top: 0.5rem solid rgba(225, 225, 225, 0.8)
+    border-top: 0.5rem solid $tooltip-focus-color
     font-size: 0
     line-height: 0
 
@@ -40,9 +40,14 @@
     transform: translateX(50%)
     pointer-events: none
 
-  &:focus::before,
-  &:focus::after,
-  &:hover::before,
+  &:focus, &:hover
+    &::before, &::after
+      opacity: 1
+      transition: opacity 0.2s ease
+
+  &:hover::before
+    background-color: $tooltip-hover-color
+    color: $tooltip-hover-text-color
+
   &:hover::after
-    opacity: 1
-    transition: all 0.2s ease
+    border-top-color: $tooltip-hover-color

@@ -344,4 +344,4 @@ in_ :: ClassName
 in_ = ClassName "in"
 
 srOnly ∷ ClassName
-srOnly = ClassName "hidden"
+srOnly = ClassName "sr-only"

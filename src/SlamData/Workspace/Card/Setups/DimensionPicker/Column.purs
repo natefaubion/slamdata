@@ -23,7 +23,7 @@ import Control.Comonad.Cofree as CF
 import Data.Argonaut as J
 import Data.List as L
 
-import SlamData.Workspace.Card.Setups.Chart.PivotTable.Model (Column(..))
+import SlamData.Workspace.Card.Setups.PivotTable.Model (Column(..))
 import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (unfoldJCursor)
 import SlamData.Workspace.Card.Setups.DimensionPicker.Node (discriminateNodes)
 import SlamData.Workspace.MillerColumns.TreeData (constructTree)

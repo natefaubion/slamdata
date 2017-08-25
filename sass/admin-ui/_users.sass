@@ -1,0 +1,71 @@
+.sd-admin-ui-users
+  flex: 1 10 auto
+
+  .sd-admin-ui-users-header
+    display: flex
+    width: 100%
+    padding: $padding-base-horizontal $padding-base-vertical
+
+    .sd-admin-ui-autocomplete
+      margin: 0 $padding-base-vertical
+
+  .sd-admin-ui-users-list
+    padding: 0
+
+  .sd-admin-ui-user
+    display: flex
+    justify-content: space-between
+    align-items: center
+    border-top: 0.1rem solid $color-separator
+
+    &:last-child
+      border-bottom: 0.1rem solid $color-separator
+
+  .sd-admin-ui-user-label
+    display: block
+    padding: $padding-base-horizontal 0
+
+  .sd-admin-ui-user-actions > a
+    cursor: pointer
+    padding: $padding-base-horizontal $padding-base-vertical
+
+
+.sd-admin-ui-users-search
+  position: relative
+  flex: 2 1 auto
+  height: 3.5rem
+  margin: 0 $padding-base-vertical 0 0
+
+  .sd-admin-ui-users-search-icon
+    position: absolute
+    z-index: 2
+    left: $padding-base-vertical
+    top: 0
+    opacity: 0.5
+    bottom: 0
+    margin: auto
+    height: 1em
+    line-height: 0
+
+  .sd-admin-ui-users-search-field
+    margin: 0
+    border: 0.1rem solid $miller-column-border-color
+    height: 100%
+    width: 100%
+    padding: 0 2.6rem 0 2.4rem
+
+  .sd-admin-ui-users-search-clear
+    position: absolute
+    top: 0
+    bottom: 0
+    right: 0
+    border: none
+    margin: auto
+    padding: 0 $padding-base-vertical
+    background: 0
+    line-height: 0
+    transition: opacity 0.25s ease-out
+    z-index: 2
+
+    &:disabled
+      opacity: 0

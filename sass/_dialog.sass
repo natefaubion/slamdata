@@ -13,6 +13,7 @@
   padding: 1rem
   background: rgba(0, 0, 0, 0.625)
 
+
 // ----------------------------------------------------------------------------
 
 .sd-dialog
@@ -81,6 +82,7 @@
   .container-fluid
     padding: 0
 
+
 // ----------------------------------------------------------------------------
 
 .sd-dialog-header
@@ -90,6 +92,7 @@
   .sd-spinner
     font-size: 150%
     margin-top: 0.2rem
+
 
 // ----------------------------------------------------------------------------
 
@@ -107,13 +110,20 @@
 // ----------------------------------------------------------------------------
 
 .sd-dialog-footer
-  padding-top: $padding-base-horizontal
-  padding-right: 0rem
   display: flex
+  padding-top: $padding-base-horizontal
+  padding-right: 0
   justify-content: space-between
 
   &.share
     margin-top: 0
+
+  .dialog-loader-btn
+    display: inline-block
+    margin-top: 0.2em
+    margin-right: 0.5em
+    margin-left: -0.5em
+    margin-bottom: -0.1em
 
   .btn
     margin-left: $padding-base-horizontal
@@ -125,8 +135,10 @@
   .alert-danger
     margin-bottom: $padding-base-horizontal
 
+
 .sd-dialog-footer-right
   margin-left: auto
+
 
 // ----------------------------------------------------------------------------
 
@@ -136,10 +148,12 @@
   > .sd-icon
     font-size: 2.8rem
 
+
 .sd-dialog-error-box.alert
   // this is BS-padding rather than SD-padding, but looks better with the
   // dialogs as they are currently
   margin: 1.5rem 0 0
+
 
 // ----------------------------------------------------------------------------
 
