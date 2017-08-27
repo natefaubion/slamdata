@@ -22,7 +22,6 @@ import SlamData.Prelude
 
 import CSS as CSS
 
-import Data.Array as A
 import Data.Lens ((^?))
 import Data.ListMap as LM
 import Data.Variant as V
@@ -33,7 +32,6 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
 import SlamData.Render.Icon as I
-import SlamData.Render.ClassName as CN
 import SlamData.Wiring as W
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.CardType.VizType as VCT
