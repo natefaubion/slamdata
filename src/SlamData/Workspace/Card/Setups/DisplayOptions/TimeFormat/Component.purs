@@ -22,6 +22,7 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import SlamData.Render.Form as RF
+import SlamData.Render.Form.ClassNames as RFCN
 import SlamData.Workspace.Card.Setups.DisplayOptions.Common.Query as CQ
 import SlamData.Workspace.Card.Setups.DisplayOptions.TimeFormat.State as S
 
@@ -43,7 +44,7 @@ component =
 render ∷ S.State → HTML
 render { hours24, seconds } =
   HH.ul
-    [ HP.class_ (H.ClassName "sd-display-options-time") ]
+    [ HP.class_ RFCN.options ]
     [ HH.li_ [ RF.renderCheckbox "24-hour clock" hours24 (CQ.Modify ∘ flip (_ { hours24 = _ })) ]
     , HH.li_ [ RF.renderCheckbox "Show seconds" seconds (CQ.Modify ∘ flip (_ { seconds = _ })) ]
     ]

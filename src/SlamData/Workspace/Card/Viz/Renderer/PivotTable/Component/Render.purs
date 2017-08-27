@@ -19,7 +19,8 @@ module SlamData.Workspace.Card.Viz.Renderer.PivotTable.Component.Render where
 import SlamData.Prelude
 
 import CSS.Common (bottom, middle) as CSS
-import CSS.Font (bold, fontWeight) as CSS
+import CSS.Font (bold, fontWeight, fontSize) as CSS
+import CSS.Size (pct) as CSS
 import CSS.Stylesheet as CSSS
 import CSS.Text (textDecoration, underline) as CSS
 import CSS.TextAlign (center, rightTextAlign, textAlign) as CSS
@@ -161,12 +162,16 @@ renderLeaf cols row =
                 strong (Display.hasStyle Display.Strong opts.style)
                 underline (Display.hasStyle Display.Underline opts.style)
                 emphasis (Display.hasStyle Display.Emphasis opts.style)
+                case opts.size of
+                  Display.Large → CSS.fontSize (CSS.pct 135.0)
+                  Display.Medium → pure unit
+                  Display.Small → CSS.fontSize (CSS.pct 75.0)
             ]
             [ HH.text (fromMaybe "" text) ]
   where
-    strong = flip when $ CSS.fontWeight CSS.bold
-    underline = flip when $ CSS.textDecoration CSS.underline
-    emphasis = flip when $ CSS.fontStyle CSS.italic
+    strong = flip when (CSS.fontWeight CSS.bold)
+    underline = flip when (CSS.textDecoration CSS.underline)
+    emphasis = flip when (CSS.fontStyle CSS.italic)
 
 horzAlign ∷ Display.Alignment → CSSS.CSS
 horzAlign = case _ of

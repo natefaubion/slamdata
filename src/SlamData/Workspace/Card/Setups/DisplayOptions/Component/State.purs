@@ -22,19 +22,21 @@ import SlamData.Workspace.Card.Setups.DisplayOptions.Model as M
 type State =
   { alignment ∷ M.Alignments
   , style ∷ M.Style
+  , size ∷ M.Size
   , format ∷ M.Format
   , formatValue ∷ Maybe M.FormatOptions
   }
 
 fromModel ∷ M.DisplayOptions → State
-fromModel (M.DisplayOptions { alignment, style, format }) =
+fromModel (M.DisplayOptions { alignment, style, size, format }) =
   { alignment
   , style
+  , size
   , format: M.formatFromOptions format
   , formatValue: Just format
   }
 
 toModel ∷ State → Maybe M.DisplayOptions
-toModel st@{ alignment, style } = do
-  format ← st.formatValue
-  pure $ M.DisplayOptions { alignment, style, format }
+toModel { alignment, style, size, formatValue } = do
+  format ← formatValue
+  pure $ M.DisplayOptions { alignment, style, size, format }

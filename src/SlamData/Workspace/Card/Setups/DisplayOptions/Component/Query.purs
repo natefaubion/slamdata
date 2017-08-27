@@ -23,6 +23,7 @@ data Query a
   = SetHorzAlignment M.Alignment a
   | SetVertAlignment M.Alignment a
   | ToggleStyle M.StyleOption Boolean a
+  | SetSize M.Size a
   | SetFormat M.Format a
   | HandleFormatChange (Maybe M.FormatOptions) a
   | Raise Message a

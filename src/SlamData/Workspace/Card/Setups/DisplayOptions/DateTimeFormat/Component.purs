@@ -246,7 +246,7 @@ renderTimeOptions opts =
         [ HP.class_ RFCN.label ]
         [ HH.text "Time options" ]
     , HH.ul
-        [ HP.class_ (H.ClassName "sd-display-options-time") ]
+        [ HP.class_ RFCN.options ]
         [ HH.li_
             [ RF.renderCheckbox'
                 [ HP.enabled (isRight opts) ]

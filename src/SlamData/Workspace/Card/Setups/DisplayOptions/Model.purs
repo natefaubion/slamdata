@@ -18,6 +18,7 @@ module SlamData.Workspace.Card.Setups.DisplayOptions.Model
   , module A
   , module F
   , module S
+  , module Z
   ) where
 
 import SlamData.Prelude
@@ -26,10 +27,12 @@ import Data.Codec.Argonaut.Common as CA
 import SlamData.Workspace.Card.Setups.DisplayOptions.Model.Alignment as A
 import SlamData.Workspace.Card.Setups.DisplayOptions.Model.Format as F
 import SlamData.Workspace.Card.Setups.DisplayOptions.Model.Style as S
+import SlamData.Workspace.Card.Setups.DisplayOptions.Model.Size as Z
 
 type DisplayOptionsR =
   { alignment ∷ A.Alignments
   , style ∷ S.Style
+  , size ∷ Z.Size
   , format ∷ F.FormatOptions
   }
 
@@ -43,6 +46,7 @@ codecDisplayOptions ∷ CA.JsonCodec DisplayOptions
 codecDisplayOptions = _Newtype $ CA.object "DisplayOptions" (CA.record
   # CA.recordProp (SProxy ∷ SProxy "alignment") A.codecAlignments
   # CA.recordProp (SProxy ∷ SProxy "style") S.codecStyle
+  # CA.recordProp (SProxy ∷ SProxy "size") Z.codecSize
   # CA.recordProp (SProxy ∷ SProxy "format") F.codecFormatOptions)
 
 initialDisplayOptions ∷ DisplayOptions
@@ -50,6 +54,7 @@ initialDisplayOptions =
   DisplayOptions
     { alignment: A.defaultAlignments
     , style: mempty
+    , size: Z.Medium
     , format: F.DefaultFormat
     }
 

@@ -18,11 +18,20 @@ module SlamData.Render.Form.ClassNames where
 
 import Halogen as H
 
+group ∷ H.ClassName
+group = H.ClassName "sd-form-group"
+
 input ∷ H.ClassName
 input = H.ClassName "sd-form-input"
+
+inputAddon ∷ H.ClassName
+inputAddon = H.ClassName "sd-form-input-addon"
 
 label ∷ H.ClassName
 label = H.ClassName "sd-form-label"
 
-inputAddon ∷ H.ClassName
-inputAddon = H.ClassName "sd-form-input-addon"
+options ∷ H.ClassName
+options = H.ClassName "sd-form-options"
+
+optionsLabel ∷ H.ClassName
+optionsLabel = H.ClassName "sd-form-options-label"

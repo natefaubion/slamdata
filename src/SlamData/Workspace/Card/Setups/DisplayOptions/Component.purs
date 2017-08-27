@@ -52,6 +52,9 @@ eval = case _ of
   Q.ToggleStyle opt b next → do
     H.modify (\st → st { style = M.toggleStyle opt b st.style })
     pure next
+  Q.SetSize size next → do
+    H.modify (_ { size = size })
+    pure next
   Q.SetFormat fmt next → do
     oldFormat ← H.gets _.format
     when (fmt /= oldFormat) do

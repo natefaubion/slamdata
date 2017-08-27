@@ -25,6 +25,7 @@ import Halogen.HTML.Properties as HP
 import Halogen.HTML.Events as HE
 import SlamData.Monad (Slam)
 import SlamData.Render.Form as RF
+import SlamData.Render.Form.ClassNames as RFCN
 import SlamData.Workspace.Card.Setups.Dialog as CSD
 import SlamData.Workspace.Card.Setups.DisplayOptions.BooleanFormat.Component as BooleanFormat
 import SlamData.Workspace.Card.Setups.DisplayOptions.Component.ChildSlot as CS
@@ -43,7 +44,7 @@ import SlamData.Render.ClassName as CN
 type HTML = H.ParentHTML Q.Query CS.ChildQuery CS.ChildSlot Slam
 
 render ∷ String → S.State → HTML
-render uniqueId st@{ alignment, style, format, formatValue } =
+render uniqueId st@{ alignment, style, size, format, formatValue } =
   CSD.pickerDialog
     { onDismiss: Q.Raise Q.Dismiss
     , onConfirm: Q.Raise ∘ Q.Confirm
@@ -55,7 +56,7 @@ render uniqueId st@{ alignment, style, format, formatValue } =
         [ HH.div
             [ HP.class_ (H.ClassName "sd-display-options-top") ]
             [ renderAlignment alignment
-            , renderStyle style
+            , renderStyle size style
             ]
         , renderFormatBlock uniqueId format formatValue
         ]
@@ -64,34 +65,64 @@ render uniqueId st@{ alignment, style, format, formatValue } =
 renderAlignment ∷ { horz ∷ M.Alignment, vert ∷ M.Alignment } → HTML
 renderAlignment { horz, vert } =
   HH.div
-    [ HP.classes [ CN.panel, CN.panelDefault, H.ClassName "sd-display-options-alignment" ] ]
+    [ HP.classes
+        [ CN.panel
+        , CN.panelDefault
+        , H.ClassName "sd-display-options-alignment"
+        , H.ClassName "sd-display-options-top-box"
+        ]
+    ]
     [ HH.div
         [ HP.class_ CN.panelHeading ]
         [ HH.text "Alignment" ]
     , HH.div
         [ HP.class_ CN.panelBody ]
-        [ HH.label_
-            [ HH.span_ [ HH.text "Horizontal" ]
+        [ HH.label
+            [ HP.class_ RFCN.group ]
+            [ HH.span
+                [ HP.class_ RFCN.label ]
+                [ HH.text "Horizontal" ]
             , RF.renderSelect M.alignmentOptions horz M.horzAlign Q.SetHorzAlignment
             ]
-        , HH.label_
-            [ HH.span_ [ HH.text "Vertical" ]
+        , HH.label
+            [ HP.class_ RFCN.group ]
+            [ HH.span
+                [ HP.class_ RFCN.label ]
+                [ HH.text "Vertical" ]
             , RF.renderSelect M.alignmentOptions vert M.vertAlign Q.SetVertAlignment
             ]
         ]
     ]
 
-renderStyle ∷ M.Style → HTML
-renderStyle style =
+renderStyle ∷ M.Size → M.Style → HTML
+renderStyle size style =
   HH.div
-    [ HP.classes [ CN.panel, CN.panelDefault, H.ClassName "sd-display-options-styles" ] ]
+    [ HP.classes
+        [ CN.panel
+        , CN.panelDefault
+        , H.ClassName "sd-display-options-appearance"
+        , H.ClassName "sd-display-options-top-box"
+        ]
+    ]
     [ HH.div
         [ HP.class_ CN.panelHeading ]
-        [ HH.text "Styles" ]
+        [ HH.text "Appearance" ]
     , HH.div
         [ HP.class_ CN.panelBody ]
-        [ HH.div_
-            [ HH.ul_
+        [ HH.label
+            [ HP.class_ RFCN.group ]
+            [ HH.span
+                [ HP.class_ RFCN.label ]
+                [ HH.text "Size" ]
+            , RF.renderSelect M.sizes size M.size Q.SetSize
+            ]
+        , HH.div
+            [ HP.class_ RFCN.group ]
+            [ HH.span
+                [ HP.classes [ RFCN.label, RFCN.optionsLabel ] ]
+                [ HH.text "Style" ]
+            , HH.ul
+                [ HP.class_ RFCN.options ]
                 [ HH.li_ [ renderOpt M.Strong "Bold" ]
                 , HH.li_ [ renderOpt M.Emphasis "Italic" ]
                 , HH.li_ [ renderOpt M.Underline "Underline" ]
@@ -109,8 +140,10 @@ renderFormatBlock uniqueId fmt fmtV =
   HH.div
     [ HP.class_ (H.ClassName "sd-display-options-formatting") ]
     [ HH.label
-        [ HP.class_ (H.ClassName "sd-display-options-formatting-dropdown") ]
-        [ HH.span_ [ HH.text "Value type" ]
+        [ HP.class_ RFCN.group ]
+        [ HH.span
+            [ HP.class_ RFCN.label ]
+            [ HH.text "Value type" ]
         , RF.renderSelect M.formats fmt M.format Q.SetFormat
         ]
     , renderFormatOptions uniqueId fmt fmtV
