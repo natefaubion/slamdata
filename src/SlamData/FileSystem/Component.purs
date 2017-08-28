@@ -29,11 +29,10 @@ import Control.Monad.Fork (fork)
 import Control.Monad.Rec.Class (tailRecM, Step(Done, Loop))
 import Control.UI.Browser as Browser
 import Control.UI.Browser.Event as Be
-import Utils.File as UF
 import DOM.Event.Event as DEE
-import DOM.File.Types as DF
 import DOM.File.File as DFF
 import DOM.File.FileList as DFL
+import DOM.File.Types as DF
 import DOM.HTML.HTMLInputElement as HIE
 import Data.Argonaut as J
 import Data.Array as Array
@@ -96,11 +95,14 @@ import SlamData.Quasar.FS (children, getNewName) as API
 import SlamData.Quasar.Mount (mountInfo) as API
 import SlamData.Render.ClassName as CN
 import SlamData.Render.Common (content, row)
+import SlamData.Theme.LocalStorage as ThemeLS
 import SlamData.Wiring as Wiring
 import SlamData.Workspace.Action (Action(..), AccessType(..))
+import SlamData.Workspace.Class (changeTheme)
 import SlamData.Workspace.Routing (mkWorkspaceURL)
 import Utils (finally)
 import Utils.DOM as DOM
+import Utils.File as UF
 import Utils.Path (AnyPath, DirPath)
 
 type HTML = H.ParentHTML Query ChildQuery ChildSlot Slam
@@ -198,6 +200,7 @@ eval = case _ of
     H.subscribe $ busEventSource (flip HandleSignInMessage ES.Listening) w.auth.signIn
     H.subscribe $ busEventSource (flip (HandleLicenseProblem ∘ Just) ES.Listening) w.bus.licenseProblems
     notifyDaysRemainingIfNeeded
+    changeTheme ∘ Just =<< ThemeLS.default
     pure next
   Transition page next → do
     H.modify (_ { isMount = page.isMount, salt = page.salt, sort = page.sort, path = page.path })
