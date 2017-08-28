@@ -133,6 +133,9 @@ changePreset preset st =
           preset
     }
 
+-- | In "the algebra of algebraic data types" `Maybe t` is `t + 1`, we're using
+-- | this to extend the `Preset` label-prism with one extra option (`Nothing`)
+-- | which is used to represent the custom format choice.
 mpreset ∷ Lens.Prism' String (Maybe P.Preset)
 mpreset = Lens.prism' to from
   where
