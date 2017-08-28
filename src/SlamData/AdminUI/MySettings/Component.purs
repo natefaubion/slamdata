@@ -19,6 +19,7 @@ module SlamData.AdminUI.MySettings.Component (component, Query(..)) where
 import SlamData.Prelude
 
 import Data.Argonaut as J
+import Data.Codec as C
 import Data.Path.Pathy (parseAbsDir)
 import Halogen as H
 import Halogen.HTML as HH
@@ -27,7 +28,9 @@ import Halogen.HTML.Properties as HP
 import SlamData.LocalStorage.Class as LS
 import SlamData.LocalStorage.Keys as LK
 import SlamData.Monad (Slam)
+import SlamData.Theme.Theme (Theme)
 import SlamData.Theme.Theme as Theme
+import SlamData.Workspace.Class (changeTheme)
 import Utils.Path (sandbox)
 
 data Query a
@@ -38,14 +41,14 @@ data Query a
 type State =
   { homeDirectory ∷ String
   , homeDirectoryError ∷ Maybe String
-  , defaultTheme ∷ String
+  , defaultTheme ∷ Theme
   }
 
 defaultState ∷ State
 defaultState =
   { homeDirectory: "/"
   , homeDirectoryError: Nothing
-  , defaultTheme: "Dark"
+  , defaultTheme: Theme.Light
   }
 
 type Message = Void
@@ -74,7 +77,7 @@ component =
       eval ∷ Query ~> DSL
       eval = case _ of
         Init next → do
-          defaultTheme ← LS.retrieve J.decodeJson LK.adminUIDefaultTheme
+          defaultTheme ← LS.retrieve (lmap show ∘ C.decode Theme.codec) LK.adminUIDefaultTheme
           homeDirectory ← LS.retrieve J.decodeJson LK.adminUIHomeDirectory
           for_ defaultTheme \theme →
             H.modify (_ { defaultTheme = theme })
@@ -82,13 +85,10 @@ component =
             H.modify (_ { homeDirectory = dir })
           pure next
         DefaultThemeChanged newTheme next → do
-          LS.persist J.encodeJson LK.adminUIDefaultTheme newTheme
-          H.modify (_ { defaultTheme = newTheme })
-          let
-            fromString = case _ of
-              "Light" → Theme.Light
-              "Dark" → Theme.Dark
-              _→ Theme.default
+          let t = unsafePartial fromJust (Theme.fromLabel newTheme)
+          LS.persist (C.encode Theme.codec) LK.adminUIDefaultTheme t
+          H.modify (_ { defaultTheme = t })
+          changeTheme (Just t)
           pure next
         HomeDirectoryChanged newDirectory next → do
           err ← validateHomeDirectory newDirectory
@@ -122,7 +122,7 @@ renderForm state =
           [ HP.classes [ HH.ClassName "form-control" ]
           , HP.id_ "ThemeSelection"
           , HE.onValueChange (HE.input DefaultThemeChanged)
-          , HP.value state.defaultTheme
+          , HP.value (Theme.toLabel state.defaultTheme)
           ]
           (themes <#> \t → HH.option_ [HH.text t])
       ]

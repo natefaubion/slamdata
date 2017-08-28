@@ -23,6 +23,7 @@ import Data.Map (Map)
 import OIDC.Crypt.Types as OIDCT
 import Quasar.Advanced.Types as QAT
 import SlamData.LocalStorage.Class as LS
+import SlamData.Theme.Theme (Theme)
 import SlamData.Workspace.Card.CardId as CID
 import SlamData.Workspace.Deck.DeckId as DID
 import SlamData.Workspace.Eval.Card (AnyCardModel)
@@ -88,7 +89,7 @@ autoCompletePathsKey = LS.Key "sd-autocomplete-paths"
 
 -- AdminUI
 
-adminUIDefaultTheme ∷ LS.Key String
+adminUIDefaultTheme ∷ LS.Key Theme
 adminUIDefaultTheme = LS.Key "sd-admin-ui-default-theme"
 
 adminUIHomeDirectory ∷ LS.Key String

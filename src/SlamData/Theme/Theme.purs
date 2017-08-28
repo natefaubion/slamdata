@@ -14,11 +14,10 @@ limitations under the License.
 module SlamData.Theme.Theme
   ( Theme(..)
   , codec
-  , default
-  , defaultLabel
   , getCustomValue
   , getURI
   , toLabel
+  , fromLabel
   ) where
 
 import SlamData.Prelude
@@ -38,19 +37,17 @@ data Theme
 
 derive instance eqTheme ∷ Eq Theme
 
-default ∷ Theme
-default =
-  Light
-
 toLabel ∷ Theme → String
 toLabel = case _ of
   Light → "Light"
   Dark → "Dark"
   Custom _ → "Custom"
 
-defaultLabel ∷ String
-defaultLabel =
-  toLabel default
+fromLabel ∷ String → Maybe Theme
+fromLabel = case _ of
+  "Light" → Just Light
+  "Dark" → Just Dark
+  _ → Nothing
 
 getCustomValue ∷ Theme → String
 getCustomValue = case _ of

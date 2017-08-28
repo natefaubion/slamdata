@@ -27,6 +27,7 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import SlamData.Monad (Slam)
 import SlamData.Render.ClassName as CN
+import SlamData.Theme.LocalStorage as ThemeLS
 import SlamData.Theme.Option as Option
 import SlamData.Theme.Theme as Theme
 import Utils.DOM as DOM
@@ -35,12 +36,14 @@ type State =
   { custom ∷ String
   , option ∷ Option.Option
   , isSubmitting ∷ Boolean
+  , defaultTheme ∷ Theme.Theme
   }
 
 initialState ∷ Maybe Theme.Theme → State
 initialState mt =
   { custom: maybe mempty Theme.getCustomValue mt
   , option: maybe Option.Default Option.fromTheme mt
+  , defaultTheme: Theme.Light
   , isSubmitting: false
   }
 
@@ -53,11 +56,12 @@ toTheme s = case s.option of
   Option.Custom →
 		-- Assuming HTML5 form validation is working (which it should)
 		URI.runParseURIRef s.custom # hush <#> Theme.Custom
-  _ →
-    Nothing
+  Option.Default →
+    Just s.defaultTheme
 
 data Query a
-  = PreventDefaultAndSave DOM.Event a
+  = Init a
+  | PreventDefaultAndSave DOM.Event a
   | UpdateOption Option.Option a
   | UpdateCustom String a
   | Cancel a
@@ -68,15 +72,17 @@ data Message
 
 component ∷ H.Component HH.HTML Query (Maybe Theme.Theme) Message Slam
 component =
-  H.component
+  H.lifecycleComponent
     { initialState
+    , initializer: Just (H.action Init)
+    , finalizer: Nothing
     , render
     , eval
     , receiver: const Nothing
     }
 
 render ∷ State → H.ComponentHTML Query
-render { custom, option, isSubmitting } =
+render { custom, option, isSubmitting, defaultTheme } =
   let
     nameThemeOption ∷ String
     nameThemeOption = "themeOption"
@@ -93,7 +99,7 @@ render { custom, option, isSubmitting } =
         [ HP.value $ review Option.valuePrism' o
         , HP.selected $ option == o
         ]
-        [ HH.text $ Option.toLabel o ]
+        [ HH.text $ Option.toLabel (Theme.toLabel defaultTheme) o ]
   in
     HH.form
       [ HP.class_ $ HH.ClassName "deck-dialog-theme"
@@ -152,6 +158,10 @@ render { custom, option, isSubmitting } =
 
 eval ∷ Query ~> H.ComponentDSL State Query Message Slam
 eval = case _ of
+  Init next → do
+    def ← ThemeLS.default
+    H.modify _ { defaultTheme = def }
+    pure next
   PreventDefaultAndSave ev next → do
     H.liftEff (DOM.preventDefault ev)
     maybeTheme ← H.gets toTheme
