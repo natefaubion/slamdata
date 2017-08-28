@@ -49,7 +49,11 @@ initialState =
 
 fromModel ∷ FDT.Formatter → State
 fromModel fmt =
-  { format: maybe' (\_ → Left (FDT.printFormatter fmt)) Right (M.lookup fmt P.presetsByFormat)
+  { format:
+      maybe'
+        (\_ → Left (FDT.printFormatter fmt))
+        Right
+        (M.lookup fmt P.presetsByFormat)
   , error: Nothing
   }
 
