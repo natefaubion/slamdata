@@ -194,13 +194,10 @@ renderDimension orderingDimension size (slot × dimension) =
         _ → pure unit
 
     dimensionEvents =
-      if isJust orderingDimension
-        then
-          [ HE.onMouseOver (HE.input_ (Q.OrderOver (Q.ForGroupBy slot)))
-          , HE.onMouseOut (HE.input_ (Q.OrderOut (Q.ForGroupBy slot)))
-          ]
-        else
-          []
+      guard (isJust orderingDimension) *>
+        [ HE.onMouseOver (HE.input_ (Q.OrderOver (Q.ForGroupBy slot)))
+        , HE.onMouseOut (HE.input_ (Q.OrderOut (Q.ForGroupBy slot)))
+        ]
 
 renderedColumns
   ∷ Maybe PS.OrderingOpts
