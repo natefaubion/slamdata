@@ -39,27 +39,23 @@ import SlamData.Workspace.Card.Setups.DisplayOptions.TimeFormat.State as TF
 
 type Query = CQ.Query State
 
-type Side = Either Unit Unit
+data Side = LeftSide | RightSide
 
-leftSide ∷ Side
-leftSide = Left unit
-
-rightSide ∷ Side
-rightSide = Right unit
+derive instance eqSide ∷ Eq Side
 
 side ∷ Lens.Prism' String Side
 side = Lens.prism' to from
   where
     to = case _ of
-      Left _ → "Left"
-      Right _ → "Right"
+      LeftSide → "Left"
+      RightSide → "Right"
     from = case _ of
-      "Left" → Just leftSide
-      "Right" → Just rightSide
+      "Left" → Just LeftSide
+      "Right" → Just RightSide
       _ → Nothing
 
 sides ∷ NEL.NonEmptyList Side
-sides = SL.toNEL $ leftSide SL.: rightSide SL.: SL.nil
+sides = SL.toNEL $ LeftSide SL.: RightSide SL.: SL.nil
 
 type Options =
   { date ∷ P.Preset
@@ -72,7 +68,7 @@ initialOptions ∷ Options
 initialOptions =
   { date: P.ISO8601
   , time: TF.initialState
-  , timeSide: rightSide
+  , timeSide: RightSide
   , separator: ", "
   }
 
@@ -83,7 +79,7 @@ optionsToModel opts =
     timePart = TF.toModel opts.time
     sepPart = FDT.Placeholder opts.separator
   in
-    if opts.timeSide == leftSide
+    if opts.timeSide == LeftSide
       then timePart <> sepPart : datePart
       else datePart <> sepPart : timePart
 
@@ -154,8 +150,8 @@ inferOptions fmt =
           }
     , timeSide:
         if isJust timeEnd && timeEnd < dateStart
-          then leftSide
-          else rightSide
+          then LeftSide
+          else RightSide
     , separator:
         fromMaybe ", "
           $ join (extractPlaceholder <$> dateEnd <*> timeStart)
