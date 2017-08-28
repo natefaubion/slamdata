@@ -20,6 +20,7 @@ import SlamData.Prelude
 import Data.Codec.Argonaut.Common as CA
 import Data.Codec.Argonaut.Generic as CAG
 import Data.Set as S
+import Utils (_Set)
 
 data StyleOption = Emphasis | Strong | Underline
 
@@ -32,6 +33,7 @@ codecStyleOption = CAG.nullarySum "StyleOption"
 
 newtype Style = Style (S.Set StyleOption)
 
+derive instance newtypeStyle ∷ Newtype Style _
 derive newtype instance eqStyle ∷ Eq Style
 derive newtype instance ordStyle ∷ Ord Style
 derive newtype instance semigroupStyle ∷ Semigroup Style
@@ -48,8 +50,4 @@ toggleStyle s enable (Style ss) =
       else S.delete s ss
 
 codecStyle ∷ CA.JsonCodec Style
-codecStyle =
-  dimap
-    (\(Style ss) → S.toUnfoldable ss)
-    (Style ∘ S.fromFoldable)
-    (CA.array codecStyleOption)
+codecStyle = _Newtype ∘ _Set $ CA.array codecStyleOption
