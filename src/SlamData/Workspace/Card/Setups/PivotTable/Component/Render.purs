@@ -281,10 +281,7 @@ renderColumn orderingColumn size (slot × formatOptions × dimension@(D.Dimensio
         _ → pure unit
 
     columnEvents =
-      if isJust orderingColumn
-        then
-          [ HE.onMouseOver (HE.input_ (Q.OrderOver (Q.ForColumn slot)))
-          , HE.onMouseOut (HE.input_ (Q.OrderOut (Q.ForColumn slot)))
-          ]
-        else
-          []
+      guard (isJust orderingColumn) *>
+        [ HE.onMouseOver (HE.input_ (Q.OrderOver (Q.ForColumn slot)))
+        , HE.onMouseOut (HE.input_ (Q.OrderOut (Q.ForColumn slot)))
+        ]
