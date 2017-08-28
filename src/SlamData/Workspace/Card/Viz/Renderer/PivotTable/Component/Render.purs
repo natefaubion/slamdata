@@ -19,7 +19,7 @@ module SlamData.Workspace.Card.Viz.Renderer.PivotTable.Component.Render where
 import SlamData.Prelude
 
 import CSS.Common (bottom, middle) as CSS
-import CSS.Font (bold, fontWeight, fontSize) as CSS
+import CSS.Font (bold, fontWeight, fontSize, fontStyle, italic) as CSS
 import CSS.Size (pct) as CSS
 import CSS.Stylesheet as CSSS
 import CSS.Text (textDecoration, underline) as CSS
@@ -45,7 +45,6 @@ import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Common (PTree, foldTree, 
 import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Component.Query as Q
 import SlamData.Workspace.Card.Viz.Renderer.PivotTable.Component.State as S
 import Utils (showFormattedNumber)
-import Utils.CSS (fontStyle, italic) as CSS
 
 type HTML = H.ComponentHTML Q.Query
 

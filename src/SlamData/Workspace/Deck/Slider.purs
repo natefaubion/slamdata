@@ -24,6 +24,7 @@ module SlamData.Workspace.Deck.Slider
 import SlamData.Prelude
 
 import CSS (CSS)
+import CSS as CSS
 import Data.Array as Array
 import Data.Int as Int
 import Data.Lens ((.~), (?~))
@@ -182,15 +183,16 @@ willChangeActiveCardWhenDropped st =
 
 cardPositionCSS ∷ Int → CSS
 cardPositionCSS index = do
-  CSSUtils.left $ CSSUtils.calc $
+  CSS.left $ CSSUtils.calc $
     "(100% + " ⊕ show cardSpacingPx ⊕ "px) * " ⊕ show index
 
 cardSliderTransformCSS ∷ Int → Number → CSS
 cardSliderTransformCSS activeCardIndex translateX =
-  CSSUtils.transform
-    $ CSSUtils.translate3d ((show (-100 * activeCardIndex)) ⊕ "%") "0" "0"
-    ⊕ CSSUtils.translate3d ((show (-cardSpacingPx * Int.toNumber activeCardIndex)) ⊕ "px") "0" "0"
-    ⊕ CSSUtils.translate3d ((show translateX) ⊕ "px") "0" "0"
+  CSS.transforms
+    [ CSSUtils.translate3d ((show (-100 * activeCardIndex)) ⊕ "%") "0" "0"
+    , CSSUtils.translate3d ((show (-cardSpacingPx * Int.toNumber activeCardIndex)) ⊕ "px") "0" "0"
+    , CSSUtils.translate3d ((show translateX) ⊕ "px") "0" "0"
+    ]
 
 cardSliderTransitionCSS ∷ Boolean → CSS
 cardSliderTransitionCSS false = CSSUtils.transition "none"

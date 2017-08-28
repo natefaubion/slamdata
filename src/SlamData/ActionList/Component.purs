@@ -28,37 +28,30 @@ module SlamData.ActionList.Component
 import SlamData.Prelude
 
 import CSS as CSS
-
 import Data.Array as Arr
 import Data.Equivalence (Equivalence(..))
 import Data.Foldable as F
 import Data.String as Str
-
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.CSS as HCSS
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
-
 import RectanglePacking (Dimensions, maybeNotZero, domRectToDimensions)
-
 import SlamData.ActionList.Action as A
 import SlamData.ActionList.Component.Message as M
 import SlamData.ActionList.Component.Query as Q
 import SlamData.ActionList.Component.State as ST
 import SlamData.Monad (Slam)
 import SlamData.Render.Icon as I
-
-import Utils.CSS as CSSUtils
 import Utils.DOM (DOMRect)
 import Utils.DOM as DOMUtils
 
 type HTML a = H.ComponentHTML (Q.Query a)
 type DSL a = H.ComponentDSL (ST.State a) (Q.Query a) (M.Message a) Slam
 
-type MkConf a =
-  Dimensions → Array (A.Action a) → A.ActionListConf a
+type MkConf a = Dimensions → Array (A.Action a) → A.ActionListConf a
 
 actionListComp'
   ∷ ∀ a
@@ -189,7 +182,7 @@ renderButton filterString { presentation, metrics, action, lines } =
     HH.p
       [ HCSS.style do
           CSS.fontSize $ CSS.px $ A.fontSizePx
-          CSSUtils.lineHeight $ show A.lineHeightPx <> "px"
+          CSS.lineHeight $ CSS.px $ A.lineHeightPx
       ]
       $ Arr.intercalate
           [ HH.br_ ]

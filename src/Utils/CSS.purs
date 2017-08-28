@@ -18,44 +18,16 @@ module Utils.CSS where
 
 import Prelude
 
-import CSS (class Val, CSS, value)
-import CSS.String (fromString)
-import CSS.Stylesheet (key)
+import CSS (CSS, Size, Transformation(..), fromString, key)
 
 transition ∷ String → CSS
 transition = key (fromString "transition")
 
-calc ∷ String → String
-calc s = "calc(" <> s <> ")"
+calc ∷ ∀ a. String → Size a
+calc s = fromString $ "calc(" <> s <> ")"
 
-width ∷ String → CSS
-width = key (fromString "width")
-
-height ∷ String → CSS
-height = key (fromString "height")
-
-left ∷ String → CSS
-left = key (fromString "left")
-
-lineHeight ∷ String → CSS
-lineHeight = key (fromString "lineHeight")
-
-transform ∷ String → CSS
-transform = key (fromString "transform")
-
-translate3d ∷ String → String → String → String
-translate3d x y z = "translate3d(" <> x <> "," <> y <> "," <> z <> ")"
-
-zIndex ∷ Int → CSS
-zIndex = key (fromString "z-index") <<< show
-
-newtype FontStyle = FontStyle String
-
-instance fontStyleVal ∷ Val FontStyle where
-  value (FontStyle v) = value v
-
-fontStyle ∷ FontStyle → CSS
-fontStyle = key (fromString "font-style")
-
-italic ∷ FontStyle
-italic = FontStyle "italic"
+translate3d ∷ String → String → String → Transformation
+translate3d x y z =
+  Transformation
+    $ fromString
+    $ "translate3d(" <> x <> "," <> y <> "," <> z <> ")"
