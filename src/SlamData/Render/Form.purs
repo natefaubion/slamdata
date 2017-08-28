@@ -66,25 +66,30 @@ renderSelect values value prism = renderSelect' [] values value prism
 
 renderSelect'
   ∷ ∀ a f p
-  . Eq a
-  ⇒ Array (H.IProp HTMLselect f)
+  . Array (H.IProp HTMLselect f)
   → NEL.NonEmptyList a
   → a
   → Lens.Prism' String a
   → (a → H.Action f)
   → H.HTML p f
 renderSelect' props values value prism query =
-  HH.select
-    (props <>
-      [ HE.onValueChange (map (flip query unit) ∘ Lens.preview prism)
-      , HP.class_ RFC.input
-      ])
-    $ map renderOption (Array.fromFoldable values)
+  let
+    selected = Lens.review prism value
+  in
+    HH.select
+      (props <>
+        [ HE.onValueChange (map (flip query unit) ∘ Lens.preview prism)
+        , HP.class_ RFC.input
+        ])
+      $ map (renderOption selected) (Array.fromFoldable values)
   where
-    renderOption opt =
-      HH.option
-        [ HP.selected (value == opt) ]
-        [ HH.text (Lens.review prism opt) ]
+    renderOption selected opt =
+      let
+        label = Lens.review prism opt
+      in
+        HH.option
+          [ HP.selected (selected == label) ]
+          [ HH.text label ]
 
 renderLabelled ∷ ∀ p f. String → Array (H.HTML p f) → H.HTML p f
 renderLabelled label inner =
