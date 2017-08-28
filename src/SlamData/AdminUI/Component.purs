@@ -102,9 +102,6 @@ tabBody state =
     activeTab = case state.active of
       AT.MySettings →
         [ HH.slot' AT.cpMySettings unit MySettings.component unit absurd ]
-        -- pure $ HH.div
-        --   [ HP.class_ (HH.ClassName "sd-admin-ui-my-settings") ]
-        --   (renderMySettingsForm state.formState.mySettings)
       AT.Database →
         [ HH.slot' AT.cpDatabase unit DB.component unit absurd ]
       AT.Server →
