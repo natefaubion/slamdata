@@ -13,7 +13,32 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -}
-module SlamData.Workspace.Card.Setups.DisplayOptions.Model.Format where
+module SlamData.Workspace.Card.Setups.DisplayOptions.Model.Format
+  ( FormatOptions(..)
+  , _DefaultFormat
+  , _CurrencyFormat
+  , _DecimalFormat
+  , _IntegerFormat
+  , _DateFormat
+  , _TimeFormat
+  , _DateTimeFormat
+  , _TextFormat
+  , _BooleanFormat
+  , codecFormatOptions
+  , Format(..)
+  , formatFromOptions
+  , formats
+  , format
+  , renderJsonPrecise
+  , renderBoolean
+  , renderNumber
+  , renderString
+  , renderJArray
+  , renderJObjectPrecise
+  , renderStringyTime
+  , renderStringyDate
+  , renderStringyTimestamp
+  ) where
 
 import SlamData.Prelude
 
@@ -23,14 +48,17 @@ import Data.Codec.Argonaut.Common as CA
 import Data.Codec.Argonaut.Variant as CAV
 import Data.Formatter.DateTime as FDT
 import Data.Lens as Lens
+import Data.List as L
 import Data.List.NonEmpty as NEL
-import Data.List.Safe ((:))
 import Data.List.Safe as SL
+import Data.StrMap as SM
+import Data.String as Str
 import Data.Variant as V
-import SlamData.Workspace.Card.Setups.DisplayOptions.TextFormat.Model as TextFormat
 import SlamData.Workspace.Card.Setups.DisplayOptions.BooleanFormat.Model as BooleanFormat
-import SlamData.Workspace.Card.Setups.DisplayOptions.IntegerFormat.Model as IntegerFormat
 import SlamData.Workspace.Card.Setups.DisplayOptions.DecimalFormat.Model as DecimalFormat
+import SlamData.Workspace.Card.Setups.DisplayOptions.IntegerFormat.Model as IntegerFormat
+import SlamData.Workspace.Card.Setups.DisplayOptions.TextFormat.Model as TextFormat
+import Utils (showPrettyNumber)
 
 data FormatOptions
   = DefaultFormat
@@ -173,15 +201,15 @@ formatFromOptions = case _ of
 formats ∷ NEL.NonEmptyList Format
 formats = SL.toNEL
   $ Default
-  : Currency
-  : Decimal
-  : Integer
-  : Date
-  : Time
-  : DateTime
-  : Text
-  : Boolean
-  : SL.nil
+  SL.: Currency
+  SL.: Decimal
+  SL.: Integer
+  SL.: Date
+  SL.: Time
+  SL.: DateTime
+  SL.: Text
+  SL.: Boolean
+  SL.: SL.nil
 
 format ∷ Lens.Prism' String Format
 format = Lens.prism' to from
@@ -207,3 +235,116 @@ format = Lens.prism' to from
       "Text" → Just Text
       "Boolean" → Just Boolean
       _ → Nothing
+
+renderJsonPrecise ∷ FormatOptions → J.Json → String
+renderJsonPrecise opts =
+  J.foldJson
+    show
+    (renderBoolean opts)
+    (renderNumber opts)
+    (renderString opts)
+    (renderJArray renderJsonPrecise opts)
+    (renderJObjectPrecise opts)
+
+renderBoolean ∷ FormatOptions → Boolean → String
+renderBoolean = case _ of
+  BooleanFormat fmt → BooleanFormat.render fmt
+  TextFormat fmt → TextFormat.render fmt ∘ show
+  _ → show
+
+renderNumber ∷ FormatOptions → Number → String
+renderNumber = case _ of
+  IntegerFormat fmt → IntegerFormat.render fmt
+  DecimalFormat fmt → DecimalFormat.render fmt
+  CurrencyFormat fmt → DecimalFormat.render fmt
+  TextFormat fmt → TextFormat.render fmt ∘ showPrettyNumber
+  _ → showPrettyNumber
+
+renderString ∷ FormatOptions → String → String
+renderString = case _ of
+  TextFormat fmt → TextFormat.render fmt
+  _ → id
+
+renderJArray ∷ (FormatOptions → J.Json → String) → FormatOptions → J.JArray → String
+renderJArray f opts arr = "[" <> Str.joinWith ", " (f opts <$> arr) <> "]"
+
+renderJObjectPrecise ∷ FormatOptions → J.JObject → String
+renderJObjectPrecise opts = case _ of
+  jobj
+    | Just time ← J.toString =<< SM.lookup "$time" jobj →
+        renderStringyTime opts time
+    | Just date ← J.toString =<< SM.lookup "$date" jobj →
+        renderStringyDate opts date
+    | Just timestamp ← J.toString =<< SM.lookup "$timestamp" jobj →
+        renderStringyTimestamp opts timestamp
+    | Just interval ← J.toString =<< SM.lookup "$interval" jobj →
+        interval
+    | Just binary ← J.toString =<< SM.lookup "$binary" jobj →
+        binary
+    | Just oid ← J.toString =<< SM.lookup "$oid" jobj →
+        oid
+    | Just obj ← J.toObject =<< SM.lookup "$obj" jobj →
+        renderJObjectPrecise opts obj
+    | Just set ← J.toArray =<< SM.lookup "$set" jobj →
+        renderJArray renderJsonPrecise opts set
+    | otherwise →
+        show (J.fromObject jobj)
+
+renderStringyTime ∷ FormatOptions → String → String
+renderStringyTime opts value = case opts of
+  TimeFormat fmt
+    | Right dt ← FDT.unformat timeFormat (Str.take 8 value) → FDT.format fmt dt
+  TextFormat fmt →
+    TextFormat.render fmt value
+  _ →
+    value
+
+-- | The format definition used when parsing `$time` values from Quasar.
+timeFormat ∷ FDT.Formatter
+timeFormat
+  = FDT.Hours24
+  L.: FDT.Placeholder ":"
+  L.: FDT.MinutesTwoDigits
+  L.: FDT.Placeholder ":"
+  L.: FDT.SecondsTwoDigits
+  L.: L.Nil
+
+renderStringyDate ∷ FormatOptions → String → String
+renderStringyDate opts value = case opts of
+  DateFormat fmt
+    | Right dt ← FDT.unformat dateFormat value → FDT.format fmt dt
+  TextFormat fmt →
+    TextFormat.render fmt value
+  _ →
+    value
+
+-- | The format definition used when parsing `$date` values from Quasar.
+dateFormat ∷ FDT.Formatter
+dateFormat
+  = FDT.YearFull
+  L.: FDT.Placeholder "-"
+  L.: FDT.MonthTwoDigits
+  L.: FDT.Placeholder "-"
+  L.: FDT.DayOfMonthTwoDigits
+  L.: L.Nil
+
+renderStringyTimestamp ∷ FormatOptions → String → String
+renderStringyTimestamp opts value = case opts of
+  DateTimeFormat fmt
+    | Right dt ← FDT.unformat timestampFormat (Str.take 19 value) → FDT.format fmt dt
+  DateFormat fmt
+    | Right dt ← FDT.unformat dateFormat (Str.take 10 value) → FDT.format fmt dt
+  TimeFormat fmt
+    | Right dt ← FDT.unformat timeFormat (Str.take 8 (Str.drop 11 value)) → FDT.format fmt dt
+  TextFormat fmt →
+    TextFormat.render fmt value
+  _ →
+    value
+
+-- | The format definition used when parsing `$timestamp` values from Quasar.
+timestampFormat ∷ FDT.Formatter
+timestampFormat = join
+  $ dateFormat
+  L.: pure (FDT.Placeholder "T")
+  L.: timeFormat
+  L.: L.Nil
