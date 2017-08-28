@@ -118,6 +118,7 @@ renderForm state =
   , HH.fieldset
       [ HP.class_ (HH.ClassName "themes") ]
       [ HH.legend_ [ HH.text "Default theme for new decks:" ]
+      , HH.p_ [ HH.text "This theme will also be used for the filesystem. You can change this setting on a deck by deck basis, by flipping the deck during editing." ]
       , HH.select
           [ HP.classes [ HH.ClassName "form-control" ]
           , HP.id_ "ThemeSelection"
