@@ -26,6 +26,9 @@ input
     z-index: 1
     border-color: $input-border-focus
 
+  &:disabled
+    opacity: 0.5
+
 
 label.sd-option span
   margin-left: 0.5rem
@@ -123,3 +126,39 @@ label.sd-option span
 
 .form-control
   transition: border-color 200ms ease-out
+
+
+
+
+.sd-form-group
+  display: flex
+  align-items: center
+
+
+
+.sd-form-input-addon
+  display: inline-block
+  background: $panel-default-heading-bg
+  border: 0.1rem solid $color-separator
+  border-right: none
+  line-height: 3rem
+  padding: 0 0.75rem
+
+
+
+.sd-form-label
+  font-weight: bold
+
+.sd-form-options-label
+  align-self: flex-start
+
+
+
+.sd-form-options
+  list-style: none
+  padding: 0
+  margin: 0
+
+  label
+    font-weight: normal
+    user-select: none

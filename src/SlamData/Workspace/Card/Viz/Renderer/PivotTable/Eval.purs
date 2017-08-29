@@ -23,6 +23,7 @@ import Data.Argonaut as J
 import Data.Array as Array
 import Data.Lens (preview, _Just)
 import Data.List as List
+import Quasar.Data.Json as QJ
 import SlamData.Quasar.Class (class QuasarDSL)
 import SlamData.Workspace.Card.Eval.Common as CEC
 import SlamData.Workspace.Card.Eval.Monad as CEM
@@ -156,7 +157,7 @@ runQuery
   → m (Array J.Json)
 runQuery resource limit offset = do
   CEM.CardEnv { path } ← ask
-  CEC.sampleResource path resource (Just { limit, offset }) >>= case _ of
+  CEC.sampleResource' QJ.Precise path resource (Just { limit, offset }) >>= case _ of
     Left err → throwChartError (ChartSampleQuasarError err)
     Right result → pure result
 
@@ -169,6 +170,6 @@ runAll
   → m (Array J.Json)
 runAll resource = do
   CEM.CardEnv { path } ← ask
-  CEC.sampleResource path resource Nothing >>= case _ of
+  CEC.sampleResource' QJ.Precise path resource Nothing >>= case _ of
     Left err → throwChartError (ChartSampleQuasarError err)
     Right result → pure result

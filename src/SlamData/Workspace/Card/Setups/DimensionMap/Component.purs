@@ -99,6 +99,7 @@ renderButton state fld =
   HH.div [ HP.classes [ HH.ClassName "chart-configure-form" ] ]
   [ I.dimensionButton
     { configurable: true
+    , formattable: false
     , dimension: sequence $ ST.getSelected fld state
     , showLabel: absurd
     , showDefaultLabel: const $ Pr.getLabel fld
@@ -106,6 +107,7 @@ renderButton state fld =
     , onLabelChange: HE.input \l → Q.OnField fld ∘ Q.LabelChanged l
     , onDismiss: HE.input_ $ Q.OnField fld ∘ Q.Dismiss
     , onConfigure: HE.input_ $ Q.OnField fld ∘ Q.Configure
+    , onSetupFormatting: const Nothing
     , onClick: HE.input_ $ Q.OnField fld ∘ Q.Select
     , onMouseDown: const Nothing
     , onLabelClick: const Nothing

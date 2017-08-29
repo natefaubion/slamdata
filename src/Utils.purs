@@ -15,7 +15,8 @@ limitations under the License.
 -}
 
 module Utils
-  ( throwVariantError
+  ( _Set
+  , throwVariantError
   , debugTime
   , stringToNumber
   , stringToBoolean
@@ -50,10 +51,16 @@ import Data.Array as Array
 import Data.Codec.Argonaut as CA
 import Data.Formatter.Number as FN
 import Data.Int as Int
+import Data.Lens (Optic)
+import Data.Set as Set
 import Data.String as S
+import Data.Unfoldable (class Unfoldable)
 import Data.Variant (inj)
 import Global (readFloat, isNaN, isFinite)
 import SqlSquared.Signature.Ident (printIdent)
+
+_Set ∷ ∀ p a f b g. Profunctor p ⇒ Foldable g ⇒ Ord b ⇒ Unfoldable f ⇒ Optic p (Set.Set a) (Set.Set b) (f a) (g b)
+_Set = dimap Set.toUnfoldable Set.fromFoldable
 
 foreign import debugTime_ ∷ ∀ a. String → (Unit → a) → a
 

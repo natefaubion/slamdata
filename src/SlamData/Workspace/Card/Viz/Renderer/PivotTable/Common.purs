@@ -17,6 +17,7 @@ limitations under the License.
 module SlamData.Workspace.Card.Viz.Renderer.PivotTable.Common where
 
 import SlamData.Prelude
+
 import Data.Argonaut as J
 import Data.Array as Array
 import Data.Foldable as F
@@ -39,7 +40,7 @@ sizeOfRow columns row =
     (F.maximum
       (Array.mapMaybe
         case _ of
-          c × (D.Dimension _ (D.Projection (Just _) _)) → Just 1
+          c × (_ × D.Dimension _ (D.Projection (Just _) _)) → Just 1
           c × _ → J.foldJsonArray 1 Array.length <$> J.cursorGet (topField c) row
         columns))
 

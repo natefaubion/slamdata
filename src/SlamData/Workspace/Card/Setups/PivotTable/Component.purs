@@ -21,253 +21,43 @@ import SlamData.Prelude
 import Data.Argonaut as J
 import Data.Array as Array
 import Data.Foldable as F
-import Data.Int (toNumber)
 import Data.Lens ((^?), (.~), _Just)
-
-import CSS as C
+import Data.Lens as Lens
 import Halogen as H
-import Halogen.Component.Proxy as HCP
 import Halogen.Component.Utils.Drag as Drag
 import Halogen.HTML as HH
-import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties as HP
-import Halogen.HTML.Properties.ARIA as ARIA
-import Halogen.HTML.CSS as HC
+import SlamData.Monad (Slam)
+import SlamData.Workspace.Card.CardId as CID
+import SlamData.Workspace.Card.Component as CC
 import SlamData.Workspace.Card.Setups.ActionSelect.Component as AS
 import SlamData.Workspace.Card.Setups.Axis as Ax
+import SlamData.Workspace.Card.Setups.PivotTable.Component.Render as PR
+import SlamData.Workspace.Card.Setups.Dimension as D
+import SlamData.Workspace.Card.Setups.DimensionPicker.Column (flattenColumns)
+import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
+import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (flattenJCursors)
+import SlamData.Workspace.Card.Setups.DisplayOptions.Component as Display
 import SlamData.Workspace.Card.Setups.PivotTable.Component.ChildSlot as CS
 import SlamData.Workspace.Card.Setups.PivotTable.Component.Query as Q
 import SlamData.Workspace.Card.Setups.PivotTable.Component.State as ST
 import SlamData.Workspace.Card.Setups.PivotTable.Model as PTM
-import SlamData.Workspace.Card.Setups.Dimension as D
-import SlamData.Workspace.Card.Setups.DimensionPicker.Column (flattenColumns, showColumn)
-import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
-import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (flattenJCursors)
-import SlamData.Workspace.Card.Setups.Inputs as I
 import SlamData.Workspace.Card.Setups.Transform as T
-import SlamData.Workspace.Card.Setups.Transform.Numeric as N
-import SlamData.Workspace.Card.Setups.Transform.Place.Component as TPC
-import Utils (showPrettyJCursor, showJCursorTip)
-import SlamData.Monad (Slam)
+import SlamData.Workspace.Deck.DeckId as DID
 import Utils.Lens as UL
 
-type HTML = H.ParentHTML Q.Query CS.ChildQuery CS.ChildSlot Slam
 type DSL = H.ParentDSL ST.State Q.Query CS.ChildQuery CS.ChildSlot Q.Message Slam
 
-component ∷ H.Component HH.HTML Q.Query Unit Q.Message Slam
-component = H.parentComponent
-  { initialState: const ST.initialState
-  , render
-  , eval
-  , receiver: const Nothing
-  }
-
-render ∷ ST.State → HTML
-render st =
-  HH.div
-    [ HP.classes [ HH.ClassName "sd-pivot-options" ] ]
-    [ HH.div
-        [ HP.classes [ HH.ClassName "sd-pivot-options-corner" ] ]
-        [ HH.span_ [ HH.text "Dimensions" ]
-        , HH.span_ [ HH.text "Columns" ]
-        ]
-    , HH.div
-        [ HP.classes [ HH.ClassName "sd-pivot-options-dims" ] ]
-        renderedDimensions
-    , HH.div
-        [ HP.classes [ HH.ClassName "sd-pivot-options-cols" ] ]
-        renderedColumns
-    , HH.div
-        [ HP.classes [ HH.ClassName "sd-pivot-options-preview" ] ]
-        []
-    , maybe (HH.text "") renderSelect st.selecting
-    ]
+component ∷ CC.CardOptions → H.Component HH.HTML Q.Query Unit Q.Message Slam
+component options =
+  H.parentComponent
+    { initialState: const ST.initialState
+    , render: PR.render uniqueCardId
+    , eval
+    , receiver: const Nothing
+    }
   where
-  renderSelect = case _ of
-    ST.SelectColumn values →
-      HH.slot' CS.cpCol unit
-        (DPC.picker
-          { title: "Choose column"
-          , label: DPC.labelNode (showColumn showJCursorTip)
-          , render: DPC.renderNode (showColumn showJCursorTip)
-          , values
-          , isSelectable: DPC.isLeafPath
-          })
-        unit
-        (Just ∘ H.action ∘ Q.HandleColumnPicker)
-    ST.SelectGroupBy values →
-      HH.slot' CS.cpDim unit
-        (DPC.picker
-          { title: "Choose dimension"
-          , label: DPC.labelNode showJCursorTip
-          , render: DPC.renderNode showJCursorTip
-          , values
-          , isSelectable: DPC.isLeafPath
-          })
-        unit
-        (Just ∘ H.action ∘ Q.HandleGroupByPicker)
-    ST.SelectTransform slot selection options →
-      HH.slot' CS.cpTransform unit AS.component
-        { options
-        , selection: (\a → a × a) <$> selection
-        , title: "Choose transformation"
-        , toLabel: \t -> { text: T.prettyPrintTransform t, icon: Nothing }
-        , deselectable: true
-        , toSelection: case _ of
-            T.Numeric (N.Floor _) → Just $ HCP.proxy TPC.transformFloor
-            T.Numeric (N.Round _) → Just $ HCP.proxy TPC.transformRound
-            T.Numeric (N.Ceil _) → Just $ HCP.proxy TPC.transformCeil
-            _ → Nothing
-        }
-        (Just ∘ H.action ∘ Q.HandleTransformPicker slot)
-
-  renderedDimensions =
-    let
-      len  = Array.length st.dimensions + 1
-      size = 100.0 / toNumber len
-      calc = "calc(" ⊕ show size ⊕ "% - 10rem)"
-    in
-      map (renderDimension size) st.dimensions <>
-      [ HH.div
-          [ HP.classes [ HH.ClassName "sd-pivot-options-dim" ]
-          , HC.style (C.height $ C.fromString calc)
-          ]
-          [ HH.div
-              [ HP.classes [ HH.ClassName "sd-pivot-options-dim-inner"] ]
-              [ HH.button
-                  [ HP.classes [ HH.ClassName "sd-pivot-options-plus" ]
-                  , HE.onClick (HE.input_ Q.AddGroupBy)
-                  , ARIA.label "Add dimension"
-                  , HP.title "Add dimension"
-                  ]
-                  []
-              ]
-          ]
-      ]
-
-  renderDimension size (slot × dimension) =
-    HH.div
-      ([ HP.classes (dimensionClasses slot)
-       , HC.style (C.height (C.pct size))
-       ] <> dimensionEvents slot)
-      [ HH.div
-          [ HP.classes [ HH.ClassName "sd-pivot-options-dim-inner"]
-          , HC.style (dimensionStyles slot size)
-          ]
-          [ I.dimensionButton
-              { configurable: true
-              , dimension
-              , showLabel: absurd
-              , showDefaultLabel: showPrettyJCursor
-              , showValue: showPrettyJCursor
-              , onLabelChange: HE.input (\l → Q.ChangeLabel (Q.ForGroupBy slot) l)
-              , onDismiss: HE.input_ (Q.Remove (Q.ForGroupBy slot))
-              , onConfigure: HE.input_ (Q.Configure (Q.ForGroupBy slot))
-              , onMouseDown: HE.input (\e → Q.OrderStart (Q.ForGroupBy slot) e)
-              , onClick: const Nothing
-              , onLabelClick: const Nothing
-              , disabled: false
-              , dismissable: true
-              , labelless: false
-              }
-          ]
-      ]
-
-  dimensionClasses slot =
-    [ HH.ClassName "sd-pivot-options-dim" ] <>
-      case st.orderingDimension of
-        Just opts | opts.source == slot → [ HH.ClassName "ordering" ]
-        Just opts | opts.over == Just slot → [ HH.ClassName "ordering-over" ]
-        _ → []
-
-  dimensionStyles slot size = do
-    case st.orderingDimension of
-      Just opts | opts.source == slot → C.top (C.px opts.offset)
-      _ → pure unit
-
-  dimensionEvents slot =
-    if isJust st.orderingDimension
-      then
-        [ HE.onMouseOver (HE.input_ (Q.OrderOver (Q.ForGroupBy slot)))
-        , HE.onMouseOut (HE.input_ (Q.OrderOut (Q.ForGroupBy slot)))
-        ]
-      else
-        []
-
-  renderedColumns =
-    let
-      len  = Array.length st.columns + 1
-      size = 100.0 / toNumber len
-    in
-      map (renderColumn size) st.columns <>
-      [ HH.div
-          [ HP.classes [ HH.ClassName "sd-pivot-options-col" ]
-          , HC.style (C.width $ C.pct size)
-          ]
-          [ HH.div
-              [ HP.classes [ HH.ClassName "sd-pivot-options-col-inner"] ]
-              [ HH.div
-                  [ HP.classes [ HH.ClassName "sd-pivot-options-col-value" ] ]
-                  [ HH.button
-                      [ HP.classes [ HH.ClassName "sd-pivot-options-plus" ]
-                      , HE.onClick (HE.input_ (Q.AddColumn))
-                      , ARIA.label "Add column"
-                      , HP.title "Add column"
-                      ]
-                      []
-                  ]
-              ]
-          ]
-      ]
-
-  renderColumn size (slot × dimension@(D.Dimension label cat)) =
-    HH.div
-      ([ HP.classes (columnClasses slot)
-       , HC.style (C.width (C.pct size))
-       ] <> columnEvents slot)
-      [ HH.div
-          [ HP.classes [ HH.ClassName "sd-pivot-options-col-inner"]
-          , HC.style (columnStyles slot size)
-          ]
-          [ I.dimensionButton
-              { configurable: true
-              , dimension
-              , showLabel: absurd
-              , showDefaultLabel: showColumn showPrettyJCursor
-              , showValue: showColumn showPrettyJCursor
-              , onLabelChange: HE.input (\l → Q.ChangeLabel (Q.ForColumn slot) l)
-              , onDismiss: HE.input_ (Q.Remove (Q.ForColumn slot))
-              , onConfigure: HE.input_ (Q.Configure (Q.ForColumn slot))
-              , onMouseDown: HE.input (\e → Q.OrderStart (Q.ForColumn slot) e)
-              , onClick: const Nothing
-              , onLabelClick: const Nothing
-              , disabled: false
-              , dismissable: true
-              , labelless: false
-              }
-          ]
-      ]
-
-  columnClasses slot =
-    [ HH.ClassName "sd-pivot-options-col" ] <>
-      case st.orderingColumn of
-        Just opts | opts.source == slot → [ HH.ClassName "ordering" ]
-        Just opts | opts.over == Just slot → [ HH.ClassName "ordering-over" ]
-        _ → []
-
-  columnStyles slot size = do
-    case st.orderingColumn of
-      Just opts | opts.source == slot → C.left (C.px opts.offset)
-      _ → pure unit
-
-  columnEvents slot =
-    if isJust st.orderingColumn
-      then
-        [ HE.onMouseOver (HE.input_ (Q.OrderOver (Q.ForColumn slot)))
-        , HE.onMouseOut (HE.input_ (Q.OrderOut (Q.ForColumn slot)))
-        ]
-      else
-        []
+    uniqueCardId =
+      foldMap DID.toString options.cursor <> CID.toString options.cardId
 
 raiseUpdate ∷ DSL Unit
 raiseUpdate = do
@@ -311,7 +101,7 @@ eval = case _ of
       Q.ForGroupBy slot →
         H.modify (ST._dimensions ∘ UL.lookup slot ∘ D._category .~ label')
       Q.ForColumn slot →
-        H.modify (ST._columns ∘ UL.lookup slot ∘ D._category .~ label')
+        H.modify (ST._columns ∘ UL.lookup slot ∘ Lens._2 ∘ D._category .~ label')
     raiseUpdate
     pure next
   Q.Configure (Q.ForGroupBy slot) next → do
@@ -329,7 +119,7 @@ eval = case _ of
   Q.Configure (Q.ForColumn slot) next → do
     st ← H.get
     let
-      col = st.columns ^? UL.lookup slot ∘ D._value
+      col = st.columns ^? UL.lookup slot ∘ Lens._2 ∘ D._value
       selection = join $ col ^? _Just ∘ D._transform
       options = case col of
         Just (D.Projection mbTr (PTM.Column cursor)) →
@@ -339,6 +129,14 @@ eval = case _ of
         _ → mempty
       selecting = ST.SelectTransform (Q.ForColumn slot) selection options
     H.modify _ { selecting = Just selecting }
+    pure next
+  Q.SetupFormatting (Q.ForColumn slot) next → do
+    st ← H.get
+    for_ (st.columns ^? UL.lookup slot ∘ Lens._1) \formatting → do
+      let selecting = ST.SelectFormatting (Q.ForColumn slot) formatting
+      H.modify _ { selecting = Just selecting }
+    pure next
+  Q.SetupFormatting _ next →
     pure next
   Q.OrderStart (Q.ForGroupBy slot) ev next → do
     let
@@ -446,7 +244,7 @@ eval = case _ of
             _ → D.projectionWithCategory (PTM.defaultColumnCategory value') value'
         H.modify _
           { fresh = st.fresh + 1
-          , columns = Array.snoc st.columns (st.fresh × cell)
+          , columns = Array.snoc st.columns (st.fresh × Display.initialDisplayOptions × cell)
           , selecting = Nothing
           }
         raiseUpdate
@@ -455,13 +253,25 @@ eval = case _ of
     case msg of
       AS.Dismiss →
         H.modify _ { selecting = Nothing }
-      AS.Confirm mbt →
+      AS.Confirm mbt → do
         H.modify
           $ _ { selecting = Nothing }
           ∘ case fd of
               Q.ForGroupBy slot → ST.setGroupByTransform mbt slot
               Q.ForColumn slot → ST.setColumnTransform mbt slot
-    raiseUpdate
+        raiseUpdate
+    pure next
+  Q.HandleFormatting fd msg next → do
+    case msg of
+      Display.Dismiss →
+        H.modify _ { selecting = Nothing }
+      Display.Confirm opts → do
+        H.modify
+          $ _ { selecting = Nothing }
+          ∘ case fd of
+              Q.ForColumn slot → ST.setColumnDisplayOptions opts slot
+              Q.ForGroupBy _ → id
+        raiseUpdate
     pure next
 
 transformOptions ∷ Array T.Transform → Maybe T.Transform → Array T.Transform

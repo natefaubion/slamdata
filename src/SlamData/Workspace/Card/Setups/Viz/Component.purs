@@ -22,7 +22,6 @@ import SlamData.Prelude
 
 import CSS as CSS
 
-import Data.Array as A
 import Data.Lens ((^?))
 import Data.ListMap as LM
 import Data.Variant as V
@@ -33,7 +32,6 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
 import SlamData.Render.Icon as I
-import SlamData.Render.ClassName as CN
 import SlamData.Wiring as W
 import SlamData.Workspace.Card.CardType as CT
 import SlamData.Workspace.Card.CardType.VizType as VCT
@@ -60,72 +58,76 @@ lm ∷ ∀ a. LM.Module VCT.VizType a
 lm = LM.openModule eq
 
 component ∷ CC.CardOptions → CC.CardComponent
-component =
-  CC.makeCardComponent CT.setupViz $ H.parentComponent
-    { render
+component options =
+  CC.makeCardComponent CT.setupViz (H.parentComponent
+    { render: render options
     , eval: cardEval ⨁ setupEval
     , receiver: const Nothing
     , initialState: const ST.initialState
-    }
+    }) options
 
-render ∷ ST.State → HTML
-render state =
+render ∷ CC.CardOptions → ST.State → HTML
+render options state =
   HH.div
   [ HCSS.style $ CSS.width (CSS.pct 100.0) *> CSS.height (CSS.pct 100.0) ]
   $ ( if state.vizTypePickerExpanded
       then [ picker ]
       else [ button ] <> dims )
   ⊕ aux
-  ⊕ [ pivotOptions ]
+  ⊕ pivotOptions
   where
-  icon ∷ Array HTML
-  icon = (pure ∘ I.unIconHTML ∘ VCT.icon) state.vizType
 
-  pivotOptions ∷ HTML
+  pivotOptions ∷ Array HTML
   pivotOptions =
-    HH.div
-    [ HP.classes
-        $ CN.hidden
-        <$ guard
-            ( state.vizTypePickerExpanded
-              ∨ ( CT.pivot ≠ state.vizType ) )
-    ]
-    [ HH.slot' CS.cpPivot unit PT.component unit
-      $ HE.input \e → right ∘ Q.HandlePivotTable e
-    ]
+    guard (not state.vizTypePickerExpanded && state.vizType == CT.pivot) $>
+      HH.slot'
+        CS.cpPivot
+        unit
+        (PT.component options)
+        unit
+        (HE.input \e → right ∘ Q.HandlePivotTable e)
 
 
   button =
     HH.button
-      [ HE.onClick $ HE.input_ $ right ∘ Q.ToggleVizPicker
-      , HP.classes
-          [ HH.ClassName "sd-viztype-button"
-          ]
+      [ HE.onClick $ HE.input_ (right ∘ Q.ToggleVizPicker)
+      , HP.class_ (HH.ClassName "sd-viztype-button")
       , ARIA.label "Select visualization type"
       ]
-      $ ( icon )
-      ⊕ ( pure ∘ HH.p_ ∘ pure ∘ HH.text ∘ VCT.name $ state.vizType )
-
-  picker =
-    HH.slot' CS.cpPicker unit VT.component unit
-      $ HE.input \e → right ∘ Q.HandlePicker e
-  dims = fromMaybe [ ] do
-    package ← lm.lookup state.vizType DP.packages
-    pure
-      [ HH.slot' CS.cpDims unit DM.component package
-        $ HE.input \e → right ∘ Q.HandleDims e
+      [ I.unIconHTML (VCT.icon state.vizType)
+      , HH.p_ [ HH.text (VCT.name state.vizType) ]
       ]
 
-  aux = fromMaybe [ ] do
+  picker =
+    HH.slot'
+      CS.cpPicker
+      unit
+      VT.component
+      unit
+      (HE.input \e → right ∘ Q.HandlePicker e)
+
+  dims = foldMap pure do
+    package ← lm.lookup state.vizType DP.packages
+    pure $
+      HH.slot'
+        CS.cpDims
+        unit
+        DM.component
+        package
+        (HE.input \e → right ∘ Q.HandleDims e)
+
+  aux = foldMap pure do
     auxState ← lm.lookup state.vizType state.auxes
     comp ← Aux.vizTypeAux state.vizType
-    pure
-      $ A.singleton
-      $ HH.div_
-      $ A.singleton
-      $ HH.slot' CS.cpAux unit comp auxState
-      $ HE.input \e → right ∘ Q.HandleAux e
-
+    pure $
+      HH.div_
+        [ HH.slot'
+            CS.cpAux
+            unit
+            comp
+            auxState
+            (HE.input \e → right ∘ Q.HandleAux e)
+        ]
 
 cardEval ∷ CC.CardEvalQuery ~> DSL
 cardEval = case _ of

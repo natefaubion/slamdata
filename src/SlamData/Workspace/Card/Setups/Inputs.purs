@@ -226,6 +226,7 @@ dimensionPicker options title =
 
 type DimensionOptions a b i =
   { configurable ∷ Boolean
+  , formattable ∷ Boolean
   , dimension ∷ D.Dimension a b
   , showLabel ∷ a → String
   , showDefaultLabel ∷ b → String
@@ -233,6 +234,7 @@ type DimensionOptions a b i =
   , onLabelChange ∷ String → Maybe (i Unit)
   , onDismiss ∷ DOM.MouseEvent → Maybe (i Unit)
   , onConfigure ∷ DOM.MouseEvent → Maybe (i Unit)
+  , onSetupFormatting ∷ DOM.MouseEvent → Maybe (i Unit)
   , onMouseDown ∷ DOM.MouseEvent → Maybe (i Unit)
   , onClick ∷ DOM.MouseEvent → Maybe (i Unit)
   , onLabelClick ∷ DOM.MouseEvent → Maybe (i Unit)
@@ -259,23 +261,20 @@ dimensionButton opts =
             , HE.onClick opts.onLabelClick
             , HP.placeholder defaultLabel
             ]
-        ] )
-    ⊕ [ HH.div
-        [ HP.classes [ HH.ClassName if opts.labelless
-                                    then "sd-dimension-button-toolbar-wo-label"
-                                    else "sd-dimension-button-toolbar" ] ]
-        $ ( guard opts.dismissable $>
-          ( HH.button
-            [ HP.classes [ HH.ClassName "sd-dismiss-button" ]
-            , HP.title "Dismiss"
-            , ARIA.label "Dismiss"
-            , HE.onClick opts.onDismiss
-            , HP.disabled opts.disabled
-            ]
-            [ I.closeSm ]
-          ) )
-        ⊕ [ if opts.configurable && not (D.isStatic value)
-            then
+        ] ) ⊕
+     [ HH.div
+        [ HP.class_ (HH.ClassName "sd-dimension-button-toolbar") ]
+        $ join
+          [ guard opts.dismissable $>
+              HH.button
+                [ HP.class_ (HH.ClassName "sd-dismiss-button")
+                , HP.title "Dismiss"
+                , ARIA.label "Dismiss"
+                , HE.onClick opts.onDismiss
+                , HP.disabled opts.disabled
+                ]
+                [ I.closeSm ]
+          , guard (opts.configurable && not (D.isStatic value)) $>
               HH.button
                 [ HP.classes
                     [ HH.ClassName "sd-configure-button"
@@ -287,24 +286,39 @@ dimensionButton opts =
                 , HP.disabled opts.disabled
                 ]
                 [ I.cog ]
-            else HH.text ""
+          , guard opts.formattable $>
+              HH.button
+                [ HP.classes
+                    [ HH.ClassName "sd-formatting-options-button"
+                    , HH.ClassName "sd-discrete-button"
+                    ]
+                , HP.title "Formatting options"
+                , ARIA.label "Formatting options"
+                , HE.onClick opts.onSetupFormatting
+                , HP.disabled opts.disabled
+                ]
+                [ I.editSm ]
           ]
       , HH.button
-        [ HP.classes [ HH.ClassName if opts.labelless
-                                    then "sd-dimension-button-display-wo-label"
-                                    else "sd-dimension-button-display" ]
-        , HE.onMouseDown opts.onMouseDown
-        , HE.onClick opts.onClick
-        , HP.disabled opts.disabled
-        ]
-        case value of
-          D.Static str → [ renderValue str ]
-          D.Projection Nothing v → [ renderValue (opts.showValue v) ]
-          D.Projection (Just t) v → [ renderTransform t, renderValue (opts.showValue v) ]
+          [ HP.class_ buttonClass
+          , HE.onMouseDown opts.onMouseDown
+          , HE.onClick opts.onClick
+          , HP.disabled opts.disabled
+          ]
+          case value of
+            D.Static str → [ renderValue str ]
+            D.Projection Nothing v → [ renderValue (opts.showValue v) ]
+            D.Projection (Just t) v → [ renderTransform t, renderValue (opts.showValue v) ]
       ]
   where
   value = opts.dimension ^. D._value
   label = opts.dimension ^. D._category
+
+  buttonClass =
+    HH.ClassName
+      if opts.labelless
+        then "sd-dimension-button-display-wo-label"
+        else "sd-dimension-button-display"
 
   labelText = case label of
     Just (D.Static str) → str

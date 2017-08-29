@@ -21,6 +21,7 @@ import SlamData.Workspace.Card.Setups.ActionSelect.Component as AS
 import SlamData.Workspace.Card.Setups.DimensionPicker.Column (ColumnNode)
 import SlamData.Workspace.Card.Setups.DimensionPicker.Component as DPC
 import SlamData.Workspace.Card.Setups.DimensionPicker.JCursor (JCursorNode)
+import SlamData.Workspace.Card.Setups.DisplayOptions.Component as Display
 import SlamData.Workspace.Card.Setups.Transform as T
 import SlamData.Workspace.Card.Setups.Axis as Ax
 import SlamData.Workspace.Card.Setups.PivotTable.Model as M
@@ -36,6 +37,7 @@ data Query a
   | Remove ForDimension a
   | ChangeLabel ForDimension String a
   | Configure ForDimension a
+  | SetupFormatting ForDimension a
   | OrderStart ForDimension DOM.MouseEvent a
   | Ordering ForDimension DragEvent a
   | OrderOver ForDimension a
@@ -43,6 +45,7 @@ data Query a
   | HandleGroupByPicker (DPC.Message JCursorNode) a
   | HandleColumnPicker (DPC.Message ColumnNode) a
   | HandleTransformPicker ForDimension (AS.Message T.Transform) a
+  | HandleFormatting ForDimension Display.Message a
   | SetAxes Ax.Axes a
   | Load M.Model a
 

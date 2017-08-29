@@ -1,0 +1,90 @@
+.sd-display-options label
+  select, input
+    font-weight: normal
+
+
+
+.sd-display-options-top
+  display: flex
+  margin: 0 0 0.5rem
+  width: 100%
+
+.sd-display-options-top-box
+  flex-grow: 1
+  margin: 0 0.5rem
+
+  &:first-child
+    margin-left: 0
+
+  &:last-child
+    margin-right: 0
+
+
+
+.sd-display-options-alignment .sd-form-label
+  width: 8rem
+
+.sd-display-options-appearance .sd-form-label
+  width: 5rem
+
+.sd-display-options-formatting .sd-form-label
+  width: 8.5rem
+
+
+
+.sd-display-options-row
+  display: flex
+
+  &+.sd-display-options-row
+    margin-top: 0.5rem
+
+  > label
+    display: flex
+    align-items: center
+    margin-bottom: 0
+
+  .sd-display-options-col
+    display: flex
+    align-items: center
+    max-width: calc(50% - 1rem)
+
+    &+.sd-display-options-col
+      margin-left: 2rem
+
+    .sd-form-label
+      width: 9rem
+
+    input
+      flex-grow: 1
+      flex-shrink: 1
+      min-width: 5rem
+      max-width: 20rem
+
+.sd-display-options-boolean .sd-form-label
+  width: 8rem
+
+.sd-display-options-date .sd-form-label
+  width: 11rem
+
+.sd-display-options-datetime .sd-form-label
+  width: 11.5rem
+
+.sd-display-options-integer .sd-form-label
+  width: 9rem
+
+.sd-display-options-currency .sd-form-label
+  width: 9rem
+
+.sd-display-options-decimal
+
+  .sd-form-label
+    width: 18rem
+
+  .sd-display-options-col .sd-form-label
+    width: 9rem
+
+  input+select
+    margin-left: 1rem
+
+.sd-display-options-text .sd-form-label
+  width: 12.5rem
