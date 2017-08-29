@@ -34,8 +34,4 @@ default
   ⇒ m Theme
 default = do
   defaultTheme ← hush <$> LS.retrieve (lmap show ∘ C.decode codec) LK.adminUIDefaultTheme
-  case defaultTheme of
-    Nothing →
-      pure Light
-    Just dt →
-      pure dt
+  pure (fromMaybe Light defaultTheme)

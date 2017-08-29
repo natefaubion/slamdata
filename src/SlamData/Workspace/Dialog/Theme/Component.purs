@@ -160,7 +160,7 @@ eval ∷ Query ~> H.ComponentDSL State Query Message Slam
 eval = case _ of
   Init next → do
     def ← ThemeLS.default
-    H.modify _ { defaultTheme = def }
+    H.modify (_ { defaultTheme = def })
     pure next
   PreventDefaultAndSave ev next → do
     H.liftEff (DOM.preventDefault ev)
@@ -168,8 +168,8 @@ eval = case _ of
     H.raise (Theme maybeTheme)
     pure next
   UpdateOption option next →
-    H.modify _ { option = option } $> next
+    H.modify (_ { option = option }) $> next
   UpdateCustom custom next →
-    H.modify _ { custom = custom } $> next
+    H.modify (_ { custom = custom }) $> next
   Cancel next →
     H.raise Dismiss $> next
