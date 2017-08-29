@@ -42,9 +42,7 @@
     "check:quasar": "node ./script/check-quasar-version.js",
     "update:quasar": "node ./script/update-quasar-version.js",
     "ide": "purs ide server",
-    "lint:crlf": "gulp replace-crlf",
-    "lint:headers": "gulp add-headers",
-    "lint:whitespace": "gulp trim-whitespace",
+    "lint:checks": "gulp add-headers trim-whitespace replace-crlf",
     "lint:sass": "sass-lint sass/**/*.sass -q -v",
     "test": "gulp bundle-test && node test",
     "test:docker:isrunning": "if docker inspect -f {{.State.Running}} $CONNECTOR_HOST; then npm run docker:stop:remove && npm run test:setup ; else npm run test:setup ; fi",
@@ -59,13 +57,6 @@
     "watch:sass": "gulp watch-sass",
     "versionify": "gulp versionify"
   },
-  "pre-commit": [
-    "update:quasar",
-    "lint:headers",
-    "lint:whitespace",
-    "lint:crlf",
-    "lint:sass"
-  ],
   "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/slamdata/slamdata/issues"
@@ -96,7 +87,6 @@
     "json-loader": "^0.5.4",
     "node-sass": "^4.5.3",
     "platform": "^1.3.0",
-    "pre-commit": "^1.2.2",
     "pulp": "^11.0.0",
     "purescript": "^0.11.5",
     "purescript-psa": "^0.5.1",

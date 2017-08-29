@@ -37,7 +37,8 @@ install:
 
   - npm link gulp
   - npm run check:quasar
-  - gulp add-headers trim-whitespace replace-crlf
+  - npm run lint:sass
+  - npm run lint:checks
   - if [[ $(git diff --shortstat 2> /dev/null | tail -n1) != "" ]]; then git status && echo -e "\033[31m\n^ CRLF/header/whitespace related problems found\033[0m\n" && exit 1; fi
   - npm run build:icons
   - npm run build:sass
