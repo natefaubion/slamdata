@@ -21,6 +21,7 @@ import SlamData.Prelude
 import Data.Argonaut as J
 import Data.Codec as C
 import Data.Path.Pathy (parseAbsDir)
+import Data.String as String
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -28,6 +29,7 @@ import Halogen.HTML.Properties as HP
 import SlamData.LocalStorage.Class as LS
 import SlamData.LocalStorage.Keys as LK
 import SlamData.Monad (Slam)
+import SlamData.Render.ClassName as CN
 import SlamData.Theme.Theme (Theme)
 import SlamData.Theme.Theme as Theme
 import SlamData.Workspace.Class (changeTheme)
@@ -91,42 +93,53 @@ component =
           changeTheme (Just t)
           pure next
         HomeDirectoryChanged newDirectory next → do
-          err ← validateHomeDirectory newDirectory
+          -- We automatically append the trailing slash to make the UX a little
+          -- nicer. This change does not get propagated to the UI as to not
+          -- interrupt typing
+          let directorified = fromMaybe newDirectory (String.stripSuffix (String.Pattern "/") newDirectory) <> "/"
+          err ← validateHomeDirectory directorified
           case err of
             Just msg →
               H.modify ( _ { homeDirectoryError = Just msg })
             Nothing → do
-              LS.persist J.encodeJson LK.adminUIHomeDirectory newDirectory
+              LS.persist J.encodeJson LK.adminUIHomeDirectory directorified
               H.modify (_ { homeDirectory = newDirectory, homeDirectoryError = Nothing })
           pure next
 
-themes ∷ Array String
-themes = ["Dark", "Light"]
+themes ∷ Array Theme
+themes = [ Theme.Dark, Theme.Light ]
 
 renderForm ∷ State → Array HTML
 renderForm state =
   [ HH.fieldset
       [ HP.class_ (HH.ClassName "home-directory") ]
-      [ HH.legend_ [ HH.text "Location of my home directory in the SlamData file system:" ]
-      , HH.input
-          [ HP.classes [ HH.ClassName "form-control" ]
-          , HP.id_ "HomeDirectory"
-          , HP.value state.homeDirectory
-          , HE.onValueChange (HE.input HomeDirectoryChanged)
-          ]
-      ]
+      $ [ HH.legend_ [ HH.text "Location of my home directory in the SlamData file system:" ]
+        , HH.input
+            [ HP.classes [ HH.ClassName "form-control" ]
+            , HP.id_ "HomeDirectory"
+            , HP.value state.homeDirectory
+            , HE.onValueInput (HE.input HomeDirectoryChanged)
+            ]
+        ] <> maybe [] renderHomeDirectoryError state.homeDirectoryError
   , HH.fieldset
       [ HP.class_ (HH.ClassName "themes") ]
       [ HH.legend_ [ HH.text "Default theme for new decks:" ]
       , HH.p_ [ HH.text "This theme will also be used for the filesystem. You can change this setting on a deck by deck basis, by flipping the deck during editing." ]
       , HH.select
-          [ HP.classes [ HH.ClassName "form-control" ]
-          , HP.id_ "ThemeSelection"
+        [ HP.classes [ HH.ClassName "form-control" ]
+        , HP.id_ "ThemeSelection"
           , HE.onValueChange (HE.input DefaultThemeChanged)
           , HP.value (Theme.toLabel state.defaultTheme)
           ]
-          (themes <#> \t → HH.option_ [HH.text t])
+          (themes <#> \t → HH.option_ [HH.text (Theme.toLabel t)])
       ]
+  ]
+
+renderHomeDirectoryError ∷ String → Array HTML
+renderHomeDirectoryError msg =
+  [ HH.div
+      [ HP.classes [ CN.alert, CN.alertDanger, H.ClassName ("sd-dialog-error-box") ] ]
+      [ HH.text msg ]
   ]
 
 -- | Checks whether the input parses as a valid directory
