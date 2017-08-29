@@ -19,7 +19,7 @@ module SlamData.AdminUI.Component.Query where
 import SlamData.Prelude
 
 import Quasar.Advanced.Types as QA
-import SlamData.AdminUI.Component.State (GroupsState, MySettingsState, ServerState, TabIndex)
+import SlamData.AdminUI.Component.State (ServerState, TabIndex)
 import SlamData.AdminUI.Dialog as Dialog
 import SlamData.AdminUI.Users.Component as Users
 import SlamData.Workspace.MillerColumns.Component as Miller
@@ -32,10 +32,7 @@ data Query a
   | Open a
   | Close a
   | SetActive TabIndex a
-  | SetMySettings MySettingsState a
   | SetServer ServerState a
-  | SetGroups GroupsState a
-  | DefaultThemeChanged String a
   | HandleColumns (Miller.Message GroupItem QA.GroupPath) a
   | HandleColumnOrItem GroupMessage a
   | HandleDialog Dialog.Message' a

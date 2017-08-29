@@ -21,13 +21,13 @@ module SlamData.Workspace.Component
 
 import SlamData.Prelude
 
+import CSS as CSS
 import Control.Monad.Aff as Aff
 import Control.Monad.Aff.AVar (makeVar, peekVar, takeVar, putVar)
 import Control.Monad.Aff.Bus as Bus
 import Control.Monad.Eff.Ref (readRef)
 import Control.Monad.Fork (fork)
 import Control.UI.Browser as Browser
-import CSS as CSS
 import DOM.Classy.Event (currentTarget, target) as DOM
 import DOM.Classy.Node (toNode) as DOM
 import Data.Argonaut as J
@@ -63,7 +63,7 @@ import SlamData.Quasar.Auth.Authentication as Authentication
 import SlamData.Quasar.Error as QE
 import SlamData.Render.ClassName as CN
 import SlamData.Render.Common as RC
-import SlamData.Theme.Theme as Theme
+import SlamData.Theme.LocalStorage as ThemeLS
 import SlamData.Wiring as Wiring
 import SlamData.Wiring.Cache as Cache
 import SlamData.Workspace.AccessType as AT
@@ -221,14 +221,14 @@ eval = case _ of
     pure $ reply H.Listening
   New next → do
     st ← H.get
-    changeTheme (Just Theme.default)
+    changeTheme ∘ Just =<< ThemeLS.default
     when (List.null st.cursor) do
       _ ← fork $ runFreshWorkspace mempty
       initializeGuides
     pure next
   ExploreFile res next → do
     st ← H.get
-    changeTheme (Just Theme.default)
+    changeTheme ∘ Just =<< ThemeLS.default
     when (List.null st.cursor) do
       _ ← fork $ runFreshWorkspace
         [ CM.Open (Just (Open.Resource (R.File res)))
@@ -299,7 +299,7 @@ eval = case _ of
   HandleDialog msg next →
     handleDialog msg $> next
   ResetTheme next → do
-    changeTheme (Just Theme.default)
+    changeTheme ∘ Just =<< ThemeLS.default
     _ ← H.lift P.saveWorkspace
     pure next
 

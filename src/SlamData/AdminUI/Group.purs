@@ -41,8 +41,8 @@ import SlamData.Workspace.MillerColumns.Component.State (ColumnsData)
 import Utils.DOM as DOM
 import Utils.Path as PU
 
-renderGroupsForm ∷ AT.GroupsState → Array AT.HTML
-renderGroupsForm (AT.GroupsState _) =
+renderGroupsForm ∷ Array AT.HTML
+renderGroupsForm =
   [ HH.slot' AT.cpGroups unit (Miller.component columnOptions) columnState (HE.input (either AT.HandleColumns AT.HandleColumnOrItem)) ]
   where
     columnState ∷ ColumnsData AT.GroupItem QA.GroupPath

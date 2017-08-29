@@ -26,10 +26,7 @@ type State =
   { open ∷ Boolean
   , active ∷ TabIndex
   , formState ∷
-      { mySettings ∷ MySettingsState
-      , server ∷ ServerState
-      , groups ∷ GroupsState
-      }
+      { server ∷ ServerState }
   , dialog ∷ Maybe Dialog.Definition
   }
 
@@ -49,7 +46,7 @@ instance showTabIndex ∷ Show TabIndex where
 allTabs ∷ List TabIndex
 allTabs =
   -- L.fromFoldable [MySettings, Database, Server, Authentication, Users, Groups]
-  L.fromFoldable [Users, Groups]
+  L.fromFoldable [MySettings, Users, Groups]
 
 tabTitle ∷ TabIndex → String
 tabTitle = case _ of
@@ -61,24 +58,6 @@ tabTitle = case _ of
   Groups → "Groups"
 
 
-newtype MySettingsState = MySettingsState
-  { homeDirectory ∷ String
-  , isolateArtifacts ∷ Boolean
-  , isolateArtifactsDirectory ∷ String
-  , defaultTheme ∷ String
-  }
-
-derive instance newtypeMySettingsState ∷ Newtype MySettingsState _
-
-defaultMySettingsState ∷ MySettingsState
-defaultMySettingsState =
-  MySettingsState
-    { homeDirectory: ""
-    , isolateArtifacts: false
-    , isolateArtifactsDirectory: ""
-    , defaultTheme: "Dark"
-    }
-
 newtype ServerState = ServerState
   { port ∷ Int
   , logFileLocation ∷ String
@@ -87,9 +66,3 @@ newtype ServerState = ServerState
 
 defaultServerState ∷ ServerState
 defaultServerState = ServerState { port: 27012, logFileLocation: "", enableCustomSSL: false }
-
-newtype GroupsState = GroupsState { }
-derive instance newtypeGroupsState ∷ Newtype GroupsState _
-
-defaultGroupsState ∷ GroupsState
-defaultGroupsState = GroupsState { }

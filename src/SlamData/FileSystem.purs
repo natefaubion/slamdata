@@ -1,5 +1,5 @@
 {-
-Copyright 2016 SlamData, Inc.
+Copyright 2017 SlamData, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,10 +28,11 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (Error, error)
 import Control.Monad.Fork (Canceler(..), fork, cancel)
 import Control.UI.Browser (setTitle, replaceLocation)
+import Data.Argonaut as J
 import Data.Array (filter, mapMaybe, take, drop)
 import Data.Lens (Lens', lens, (%~), (<>~))
 import Data.Map as M
-import Data.Path.Pathy ((</>), rootDir, parseAbsDir, sandbox, currentDir)
+import Data.Path.Pathy (parseAbsDir, rootDir)
 import Data.StrMap as SM
 import Data.Time.Duration (Milliseconds(..))
 import DOM (DOM)
@@ -52,6 +53,8 @@ import SlamData.FileSystem.Routing (Routes(..), routing, browseURL)
 import SlamData.FileSystem.Routing.Salt (Salt, newSalt)
 import SlamData.FileSystem.Routing.Search (isSearchQuery, searchPath, filterByQuery)
 import SlamData.GlobalError as GE
+import SlamData.LocalStorage.Class as LS
+import SlamData.LocalStorage.Keys as LK
 import SlamData.Monad (Slam, runSlam)
 import SlamData.Quasar.Auth.Permission as Permission
 import SlamData.Quasar.FS (children) as Quasar
@@ -59,7 +62,7 @@ import SlamData.Wiring as Wiring
 import SlamData.Workspace.AccessType (AccessType(..))
 import Text.SlamSearch.Printer (strQuery)
 import Text.SlamSearch.Types (SearchQuery)
-import Utils.Path (DirPath, hidePath, renderPath)
+import Utils.Path (DirPath, hidePath, renderPath, sandbox)
 
 type FileSystemIO = HalogenIO Query Void (Aff SlamDataEffects)
 
@@ -128,8 +131,10 @@ redirects
   → Routes
   → Slam Unit
 redirects driver var mbOld = case _ of
-  Index →
-    updateURL Nothing Asc Nothing rootDir
+  Index → do
+    homeDirectory ← LS.retrieve J.decodeJson LK.adminUIHomeDirectory
+    let home = fromMaybe rootDir (sandbox =<< parseAbsDir =<< hush homeDirectory)
+    updateURL Nothing Asc Nothing home
 
   Sort sort →
     updateURL Nothing sort Nothing rootDir
@@ -347,9 +352,7 @@ splitQuery q =
   , query: query
   }
   where
-  path =
-    rootDir </> fromMaybe currentDir
-      (searchPath q >>= parseAbsDir >>= sandbox rootDir)
+  path = fromMaybe rootDir (sandbox =<< parseAbsDir =<< searchPath q)
   query = do
     guard $ isSearchQuery q
     pure $ hidePath (renderPath $ Left path) (strQuery q)

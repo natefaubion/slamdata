@@ -59,9 +59,13 @@ valuePrism' =
       "custom" → Just Custom
       _ → Nothing
 
-toLabel ∷ Option → String
-toLabel = case _ of
-  Default → "Default (" <> Theme.defaultLabel <> ")"
+toLabel
+  ∷ String
+  -- ^ The label to use as the default theme
+  → Option
+  → String
+toLabel def = case _ of
+  Default → "Default (" <> def <> ")"
   Light → "Light"
   Dark → "Dark"
   Custom → "Custom"
