@@ -23,7 +23,7 @@
     "build:sass": "gulp sass",
     "build:lite": "gulp bundle",
     "build:bundle-prod": "gulp bundle",
-    "build:prod": "npm run lint:crlf && npm run build:sass && npm run build:icons && npm run build:psa && npm run build:bundle-prod",
+    "build:prod": "npm run build:sass && npm run build:icons && npm run build:psa && npm run build:bundle-prod",
     "build:psa": "pulp build -I test/src -- --censor-lib --strict --stash",
     "build:non-strict": "pulp build -I test/src -- --censor-lib --stash",
     "clean:files": "rimraf .pulp-cache output tmp public/js/file.js public/js/filesystem.js public/js/workspace.js public/js/auth_redirect.js public/css/main.css",
