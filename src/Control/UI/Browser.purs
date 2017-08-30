@@ -69,7 +69,7 @@ hostAndProtocol = do
 getHref :: forall e. Eff (dom :: DOM|e) String
 getHref = locationObject >>= Location.href
 
-setHref :: forall e. String -> Eff (dom :: DOM|e) String
+setHref :: forall e. String -> Eff (dom :: DOM|e) Unit
 setHref str =
   locationObject
     >>= Location.setHref str

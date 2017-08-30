@@ -220,24 +220,30 @@ elaborateExpr ∷ ∀ m. Elaborate m (Sql.Sql → m Sql.Sql)
 elaborateExpr = cataM case _ of
   Sql.Vari vari → elaborateVar vari
   Sql.InvokeFunction { name, args } → substInvoke name args
-  Sql.Select sel@({ relations: Just (Sql.VariRelation { vari, alias }) }) →
-    substSelect sel vari alias
+  Sql.Select sel@({ relations: Just rel }) → do
+    rel' ← substRelation rel
+    pure $ embed $ Sql.Select sel { relations = Just rel' }
   sql → pure $ embed sql
 
   where
-  substSelect ∷ Sql.SelectR Sql.Sql → String → Maybe String → m Sql.Sql
-  substSelect sel vari alias = do
-    subst ← elaborateVar vari
-    { bindings } ← RWS.get
-    relations ← case unwrap subst of
-      Sql.Vari vari' →
-        pure $ Just $ Sql.VariRelation { vari: vari', alias }
-      Sql.Ident i | not (F.any (eq i ∘ fst) bindings), Just path ← parseTablePath i →
-        pure $ Just $ Sql.TableRelation { path, alias }
-      expr → do
-        aliasName ← maybe tmpName pure alias
-        pure $ Just $ Sql.ExprRelation { expr: embed expr, aliasName }
-    pure $ embed $ Sql.Select sel { relations = relations }
+  substRelation ∷ Sql.Relation Sql.Sql → m (Sql.Relation Sql.Sql)
+  substRelation = case _ of
+    Sql.VariRelation { vari, alias } → do
+      subst ← elaborateVar vari
+      { bindings } ← RWS.get
+      case unwrap subst of
+        Sql.Vari vari' →
+          pure $ Sql.VariRelation { vari: vari', alias }
+        Sql.Ident i | not (F.any (eq i ∘ fst) bindings), Just path ← parseTablePath i →
+          pure $ Sql.TableRelation { path, alias }
+        expr → do
+          aliasName ← maybe tmpName pure alias
+          pure $ Sql.ExprRelation { expr: embed expr, aliasName }
+    Sql.JoinRelation rel@({ left, right }) → do
+      left' ← substRelation left
+      right' ← substRelation right
+      pure $ Sql.JoinRelation rel { left = left', right = right' }
+    sql → pure sql
 
   substInvoke ∷ String → L.List Sql.Sql → m Sql.Sql
   substInvoke name args = do
